@@ -164,10 +164,46 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 			return nil
 		})
 	}
-	/*
-			Grid strl+g
-		todo		* size
-	*/
+	rgn.Text(14, 2, "Height: ▲    ▼   Width: ▲    ▼", settingsTextStyle)
+	//                             234567890123456789012345678901234567890
+	rgn.TextRight(14, 11, 4, strconv.Itoa(s.m.gridHeight), settingsTextStyle)
+	rgn.TextRight(14, 27, 4, strconv.Itoa(s.m.gridWidth), settingsTextStyle)
+	s.clickPts.add(rgn.Text(14, 10, "▲", settingsTextStyle), func() tea.Cmd {
+		s.m.gridHeight += 2
+		return nil
+	})
+	if s.m.gridHeight > 3 {
+		s.clickPts.add(rgn.Text(14, 15, "▼", settingsTextStyle), func() tea.Cmd {
+			s.m.gridHeight -= 2
+			return nil
+		})
+	}
+	s.clickPts.add(rgn.Text(14, 26, "▲", settingsTextStyle), func() tea.Cmd {
+		s.m.gridWidth += 2
+		return nil
+	})
+	if s.m.gridWidth > 3 {
+		s.clickPts.add(rgn.Text(14, 31, "▼", settingsTextStyle), func() tea.Cmd {
+			s.m.gridWidth -= 2
+			return nil
+		})
+	}
+	rgn.BoxRounded(13, 35, 3, 8, settingsTextStyle)
+	s.clickPts.add(rgn.Text(14, 36, "Resize", settingsTextStyle), func() tea.Cmd {
+		if s.m.gridHeight == s.m.grid.Height && s.m.gridWidth == s.m.grid.Width {
+			// no resize needed
+			return nil
+		}
+		return func() tea.Msg {
+			if grid, err := logic.NewGrid(s.m.gridHeight, s.m.gridWidth, s.m.grid.WrapMode, s.m.grid.BoundaryMode); err == nil {
+				return gridResizeResult{
+					surface: newGridSurface(grid, s.m.cellStyle),
+					grid:    grid,
+				}
+			}
+			return nil
+		}
+	})
 	return nil
 }
 

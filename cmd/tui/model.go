@@ -81,11 +81,21 @@ func (m *model) Init() tea.Cmd {
 	return nil
 }
 
+type gridResizeResult struct {
+	grid    *logic.Grid
+	surface layout.Surface
+}
+
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch mt := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = mt.Width
 		m.height = mt.Height
+	case gridResizeResult:
+		m.gridSurface = mt.surface
+		m.grid = mt.grid
+		m.grid.Render = m.renderCell
+		m.grid.Randomize(m.random)
 	case tea.KeyPressMsg:
 		if m.settingsShowing {
 			return m, m.settings.update(msg)
