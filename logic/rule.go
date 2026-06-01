@@ -10,6 +10,8 @@ type Rule interface {
 	NextState(c *Cell) (nextState bool)
 	StateChanged(c *Cell) (changed bool)
 	Rle() string
+	BornWith() string
+	SurvivesWith() string
 	Permutation() int
 	Name() string
 }
@@ -39,12 +41,26 @@ func (r rule) Rle() string {
 	var sb strings.Builder
 	sb.Grow(18 + 3)
 	sb.WriteString("B")
+	sb.WriteString(r.BornWith())
+	sb.WriteString("/S")
+	sb.WriteString(r.SurvivesWith())
+	return sb.String()
+}
+
+func (r rule) BornWith() string {
+	var sb strings.Builder
+	sb.Grow(9)
 	for i := 0; i < 9; i++ {
 		if r.bornWith[i] {
 			sb.WriteString(strconv.Itoa(i))
 		}
 	}
-	sb.WriteString("/S")
+	return sb.String()
+}
+
+func (r rule) SurvivesWith() string {
+	var sb strings.Builder
+	sb.Grow(9)
 	for i := 0; i < 9; i++ {
 		if r.survivesWith[i] {
 			sb.WriteString(strconv.Itoa(i))
@@ -88,7 +104,7 @@ func NewRuleFromPermutation(permutation int) (Rule, error) {
 	return r, nil
 }
 
-func mustNewRuleRle(name string, rle string) Rule {
+func MustNewRuleRle(name string, rle string) Rule {
 	if r, err := NewRuleRle(name, rle); err != nil {
 		panic(err)
 	} else {
@@ -143,63 +159,63 @@ var (
 	ErrInvalidPermutation = errors.New("invalid permutation")
 )
 
-var StandardRule = mustNewRuleRle("Standard", "B3/S23")
+var StandardRule = MustNewRuleRle("Standard", "B3/S23")
 
 var Rules = map[string]Rule{
-	"2X2":                     mustNewRuleRle("2X2", "B36/S125"),
-	"34 Life":                 mustNewRuleRle("34 Life", "B34/S34"),
-	"Amoeba":                  mustNewRuleRle("Amoeba", "B357/S1358"),
-	"AntiLife":                mustNewRuleRle("AntiLife", "B0123478/S01234678"),
-	"Assimilation":            mustNewRuleRle("Assimilation", "B345/S4567"),
-	"Bacteria":                mustNewRuleRle("Bacteria", "B34/S456"),
-	"Blinker Life":            mustNewRuleRle("Blinker Life", "B36/S235"),
-	"Blinkers":                mustNewRuleRle("Blinkers", "B345/S2"),
-	"Bugs":                    mustNewRuleRle("Bugs", "B3567/S15678"),
-	"Coagulations":            mustNewRuleRle("Coagulations", "B378/S235678"),
-	"Coral":                   mustNewRuleRle("Coral", "B3/S45678"),
-	"Corrosion of Conformity": mustNewRuleRle("Corrosion of Conformity", "B3/S124"),
-	"Day & Night":             mustNewRuleRle("Day & Night", "B3678/S34678"),
-	"Diamoeba":                mustNewRuleRle("Diamoeba", "B35678/S5678"),
-	"DotLife":                 mustNewRuleRle("DotLife", "B3/S023"),
-	"DryLife":                 mustNewRuleRle("DryLife", "B37/S23"),
-	"EightLife":               mustNewRuleRle("EightLife", "B3/S238"),
-	"Electrified Maze":        mustNewRuleRle("Electrified Maze", "B45/S12345"),
-	"Flock":                   mustNewRuleRle("Flock", "B3/S12"),
-	"Fredkin":                 mustNewRuleRle("Fredkin", "B1357/S02468"),
-	"Gems Minor":              mustNewRuleRle("Gems Minor", "B34578/S456"),
-	"Gems":                    mustNewRuleRle("Gems", "B3457/S4568"),
-	"Gnarl":                   mustNewRuleRle("Gnarl", "B1/S1"),
-	"H-trees":                 mustNewRuleRle("H-trees", "B1/S012345678"),
-	"HiLife":                  mustNewRuleRle("HiLife", "B36/S23"),
-	"Holstein":                mustNewRuleRle("Holstein", "B35678/S4678"),
-	"HoneyLife":               mustNewRuleRle("HoneyLife", "B38/S238"),
-	"Iceballs":                mustNewRuleRle("Iceballs", "B25678/S5678"),
-	"InverseLife":             mustNewRuleRle("InverseLife", "B012345678/S34678"),
-	"Land Rush":               mustNewRuleRle("Land Rush", "B35/S234578"),
-	"Life without death":      mustNewRuleRle("Life without death", "B3/S012345678"),
-	"Live Free or Die":        mustNewRuleRle("Live Free or Die", "B2/S0"),
-	"Long Life":               mustNewRuleRle("Long Life", "B345/S5"),
-	"LowDeath":                mustNewRuleRle("LowDeath", "B368/S238"),
-	"LowLife":                 mustNewRuleRle("LowLife", "B3/S13"),
-	"Maze with Mice":          mustNewRuleRle("Maze with Mice", "B37/S12345"),
-	"Maze":                    mustNewRuleRle("Maze", "B3/S12345"),
-	"Mazectric with Mice":     mustNewRuleRle("Mazectric with Mice", "B37/S1234"),
-	"Mazectric":               mustNewRuleRle("Mazectric", "B3/S1234"),
-	"Move":                    mustNewRuleRle("Move", "B368/S245"),
-	"Pedestrian Life":         mustNewRuleRle("Pedestrian Life", "B38/S23"),
-	"Plow World":              mustNewRuleRle("Plow World", "B378/S012345678"),
-	"Pseudo Life":             mustNewRuleRle("Pseudo Life", "B357/S238"),
-	"Replicator":              mustNewRuleRle("Replicator", "B1357/S1357"),
-	"Seeds":                   mustNewRuleRle("Seeds", "B2/S"),
-	"Serviettes":              mustNewRuleRle("Serviettes", "B234/S"),
-	"Slow Blob":               mustNewRuleRle("Slow Blob", "B367/S125678"),
-	"SnowLife":                mustNewRuleRle("SnowLife", "B3/S1237"),
-	"Stains":                  mustNewRuleRle("Stains", "B3678/S235678"),
+	"2X2":                     MustNewRuleRle("2X2", "B36/S125"),
+	"34 Life":                 MustNewRuleRle("34 Life", "B34/S34"),
+	"Amoeba":                  MustNewRuleRle("Amoeba", "B357/S1358"),
+	"AntiLife":                MustNewRuleRle("AntiLife", "B0123478/S01234678"),
+	"Assimilation":            MustNewRuleRle("Assimilation", "B345/S4567"),
+	"Bacteria":                MustNewRuleRle("Bacteria", "B34/S456"),
+	"Blinker Life":            MustNewRuleRle("Blinker Life", "B36/S235"),
+	"Blinkers":                MustNewRuleRle("Blinkers", "B345/S2"),
+	"Bugs":                    MustNewRuleRle("Bugs", "B3567/S15678"),
+	"Coagulations":            MustNewRuleRle("Coagulations", "B378/S235678"),
+	"Coral":                   MustNewRuleRle("Coral", "B3/S45678"),
+	"Corrosion of Conformity": MustNewRuleRle("Corrosion of Conformity", "B3/S124"),
+	"Day & Night":             MustNewRuleRle("Day & Night", "B3678/S34678"),
+	"Diamoeba":                MustNewRuleRle("Diamoeba", "B35678/S5678"),
+	"DotLife":                 MustNewRuleRle("DotLife", "B3/S023"),
+	"DryLife":                 MustNewRuleRle("DryLife", "B37/S23"),
+	"EightLife":               MustNewRuleRle("EightLife", "B3/S238"),
+	"Electrified Maze":        MustNewRuleRle("Electrified Maze", "B45/S12345"),
+	"Flock":                   MustNewRuleRle("Flock", "B3/S12"),
+	"Fredkin":                 MustNewRuleRle("Fredkin", "B1357/S02468"),
+	"Gems Minor":              MustNewRuleRle("Gems Minor", "B34578/S456"),
+	"Gems":                    MustNewRuleRle("Gems", "B3457/S4568"),
+	"Gnarl":                   MustNewRuleRle("Gnarl", "B1/S1"),
+	"H-trees":                 MustNewRuleRle("H-trees", "B1/S012345678"),
+	"HiLife":                  MustNewRuleRle("HiLife", "B36/S23"),
+	"Holstein":                MustNewRuleRle("Holstein", "B35678/S4678"),
+	"HoneyLife":               MustNewRuleRle("HoneyLife", "B38/S238"),
+	"Iceballs":                MustNewRuleRle("Iceballs", "B25678/S5678"),
+	"InverseLife":             MustNewRuleRle("InverseLife", "B012345678/S34678"),
+	"Land Rush":               MustNewRuleRle("Land Rush", "B35/S234578"),
+	"Life without death":      MustNewRuleRle("Life without death", "B3/S012345678"),
+	"Live Free or Die":        MustNewRuleRle("Live Free or Die", "B2/S0"),
+	"Long Life":               MustNewRuleRle("Long Life", "B345/S5"),
+	"LowDeath":                MustNewRuleRle("LowDeath", "B368/S238"),
+	"LowLife":                 MustNewRuleRle("LowLife", "B3/S13"),
+	"Maze with Mice":          MustNewRuleRle("Maze with Mice", "B37/S12345"),
+	"Maze":                    MustNewRuleRle("Maze", "B3/S12345"),
+	"Mazectric with Mice":     MustNewRuleRle("Mazectric with Mice", "B37/S1234"),
+	"Mazectric":               MustNewRuleRle("Mazectric", "B3/S1234"),
+	"Move":                    MustNewRuleRle("Move", "B368/S245"),
+	"Pedestrian Life":         MustNewRuleRle("Pedestrian Life", "B38/S23"),
+	"Plow World":              MustNewRuleRle("Plow World", "B378/S012345678"),
+	"Pseudo Life":             MustNewRuleRle("Pseudo Life", "B357/S238"),
+	"Replicator":              MustNewRuleRle("Replicator", "B1357/S1357"),
+	"Seeds":                   MustNewRuleRle("Seeds", "B2/S"),
+	"Serviettes":              MustNewRuleRle("Serviettes", "B234/S"),
+	"Slow Blob":               MustNewRuleRle("Slow Blob", "B367/S125678"),
+	"SnowLife":                MustNewRuleRle("SnowLife", "B3/S1237"),
+	"Stains":                  MustNewRuleRle("Stains", "B3678/S235678"),
 	"Standard":                StandardRule,
-	"Vote 4/5":                mustNewRuleRle("Vote 4/5", "B4678/S35678"),
-	"Vote":                    mustNewRuleRle("Vote", "B5678/S45678"),
-	"Walled cities":           mustNewRuleRle("Walled cities", "B45678/S2345"),
-	"Water Surface":           mustNewRuleRle("Water Surface", "B34/S23"),
+	"Vote 4/5":                MustNewRuleRle("Vote 4/5", "B4678/S35678"),
+	"Vote":                    MustNewRuleRle("Vote", "B5678/S45678"),
+	"Walled cities":           MustNewRuleRle("Walled cities", "B45678/S2345"),
+	"Water Surface":           MustNewRuleRle("Water Surface", "B34/S23"),
 }
 
 var rleToName = map[string]string{

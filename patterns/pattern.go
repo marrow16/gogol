@@ -59,3 +59,16 @@ func (p Pattern) Draw(grid *logic.Grid, row, col int) {
 		}
 	}
 }
+
+func (p Pattern) DrawTo(fn func(row, col int, alive bool)) {
+	if fn == nil {
+		return
+	}
+	idx := 0
+	for y := 0; y < p.Height; y++ {
+		for x := 0; x < p.Width; x++ {
+			fn(y, x, p.Cells[idx])
+			idx++
+		}
+	}
+}

@@ -1,6 +1,10 @@
 package logic
 
-import "errors"
+import (
+	"errors"
+	"math/rand"
+	"time"
+)
 
 type WrapMode int
 
@@ -68,6 +72,32 @@ func makeCols(width int) []*Cell {
 		result[c] = &Cell{}
 	}
 	return result
+}
+
+var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+func (g *Grid) Randomize(rf int) {
+	for row := 0; row < g.Height; row++ {
+		for col := 0; col < g.Width; col++ {
+			cell := g.Rows[row][col]
+			cell.Alive = rng.Intn(100) < rf
+			if g.Render != nil {
+				g.Render(row, col, cell.Alive, true)
+			}
+		}
+	}
+}
+
+func (g *Grid) Clear() {
+	for row := 0; row < g.Height; row++ {
+		for col := 0; col < g.Width; col++ {
+			cell := g.Rows[row][col]
+			cell.Alive = false
+			if g.Render != nil {
+				g.Render(row, col, cell.Alive, true)
+			}
+		}
+	}
 }
 
 func (g *Grid) joinAdjacents() {

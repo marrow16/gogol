@@ -147,12 +147,12 @@ func TestInvalidRule(t *testing.T) {
 	})
 	t.Run("invalid survives - panics", func(t *testing.T) {
 		require.Panics(t, func() {
-			_ = mustNewRuleRle("", "SX/B3")
+			_ = MustNewRuleRle("", "SX/B3")
 		})
 	})
 	t.Run("invalid born - panics", func(t *testing.T) {
 		require.Panics(t, func() {
-			_ = mustNewRuleRle("", "S3/BX")
+			_ = MustNewRuleRle("", "S3/BX")
 		})
 	})
 }
