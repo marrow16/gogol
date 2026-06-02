@@ -12,6 +12,7 @@ import (
 func newModel() *model {
 	prfs := loadPrefs()
 	grid, err := logic.NewGrid(prfs.Height, prfs.Width, prfs.wrapMode(), prfs.boundaryMode())
+	grid.Rule = prfs.rule()
 	if err != nil {
 		panic(err)
 	}
@@ -21,8 +22,8 @@ func newModel() *model {
 		grid:          grid,
 		gridSurface:   newGridSurface(grid, cs),
 		cellStyle:     cs,
-		stepDelay:     50,
-		random:        30,
+		stepDelay:     prfs.StepDelay,
+		random:        prfs.Random,
 		gridHeight:    prfs.Height,
 		gridWidth:     prfs.Width,
 		splashShowing: true,
@@ -168,18 +169,6 @@ func (m *model) View() tea.View {
 		Cursor:          csr,
 		BackgroundColor: bgColor,
 	}
-	/*
-		v := tea.NewView(m.gridSurface.Render())
-		//v.Cursor = csr
-		v.AltScreen = true
-		v.MouseMode = tea.MouseModeCellMotion
-		if m.running {
-			v.WindowTitle = "[running]"
-		} else {
-			v.WindowTitle = "[paused]"
-		}
-		return v
-	*/
 }
 
 type tickMsg time.Time

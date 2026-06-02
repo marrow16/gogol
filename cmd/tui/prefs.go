@@ -7,19 +7,22 @@ import (
 	"github.com/marrow16/gogol/logic"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 )
 
 type prefs struct {
-	Height       int    `json:"height"`
-	Width        int    `json:"width"`
-	StepDelay    int    `json:"step_delay"`
-	Random       int    `json:"random"`
-	WrapMode     string `json:"wrap_mode"`
-	BoundaryMode string `json:"boundary_mode"`
-	CellFG       string `json:"cell_foreground_color"`
-	CellBG       string `json:"cell_background_color"`
-	Rule         string `json:"rule"`
+	Height           int      `json:"height"`
+	Width            int      `json:"width"`
+	StepDelay        int      `json:"step_delay"`
+	Random           int      `json:"random"`
+	WrapMode         string   `json:"wrap_mode"`
+	BoundaryMode     string   `json:"boundary_mode"`
+	CellFG           string   `json:"cell_foreground_color"`
+	CellBG           string   `json:"cell_background_color"`
+	Rule             string   `json:"rule"`
+	Patterns         []string `json:"patterns,omitempty"`
+	PatternLibraries []string `json:"pattern_libraries,omitempty"`
 }
 
 const (
@@ -41,6 +44,7 @@ func loadPrefs() *prefs {
 		result := &prefs{}
 		if err = json.NewDecoder(f).Decode(result); err == nil {
 			result.validate()
+			go result.loadPatterns()
 			return result
 		}
 	}
@@ -150,6 +154,34 @@ func (p *prefs) setCellStyle(s lipgloss.Style) *prefs {
 	p.CellFG = fmt.Sprintf("#%02X%02X%02X", fgR, fgG, fgB)
 	p.CellBG = fmt.Sprintf("#%02X%02X%02X", bgR, bgG, bgB)
 	return p
+}
+
+func (p *prefs) loadPatterns() {
+	count := 0
+	for _, pl := range p.PatternLibraries {
+		lr := loadPatternsLibrary(pl, true)
+		count += lr.loaded
+	}
+	for _, pt := range p.Patterns {
+		if err := loadPattern(pt); err == nil {
+			count++
+		}
+	}
+	if count > 0 {
+		sortedPatterns = sortPatterns()
+	}
+}
+
+func (p *prefs) addPattern(filename string) {
+	if !slices.Contains(p.Patterns, filename) {
+		p.Patterns = append(p.Patterns, filename)
+	}
+}
+
+func (p *prefs) addPatternLibrary(path string) {
+	if !slices.Contains(p.PatternLibraries, path) {
+		p.PatternLibraries = append(p.PatternLibraries, path)
+	}
 }
 
 func (p *prefs) save() {

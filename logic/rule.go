@@ -182,6 +182,7 @@ var Rules = map[string]Rule{
 	"Electrified Maze":        MustNewRuleRle("Electrified Maze", "B45/S12345"),
 	"Flock":                   MustNewRuleRle("Flock", "B3/S12"),
 	"Fredkin":                 MustNewRuleRle("Fredkin", "B1357/S02468"),
+	"Fungus":                  MustNewRuleRle("Fungus", "B3567/S45678"),
 	"Gems Minor":              MustNewRuleRle("Gems Minor", "B34578/S456"),
 	"Gems":                    MustNewRuleRle("Gems", "B3457/S4568"),
 	"Gnarl":                   MustNewRuleRle("Gnarl", "B1/S1"),

@@ -3,6 +3,7 @@ package main
 import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"errors"
 	"fmt"
 	"github.com/marrow16/gogol/cmd/tui/layout"
 	"github.com/marrow16/gogol/logic"
@@ -110,6 +111,7 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 	}
 	if s.m.stepDelay > 1 {
 		s.clickPts.add(rgn.Text(7, 24, "▼", settingsTextStyle), func() tea.Cmd {
+			s.m.stepDelay--
 			s.m.prefs.StepDelay = s.m.stepDelay
 			return s.m.savePrefs()
 		})
@@ -200,6 +202,19 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 			// no resize needed
 			return nil
 		}
+		return func() tea.Msg {
+			if grid, err := logic.NewGrid(s.m.gridHeight, s.m.gridWidth, s.m.grid.WrapMode, s.m.grid.BoundaryMode); err == nil {
+				return gridResizeResult{
+					surface: newGridSurface(grid, s.m.cellStyle),
+					grid:    grid,
+				}
+			}
+			return nil
+		}
+	})
+	rgn.BoxRounded(13, 44, 3, 12, settingsTextStyle)
+	s.clickPts.add(rgn.Text(14, 45, "Fit Screen", settingsTextStyle), func() tea.Cmd {
+		s.m.gridHeight, s.m.gridWidth = s.m.height*2, s.m.width*2
 		return func() tea.Msg {
 			if grid, err := logic.NewGrid(s.m.gridHeight, s.m.gridWidth, s.m.grid.WrapMode, s.m.grid.BoundaryMode); err == nil {
 				return gridResizeResult{
@@ -550,8 +565,8 @@ func (s *settings) renderLoadPatternsSettings(rgn layout.Surface) *tea.Cursor {
 		show = show[len(show)-maxWd:]
 	}
 	rgn.TextFixed(3, 7, maxWd, show, settingsTabStyle)
-	rgn.TextCenter(5, 2, rgn.Width()-4, "Enter path to directory/file and press...", settingsTextStyle)
-	s.clickPts.add(rgn.Text(6, (rgn.Width()/2)-2, "Load", settingsTabStyle), func() tea.Cmd {
+	rgn.TextCenter(5, 2, rgn.Width()-4, "Enter path to directory or file and press...", settingsTextStyle)
+	s.clickPts.add(rgn.Text(6, (rgn.Width()/2)-2, " Load ", settingsTabStyle), func() tea.Cmd {
 		s.loadPatternsResult = nil
 		if s.loadFrom != "" {
 			return func() tea.Msg {
@@ -560,42 +575,13 @@ func (s *settings) renderLoadPatternsSettings(rgn layout.Surface) *tea.Cursor {
 					return loadPatternsResult{error: "Invalid filepath"}
 				}
 				if fs.IsDir() {
-					count := 0
-					filepath.Walk(s.loadFrom, func(path string, info os.FileInfo, err error) error {
-						if !info.IsDir() && strings.HasSuffix(info.Name(), ".rle") {
-							func(path string) {
-								if f, err := os.Open(path); err == nil {
-									defer f.Close()
-									if p, err := patterns.NewPatternFromRle(f); err == nil {
-										patterns.PatternLibrary[p.Name] = p
-										count++
-									}
-								}
-							}(path)
-						}
-						return nil
-					})
-					if count > 0 {
-						sortedPatterns = sortPatterns()
-						return loadPatternsResult{loaded: count}
-					} else {
-						return loadPatternsResult{error: "No .rle files found"}
-					}
+					return loadPatternsLibrary(s.loadFrom, false)
+				} else if err = loadPattern(s.loadFrom); err == nil {
+					sortedPatterns = sortPatterns()
+					return loadPatternsResult{loaded: 1, filename: s.loadFrom}
 				} else {
-					f, err := os.Open(s.loadFrom)
-					if err != nil {
-						return loadPatternsResult{error: "Unable to open file"}
-					}
-					defer f.Close()
-					if p, err := patterns.NewPatternFromRle(f); err != nil {
-						return loadPatternsResult{error: err.Error()}
-					} else {
-						patterns.PatternLibrary[p.Name] = p
-						sortedPatterns = sortPatterns()
-						return loadPatternsResult{loaded: 1}
-					}
+					return loadPatternsResult{error: err.Error()}
 				}
-				return nil
 			}
 		}
 		return nil
@@ -615,8 +601,46 @@ func (s *settings) renderLoadPatternsSettings(rgn layout.Surface) *tea.Cursor {
 }
 
 type loadPatternsResult struct {
-	error  string
-	loaded int
+	error     string
+	loaded    int
+	directory string
+	filename  string
+}
+
+func loadPatternsLibrary(fp string, noSort bool) loadPatternsResult {
+	count := 0
+	filepath.Walk(fp, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() && strings.HasSuffix(info.Name(), ".rle") {
+			if err := loadPattern(path); err == nil {
+				count++
+			}
+		}
+		return nil
+	})
+	if count > 0 {
+		if !noSort {
+			sortedPatterns = sortPatterns()
+		}
+		return loadPatternsResult{loaded: count, directory: fp}
+	} else {
+		return loadPatternsResult{error: "No .rle files found"}
+	}
+}
+
+func loadPattern(fp string) error {
+	f, err := os.Open(fp)
+	if err != nil {
+		return errors.New("Unable to open file")
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	if p, err := patterns.NewPatternFromRle(f); err != nil {
+		return err
+	} else {
+		patterns.PatternLibrary[p.Name] = p
+		return nil
+	}
 }
 
 const (
@@ -762,6 +786,14 @@ func (s *settings) update(msg tea.Msg) tea.Cmd {
 		}
 	case loadPatternsResult:
 		s.loadPatternsResult = &mt
+		if mt.error == "" && mt.loaded > 0 {
+			if mt.filename != "" {
+				s.m.prefs.addPattern(mt.filename)
+			} else {
+				s.m.prefs.addPatternLibrary(mt.directory)
+			}
+			return s.m.savePrefs()
+		}
 	}
 	return nil
 }
@@ -775,20 +807,3 @@ func (cp clickPts) add(pl layout.Placement, fn func() tea.Cmd) {
 		cp[clickPt{pl.Row, pl.Col + l}] = fn
 	}
 }
-
-/*
-
-Rule ctrl+r
-* rule name
-* rle
-* perm
-
-Colors ctrl+o
-* foreground
-* background
-
-Patterns ctrl+p
-* pattern select
-* position
-* place button
-*/
