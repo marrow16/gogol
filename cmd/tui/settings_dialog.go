@@ -204,6 +204,7 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 		}
 		return func() tea.Msg {
 			if grid, err := logic.NewGrid(s.m.gridHeight, s.m.gridWidth, s.m.grid.WrapMode, s.m.grid.BoundaryMode); err == nil {
+				grid.Rule = s.m.grid.Rule
 				return gridResizeResult{
 					surface: newGridSurface(grid, s.m.cellStyle),
 					grid:    grid,
@@ -217,6 +218,7 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 		s.m.gridHeight, s.m.gridWidth = s.m.height*2, s.m.width*2
 		return func() tea.Msg {
 			if grid, err := logic.NewGrid(s.m.gridHeight, s.m.gridWidth, s.m.grid.WrapMode, s.m.grid.BoundaryMode); err == nil {
+				grid.Rule = s.m.grid.Rule
 				return gridResizeResult{
 					surface: newGridSurface(grid, s.m.cellStyle),
 					grid:    grid,
