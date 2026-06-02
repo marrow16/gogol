@@ -71,7 +71,7 @@ func TestPattern_Draw(t *testing.T) {
 	g, err := logic.NewGrid(5, 5, 0, 0)
 	require.NoError(t, err)
 
-	p.Draw(g, 0, 0)
+	p.Draw(g, 0, 0, Rotate0)
 	assert.True(t, g.GetCell(1, 3).Alive)
 	assert.True(t, g.GetCell(2, 1).Alive)
 	assert.True(t, g.GetCell(2, 3).Alive)

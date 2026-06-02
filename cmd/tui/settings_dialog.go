@@ -26,6 +26,7 @@ type settings struct {
 	currentPattern     *patterns.Pattern
 	patternPlaceY      int
 	patternPlaceX      int
+	patternRotate      patterns.Rotation
 	patternOffY        int
 	patternOffX        int
 	loadFrom           string
@@ -506,7 +507,7 @@ func (s *settings) renderPatternSettings(rgn layout.Surface) *tea.Cursor {
 		}
 		if preview := rgn.Region(3, 1, ht, wd); preview != nil {
 			preview.FillWith(0, 0, preview.Height(), preview.Width(), '\u00A0', settingsPreviewStyle)
-			s.currentPattern.DrawTo(func(row, col int, alive bool) {
+			s.currentPattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
 				if alive {
 					ar, ac := row-s.patternOffY, col-s.patternOffX
 					if ar >= 0 && ac >= 0 {
@@ -517,11 +518,11 @@ func (s *settings) renderPatternSettings(rgn layout.Surface) *tea.Cursor {
 		}
 		s.clickPts.add(rgn.Text(rgn.Height()-2, 1, "Place", settingsTabStyle), func() tea.Cmd {
 			if s.currentPattern != nil {
-				s.currentPattern.Draw(s.m.grid, s.patternPlaceY, s.patternPlaceX)
+				s.currentPattern.Draw(s.m.grid, s.patternPlaceY, s.patternPlaceX, s.patternRotate)
 			}
 			return nil
 		})
-		rgn.Text(rgn.Height()-2, 8, "At Y: ??      X: ??", settingsTextStyle)
+		rgn.Text(rgn.Height()-2, 8, "At Y: ▲▼      X: ▲▼", settingsTextStyle)
 		s.clickPts.add(rgn.Text(rgn.Height()-2, 14, "▲", settingsTextStyle), func() tea.Cmd {
 			s.patternPlaceY++
 			return nil
@@ -544,6 +545,64 @@ func (s *settings) renderPatternSettings(rgn layout.Surface) *tea.Cursor {
 		})
 		rgn.Text(rgn.Height()-2, 16, strconv.Itoa(s.patternPlaceY), settingsTextStyle)
 		rgn.Text(rgn.Height()-2, 27, strconv.Itoa(s.patternPlaceX), settingsTextStyle)
+		switch s.patternRotate {
+		case patterns.Rotate90:
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 35, "0°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate0
+				return nil
+			})
+			rgn.Text(rgn.Height()-2, 39, "90°", settingsTabStyle)
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 44, "180°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate180
+				return nil
+			})
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 50, "270°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate270
+				return nil
+			})
+		case patterns.Rotate180:
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 35, "0°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate0
+				return nil
+			})
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 39, "90°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate90
+				return nil
+			})
+			rgn.Text(rgn.Height()-2, 44, "180°", settingsTabStyle)
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 50, "270°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate270
+				return nil
+			})
+		case patterns.Rotate270:
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 35, "0°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate0
+				return nil
+			})
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 39, "90°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate90
+				return nil
+			})
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 44, "180°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate180
+				return nil
+			})
+			rgn.Text(rgn.Height()-2, 50, "270°", settingsTabStyle)
+		default:
+			rgn.Text(rgn.Height()-2, 35, "0°", settingsTabStyle)
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 39, "90°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate90
+				return nil
+			})
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 44, "180°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate180
+				return nil
+			})
+			s.clickPts.add(rgn.Text(rgn.Height()-2, 50, "270°", settingsTextUlStyle), func() tea.Cmd {
+				s.patternRotate = patterns.Rotate270
+				return nil
+			})
+		}
 	}
 	return nil
 }

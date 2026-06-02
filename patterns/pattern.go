@@ -50,25 +50,40 @@ func MustNewPatternFromRle(r io.Reader) Pattern {
 	}
 }
 
-func (p Pattern) Draw(grid *logic.Grid, row, col int) {
-	idx := 0
-	for y := 0; y < p.Height; y++ {
-		for x := 0; x < p.Width; x++ {
-			grid.SetCell(row+y, col+x, p.Cells[idx])
-			idx++
-		}
-	}
+type Rotation int
+
+const (
+	Rotate0 Rotation = iota
+	Rotate90
+	Rotate180
+	Rotate270
+)
+
+func (p Pattern) Draw(grid *logic.Grid, row, col int, rot Rotation) {
+	p.DrawTo(rot, func(y, x int, alive bool) {
+		grid.SetCell(row+y, col+x, alive)
+	})
 }
 
-func (p Pattern) DrawTo(fn func(row, col int, alive bool)) {
+func (p Pattern) DrawTo(rot Rotation, fn func(row, col int, alive bool)) {
 	if fn == nil {
 		return
 	}
-	idx := 0
 	for y := 0; y < p.Height; y++ {
 		for x := 0; x < p.Width; x++ {
-			fn(y, x, p.Cells[idx])
-			idx++
+			alive := p.Cells[y*p.Width+x]
+			var row, col int
+			switch rot {
+			case Rotate90:
+				row, col = x, p.Height-1-y
+			case Rotate180:
+				row, col = p.Height-1-y, p.Width-1-x
+			case Rotate270:
+				row, col = p.Width-1-x, y
+			default:
+				row, col = y, x
+			}
+			fn(row, col, alive)
 		}
 	}
 }

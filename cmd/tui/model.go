@@ -113,6 +113,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+s":
 				m.running = false
 				m.settingsShowing = true
+			case "f1":
+				m.running = false
+				m.splashShowing = true
 			case "space":
 				m.grid.Step()
 			case "enter":

@@ -53,20 +53,20 @@ func (r quadRune) update(offX, offY int, active, changed bool) quadRune {
 }
 
 var quadCell = [16]quadRune{
-	' ', // 0000
-	'▘', // 0001 top-left
-	'▝', // 0010 top-right
-	'▀', // 0011 top
-	'▖', // 0100 bottom-left
-	'▌', // 0101 left
-	'▞', // 0110 diagonal /
-	'▛', // 0111 except bottom-right
-	'▗', // 1000 bottom-right
-	'▚', // 1001 diagonal \
-	'▐', // 1010 right
-	'▜', // 1011 except bottom-left
-	'▄', // 1100 bottom
-	'▙', // 1101 except top-right
-	'▟', // 1110 except top-left
-	'█', // 1111
+	'\u00A0', // 0000
+	'▘',      // 0001 top-left
+	'▝',      // 0010 top-right
+	'▀',      // 0011 top
+	'▖',      // 0100 bottom-left
+	'▌',      // 0101 left
+	'▞',      // 0110 diagonal /
+	'▛',      // 0111 except bottom-right
+	'▗',      // 1000 bottom-right
+	'▚',      // 1001 diagonal \
+	'▐',      // 1010 right
+	'▜',      // 1011 except bottom-left
+	'▄',      // 1100 bottom
+	'▙',      // 1101 except top-right
+	'▟',      // 1110 except top-left
+	'█',      // 1111
 }
