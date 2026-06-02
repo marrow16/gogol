@@ -48,14 +48,12 @@ var (
 func (s *settings) render(rgn layout.Surface) *tea.Cursor {
 	s.clickPts = clickPts{}
 	s.absTop, s.absLeft, s.width, s.height = rgn.AbsoluteTop(), rgn.AbsoluteLeft(), rgn.Width(), rgn.Height()
-
 	// outer draw...
 	rgn.FillWith(0, 0, s.height, s.width, '\u00A0', settingsBgStyle)
 	rgn.BoxRounded(0, 0, s.height, s.width, settingsTextStyle)
 	rgn.TextCenter(0, 0, s.width, "Settings", settingsTextStyle)
 	// tabs...
 	s.renderTabs(rgn)
-
 	var csr *tea.Cursor
 	switch s.tab {
 	case tabGrid:
@@ -84,13 +82,15 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 	if s.m.random < 100 {
 		s.clickPts.add(rgn.Text(5, 19, "▲", settingsTextStyle), func() tea.Cmd {
 			s.m.random++
-			return nil
+			s.m.prefs.Random = s.m.random
+			return s.m.savePrefs()
 		})
 	}
 	if s.m.random > 0 {
 		s.clickPts.add(rgn.Text(5, 24, "▼", settingsTextStyle), func() tea.Cmd {
 			s.m.random--
-			return nil
+			s.m.prefs.Random = s.m.random
+			return s.m.savePrefs()
 		})
 	}
 	rgn.BoxRounded(4, 26, 3, 11, settingsTextStyle)
@@ -104,13 +104,14 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 	if s.m.stepDelay < 2000 {
 		s.clickPts.add(rgn.Text(7, 19, "▲", settingsTextStyle), func() tea.Cmd {
 			s.m.stepDelay++
-			return nil
+			s.m.prefs.StepDelay = s.m.stepDelay
+			return s.m.savePrefs()
 		})
 	}
 	if s.m.stepDelay > 1 {
 		s.clickPts.add(rgn.Text(7, 24, "▼", settingsTextStyle), func() tea.Cmd {
-			s.m.stepDelay--
-			return nil
+			s.m.prefs.StepDelay = s.m.stepDelay
+			return s.m.savePrefs()
 		})
 	}
 
@@ -120,7 +121,8 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 	} else {
 		s.clickPts.add(rgn.Text(9, 20, "None", settingsTextUlStyle), func() tea.Cmd {
 			s.m.grid.SetWrapMode(logic.WrapNone)
-			return nil
+			s.m.prefs.setWrapMode(s.m.grid.WrapMode)
+			return s.m.savePrefs()
 		})
 	}
 	if s.m.grid.WrapMode == logic.WrapHorizontal {
@@ -128,7 +130,8 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 	} else {
 		s.clickPts.add(rgn.Text(9, 26, "Horizontal", settingsTextUlStyle), func() tea.Cmd {
 			s.m.grid.SetWrapMode(logic.WrapHorizontal)
-			return nil
+			s.m.prefs.setWrapMode(s.m.grid.WrapMode)
+			return s.m.savePrefs()
 		})
 	}
 	if s.m.grid.WrapMode == logic.WrapVertical {
@@ -136,7 +139,8 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 	} else {
 		s.clickPts.add(rgn.Text(9, 38, "Vertical", settingsTextUlStyle), func() tea.Cmd {
 			s.m.grid.SetWrapMode(logic.WrapVertical)
-			return nil
+			s.m.prefs.setWrapMode(s.m.grid.WrapMode)
+			return s.m.savePrefs()
 		})
 	}
 	if s.m.grid.WrapMode == logic.WrapAll {
@@ -144,7 +148,8 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 	} else {
 		s.clickPts.add(rgn.Text(9, 48, "Toroidal", settingsTextUlStyle), func() tea.Cmd {
 			s.m.grid.SetWrapMode(logic.WrapAll)
-			return nil
+			s.m.prefs.setWrapMode(s.m.grid.WrapMode)
+			return s.m.savePrefs()
 		})
 	}
 	rgn.Text(11, 2, " Boundary cells:", settingsTextStyle)
@@ -153,7 +158,8 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 	} else {
 		s.clickPts.add(rgn.Text(11, 20, "Dead", settingsTextUlStyle), func() tea.Cmd {
 			s.m.grid.SetBoundaryMode(logic.DeadBoundary)
-			return nil
+			s.m.prefs.setBoundaryMode(s.m.grid.BoundaryMode)
+			return s.m.savePrefs()
 		})
 	}
 	if s.m.grid.BoundaryMode == logic.AliveBoundary {
@@ -161,11 +167,11 @@ func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
 	} else {
 		s.clickPts.add(rgn.Text(11, 26, "Alive", settingsTextUlStyle), func() tea.Cmd {
 			s.m.grid.SetBoundaryMode(logic.AliveBoundary)
-			return nil
+			s.m.prefs.setBoundaryMode(s.m.grid.BoundaryMode)
+			return s.m.savePrefs()
 		})
 	}
 	rgn.Text(14, 2, "Height: ▲    ▼   Width: ▲    ▼", settingsTextStyle)
-	//                             234567890123456789012345678901234567890
 	rgn.TextRight(14, 11, 4, strconv.Itoa(s.m.gridHeight), settingsTextStyle)
 	rgn.TextRight(14, 27, 4, strconv.Itoa(s.m.gridWidth), settingsTextStyle)
 	s.clickPts.add(rgn.Text(14, 10, "▲", settingsTextStyle), func() tea.Cmd {
@@ -218,7 +224,8 @@ func (s *settings) renderRuleSettings(rgn layout.Surface) *tea.Cursor {
 			idx--
 		}
 		s.m.grid.Rule = logic.Rules[sortedRuleNames[idx]]
-		return nil
+		s.m.prefs.setRule(s.m.grid.Rule)
+		return s.m.savePrefs()
 	})
 	s.clickPts.add(rgn.Text(3, 16, "▼", settingsTextStyle), func() tea.Cmd {
 		idx := slices.Index(sortedRuleNames, s.m.grid.Rule.Name())
@@ -228,7 +235,8 @@ func (s *settings) renderRuleSettings(rgn layout.Surface) *tea.Cursor {
 			idx++
 		}
 		s.m.grid.Rule = logic.Rules[sortedRuleNames[idx]]
-		return nil
+		s.m.prefs.setRule(s.m.grid.Rule)
+		return s.m.savePrefs()
 	})
 	rgn.Text(5, 2, "        RLE:", settingsTextStyle)
 	rgn.Text(5, 15, s.m.grid.Rule.Rle(), settingsTextStyle)
@@ -239,12 +247,14 @@ func (s *settings) renderRuleSettings(rgn layout.Surface) *tea.Cursor {
 		if strings.Contains(bw, digit) {
 			s.clickPts.add(rgn.Text(6, 15+(w*2), digit, settingsTabStyle), func() tea.Cmd {
 				s.adjustRule(true, false, digit)
-				return nil
+				s.m.prefs.setRule(s.m.grid.Rule)
+				return s.m.savePrefs()
 			})
 		} else {
 			s.clickPts.add(rgn.Text(6, 15+(w*2), digit, settingsTextUlStyle), func() tea.Cmd {
 				s.adjustRule(true, true, digit)
-				return nil
+				s.m.prefs.setRule(s.m.grid.Rule)
+				return s.m.savePrefs()
 			})
 		}
 	}
@@ -255,12 +265,14 @@ func (s *settings) renderRuleSettings(rgn layout.Surface) *tea.Cursor {
 		if strings.Contains(sw, digit) {
 			s.clickPts.add(rgn.Text(7, 15+(w*2), digit, settingsTabStyle), func() tea.Cmd {
 				s.adjustRule(false, false, digit)
-				return nil
+				s.m.prefs.setRule(s.m.grid.Rule)
+				return s.m.savePrefs()
 			})
 		} else {
 			s.clickPts.add(rgn.Text(7, 15+(w*2), digit, settingsTextUlStyle), func() tea.Cmd {
 				s.adjustRule(false, true, digit)
-				return nil
+				s.m.prefs.setRule(s.m.grid.Rule)
+				return s.m.savePrefs()
 			})
 		}
 	}
@@ -273,7 +285,8 @@ func (s *settings) renderRuleSettings(rgn layout.Surface) *tea.Cursor {
 			if nr, err := logic.NewRuleFromPermutation(s.m.grid.Rule.Permutation() - 1); err == nil {
 				s.m.grid.Rule = nr
 			}
-			return nil
+			s.m.prefs.setRule(s.m.grid.Rule)
+			return s.m.savePrefs()
 		})
 	}
 	if perm < (1 << 18) {
@@ -281,7 +294,8 @@ func (s *settings) renderRuleSettings(rgn layout.Surface) *tea.Cursor {
 			if nr, err := logic.NewRuleFromPermutation(s.m.grid.Rule.Permutation() + 1); err == nil {
 				s.m.grid.Rule = nr
 			}
-			return nil
+			s.m.prefs.setRule(s.m.grid.Rule)
+			return s.m.savePrefs()
 		})
 	}
 	return nil
@@ -342,73 +356,85 @@ func (s *settings) renderColorsSettings(rgn layout.Surface) *tea.Cursor {
 	if fgR < 255 {
 		s.clickPts.add(rgn.Text(3, 17, "▲", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(true, fgR+1, fgG, fgB)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if fgR > 0 {
 		s.clickPts.add(rgn.Text(3, 21, "▼", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(true, fgR-1, fgG, fgB)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if fgG < 255 {
 		s.clickPts.add(rgn.Text(3, 28, "▲", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(true, fgR, fgG+1, fgB)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if fgG > 0 {
 		s.clickPts.add(rgn.Text(3, 32, "▼", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(true, fgR, fgG-1, fgB)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if fgB < 255 {
 		s.clickPts.add(rgn.Text(3, 39, "▲", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(true, fgR, fgG, fgB+1)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if fgB > 0 {
 		s.clickPts.add(rgn.Text(3, 43, "▼", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(true, fgR, fgG, fgB-1)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if bgR < 255 {
 		s.clickPts.add(rgn.Text(4, 17, "▲", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(false, bgR+1, bgG, bgB)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if bgR > 0 {
 		s.clickPts.add(rgn.Text(4, 21, "▼", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(false, bgR-1, bgG, bgB)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if bgG < 255 {
 		s.clickPts.add(rgn.Text(4, 28, "▲", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(false, bgR, bgG+1, bgB)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if bgG > 0 {
 		s.clickPts.add(rgn.Text(4, 32, "▼", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(false, bgR, bgG-1, bgB)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if bgB < 255 {
 		s.clickPts.add(rgn.Text(4, 39, "▲", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(false, bgR, bgG, bgB+1)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	if bgB > 0 {
 		s.clickPts.add(rgn.Text(4, 43, "▼", settingsTextStyle), func() tea.Cmd {
 			s.adjustCellColor(false, bgR, bgG, bgB-1)
-			return nil
+			s.m.prefs.setCellStyle(s.m.cellStyle)
+			return s.m.savePrefs()
 		})
 	}
 	return nil
@@ -728,6 +754,8 @@ func (s *settings) update(msg tea.Msg) tea.Cmd {
 		case tabRule:
 			if r, err := logic.NewRuleRle("", mt.Content); err == nil {
 				s.m.grid.Rule = r
+				s.m.prefs.setRule(s.m.grid.Rule)
+				return s.m.savePrefs()
 			}
 		case tabLoad:
 			s.loadFrom = strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(mt.Content, "\n", ""), "\r", ""), "\t", "")

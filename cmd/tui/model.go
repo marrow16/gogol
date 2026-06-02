@@ -5,33 +5,27 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/marrow16/gogol/cmd/tui/layout"
 	"github.com/marrow16/gogol/logic"
-	"math/rand"
 	"time"
 	"unicode/utf8"
 )
 
-var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
-
-const (
-	defaultHeight = 100
-	defaultWidth  = 200
-)
-
-var defaultCellStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#6680e6")).Background(lipgloss.Color("#ffffff"))
-
 func newModel() *model {
-	grid, err := logic.NewGrid(defaultHeight, defaultWidth, logic.WrapAll, logic.DeadBoundary)
+	prfs := loadPrefs()
+	grid, err := logic.NewGrid(prfs.Height, prfs.Width, prfs.wrapMode(), prfs.boundaryMode())
 	if err != nil {
 		panic(err)
 	}
+	cs := prfs.cellStyle()
 	m := &model{
-		grid:        grid,
-		gridSurface: newGridSurface(grid, defaultCellStyle),
-		cellStyle:   defaultCellStyle,
-		stepDelay:   50,
-		random:      30,
-		gridHeight:  defaultHeight,
-		gridWidth:   defaultWidth,
+		prefs:         prfs,
+		grid:          grid,
+		gridSurface:   newGridSurface(grid, cs),
+		cellStyle:     cs,
+		stepDelay:     50,
+		random:        30,
+		gridHeight:    prfs.Height,
+		gridWidth:     prfs.Width,
+		splashShowing: true,
 	}
 	grid.Render = m.renderCell
 	m.settings = &settings{m: m}
@@ -62,6 +56,7 @@ func newGridSurface(g *logic.Grid, cellStyle lipgloss.Style) layout.Surface {
 }
 
 type model struct {
+	prefs           *prefs
 	height          int
 	width           int
 	grid            *logic.Grid
@@ -70,6 +65,7 @@ type model struct {
 	running         bool
 	settingsShowing bool
 	settings        *settings
+	splashShowing   bool
 	// settings...
 	stepDelay  int
 	random     int
@@ -86,6 +82,13 @@ type gridResizeResult struct {
 	surface layout.Surface
 }
 
+func (m *model) savePrefs() tea.Cmd {
+	return func() tea.Msg {
+		m.prefs.save()
+		return nil
+	}
+}
+
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch mt := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -96,7 +99,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.grid = mt.grid
 		m.grid.Render = m.renderCell
 		m.grid.Randomize(m.random)
+		m.prefs.Height, m.prefs.Width = m.grid.Height, m.grid.Width
+		return m, m.savePrefs()
 	case tea.KeyPressMsg:
+		m.splashShowing = false
 		if m.settingsShowing {
 			return m, m.settings.update(msg)
 		} else {
@@ -133,26 +139,34 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+var bgColor = lipgloss.Color("#eeeeee")
+
 func (m *model) View() tea.View {
 	sf := m.gridSurface
-	title := "[running]"
+	title := "[stopped]"
 	var csr *tea.Cursor
-	if m.settingsShowing {
+	if m.splashShowing {
+		sf2 := layout.NewSurface(m.height, m.width)
+		sf2.Draw(0, 0, sf)
+		renderSplash(sf2)
+		sf = sf2
+	} else if m.settingsShowing {
 		title = "[settings]"
 		sf2 := layout.NewSurface(m.height, m.width)
 		sf2.Draw(0, 0, sf)
 		rgn := sf2.Region(2, 5, 20, 60)
 		csr = m.settings.render(rgn)
 		sf = sf2
-	} else if !m.running {
-		title = "[stopped]"
+	} else if m.running {
+		title = "[running]"
 	}
 	return tea.View{
-		WindowTitle: title,
-		Content:     sf.Render(),
-		AltScreen:   true,
-		MouseMode:   tea.MouseModeCellMotion,
-		Cursor:      csr,
+		WindowTitle:     title,
+		Content:         sf.Render(),
+		AltScreen:       true,
+		MouseMode:       tea.MouseModeCellMotion,
+		Cursor:          csr,
+		BackgroundColor: bgColor,
 	}
 	/*
 		v := tea.NewView(m.gridSurface.Render())

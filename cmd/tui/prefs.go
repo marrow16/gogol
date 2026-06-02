@@ -1,0 +1,162 @@
+package main
+
+import (
+	"charm.land/lipgloss/v2"
+	"encoding/json"
+	"fmt"
+	"github.com/marrow16/gogol/logic"
+	"os"
+	"regexp"
+	"strings"
+)
+
+type prefs struct {
+	Height       int    `json:"height"`
+	Width        int    `json:"width"`
+	StepDelay    int    `json:"step_delay"`
+	Random       int    `json:"random"`
+	WrapMode     string `json:"wrap_mode"`
+	BoundaryMode string `json:"boundary_mode"`
+	CellFG       string `json:"cell_foreground_color"`
+	CellBG       string `json:"cell_background_color"`
+	Rule         string `json:"rule"`
+}
+
+const (
+	prefsFilename       = "prefs.json"
+	defaultHeight       = 100
+	defaultWidth        = 200
+	defaultStep         = 50
+	defaultRandom       = 30
+	defaultWrapMode     = "toroidal"
+	defaultBoundaryMode = "dead"
+	defaultFg           = "#6680e6"
+	defaultBg           = "#ffffff"
+	defaultRule         = "B3/S23"
+)
+
+func loadPrefs() *prefs {
+	if f, err := os.Open(prefsFilename); err == nil {
+		defer f.Close()
+		result := &prefs{}
+		if err = json.NewDecoder(f).Decode(result); err == nil {
+			result.validate()
+			return result
+		}
+	}
+	return &prefs{
+		Height:       defaultHeight,
+		Width:        defaultWidth,
+		StepDelay:    defaultStep,
+		Random:       defaultRandom,
+		WrapMode:     defaultWrapMode,
+		BoundaryMode: defaultBoundaryMode,
+		CellFG:       defaultFg,
+		CellBG:       defaultBg,
+		Rule:         defaultRule,
+	}
+}
+
+func (p *prefs) validate() {
+	if p.Height < 2 {
+		p.Height = 2
+	}
+	if p.Height%2 != 0 {
+		p.Height++
+	}
+	if p.Width < 2 {
+		p.Width = 2
+	}
+	if p.Width%2 != 0 {
+		p.Width++
+	}
+	if p.StepDelay < 1 {
+		p.StepDelay = 1
+	}
+	if p.Random < 0 || p.Random > 100 {
+		p.Random = defaultRandom
+	}
+	colorRegex := regexp.MustCompile("^#[0-9a-fA-F]{6}$")
+	if !colorRegex.MatchString(p.CellFG) {
+		p.CellFG = defaultFg
+	}
+	if !colorRegex.MatchString(p.CellBG) {
+		p.CellBG = defaultBg
+	}
+}
+
+func (p *prefs) wrapMode() logic.WrapMode {
+	switch strings.ToLower(p.WrapMode) {
+	case "toroidal":
+		return logic.WrapAll
+	case "horizontal":
+		return logic.WrapHorizontal
+	case "vertical":
+		return logic.WrapVertical
+	}
+	return logic.WrapNone
+}
+
+func (p *prefs) setWrapMode(m logic.WrapMode) *prefs {
+	switch m {
+	case logic.WrapAll:
+		p.WrapMode = "toroidal"
+	case logic.WrapHorizontal:
+		p.WrapMode = "horizontal"
+	case logic.WrapVertical:
+		p.WrapMode = "vertical"
+	default:
+		p.WrapMode = "none"
+	}
+	return p
+}
+
+func (p *prefs) boundaryMode() logic.BoundaryMode {
+	if p.BoundaryMode == "alive" {
+		return logic.AliveBoundary
+	}
+	return logic.DeadBoundary
+}
+
+func (p *prefs) setBoundaryMode(m logic.BoundaryMode) *prefs {
+	switch m {
+	case logic.AliveBoundary:
+		p.BoundaryMode = "alive"
+	default:
+		p.BoundaryMode = "dead"
+	}
+	return p
+}
+
+func (p *prefs) rule() logic.Rule {
+	if r, err := logic.NewRuleRle("", p.Rule); err == nil {
+		return r
+	}
+	return logic.StandardRule
+}
+
+func (p *prefs) setRule(r logic.Rule) *prefs {
+	p.Rule = r.Rle()
+	return p
+}
+
+func (p *prefs) cellStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(p.CellFG)).Background(lipgloss.Color(p.CellBG))
+}
+
+func (p *prefs) setCellStyle(s lipgloss.Style) *prefs {
+	fgR, fgG, fgB := rgb(s.GetForeground())
+	bgR, bgG, bgB := rgb(s.GetBackground())
+	p.CellFG = fmt.Sprintf("#%02X%02X%02X", fgR, fgG, fgB)
+	p.CellBG = fmt.Sprintf("#%02X%02X%02X", bgR, bgG, bgB)
+	return p
+}
+
+func (p *prefs) save() {
+	if f, err := os.Create(prefsFilename); err == nil {
+		defer f.Close()
+		enc := json.NewEncoder(f)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(p)
+	}
+}
