@@ -25,7 +25,7 @@ const (
 	ScrollEnd
 )
 
-type ScrollHandler func(evt ScrollEvent)
+type ScrollHandler func(evt ScrollEvent) tea.Cmd
 
 func NewVerticalScrollbar(handler ScrollHandler) Scrollbar {
 	return &verticalScrollbar{

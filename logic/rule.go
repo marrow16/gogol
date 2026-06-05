@@ -118,7 +118,7 @@ func NewRuleRle(name string, rle string) (Rule, error) {
 		survivesWith: [9]bool{},
 		name:         name,
 	}
-	parts := strings.Split(rle, "/")
+	parts := strings.Split(strings.ToUpper(rle), "/")
 	b := ""
 	s := ""
 	if len(parts) > 0 {
@@ -240,6 +240,7 @@ var rleToName = map[string]string{
 	"B45/S12345":         "Electrified Maze",
 	"B3/S12":             "Flock",
 	"B1357/S02468":       "Fredkin",
+	"B3567/S45678":       "Fungus",
 	"B34578/S456":        "Gems Minor",
 	"B3457/S4568":        "Gems",
 	"B1/S1":              "Gnarl",

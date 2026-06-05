@@ -17,8 +17,9 @@ type surfaceText interface {
 	TextRun(row int, col int, items Runs) []Placement
 	TextRunWrapped(row, col, width int, items Runs) int
 	TextFixed(row int, col int, width int, text string, styles ...lipgloss.Style) Placement
-	TextRight(row int, col int, width int, text string, styles ...lipgloss.Style)
-	TextCenter(row int, col int, width int, text string, styles ...lipgloss.Style)
+	TextRight(row int, col int, width int, text string, styles ...lipgloss.Style) Placement
+	TextRightPad(row, col, width int, text string, styles ...lipgloss.Style) Placement
+	TextCenter(row int, col int, width int, text string, styles ...lipgloss.Style) Placement
 	LineColumns(row int, col int, width int, columns Runs, lineStyle lipgloss.Style)
 	Block(row int, col int, width int, ch rune, styles ...lipgloss.Style)
 	Box(row int, col int, height int, width int, styles ...lipgloss.Style)
@@ -144,16 +145,37 @@ func (s textSurface) TextFixed(row, col, width int, text string, styles ...lipgl
 	return result
 }
 
-func (s textSurface) TextRight(row, col, width int, text string, styles ...lipgloss.Style) {
+func (s textSurface) TextRight(row, col, width int, text string, styles ...lipgloss.Style) (result Placement) {
 	if extent := utf8.RuneCountInString(text); extent > 0 {
-		s.placer.place(row, col+width-extent, text, extent, styles...)
+		result = s.placer.place(row, col+width-extent, text, extent, styles...)
 	}
+	return result
 }
 
-func (s textSurface) TextCenter(row, col, width int, text string, styles ...lipgloss.Style) {
-	if extent := utf8.RuneCountInString(text); extent > 0 {
-		s.placer.place(row, col+((width-extent)/2), text, extent, styles...)
+func (s textSurface) TextRightPad(row, col, width int, text string, styles ...lipgloss.Style) (result Placement) {
+	if width <= 0 {
+		return
 	}
+	runes := []rune(text)
+	// truncate from the left if too long
+	if len(runes) > width {
+		runes = runes[len(runes)-width:]
+	}
+	// pad on the left if too short
+	if len(runes) < width {
+		runes = append(
+			[]rune(strings.Repeat(" ", width-len(runes))),
+			runes...,
+		)
+	}
+	return s.placer.place(row, col, string(runes), width, styles...)
+}
+
+func (s textSurface) TextCenter(row, col, width int, text string, styles ...lipgloss.Style) (result Placement) {
+	if extent := utf8.RuneCountInString(text); extent > 0 {
+		result = s.placer.place(row, col+((width-extent)/2), text, extent, styles...)
+	}
+	return result
 }
 
 func (s textSurface) LineColumns(row, col, width int, columns Runs, lineStyle lipgloss.Style) {

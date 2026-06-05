@@ -61,11 +61,11 @@ bob$2bo$3o!`
 
 func TestPattern_Draw(t *testing.T) {
 	p, err := NewPattern("Glider", 5, []bool{
-		o, o, o, o, o,
-		o, o, o, x, o,
-		o, x, o, x, o,
-		o, o, x, x, o,
-		o, o, o, o, o})
+		false, false, false, false, false,
+		false, false, false, true, false,
+		false, true, false, true, false,
+		false, false, true, true, false,
+		false, false, false, false, false})
 	require.NoError(t, err)
 
 	g, err := logic.NewGrid(5, 5, 0, 0)

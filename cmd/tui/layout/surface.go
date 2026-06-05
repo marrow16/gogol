@@ -24,12 +24,19 @@ type Surface interface {
 
 type surface struct {
 	textSurface
-	rows rows
+	rows                 rows
+	offsetRow, offsetCol int
 }
 
 func NewSurface(height, width int) Surface {
+	return newSurface(height, width, 0, 0)
+}
+
+func newSurface(height, width int, offsetRow, offsetCol int) Surface {
 	sf := &surface{
-		rows: newRows(height, width),
+		rows:      newRows(height, width),
+		offsetRow: offsetRow,
+		offsetCol: offsetCol,
 	}
 	sf.textSurface = textSurface{
 		height: height,
@@ -59,8 +66,8 @@ func (s *surface) place(row, col int, text string, extent int, styles ...lipglos
 		result = Placement{
 			Text:   text,
 			Extent: extent,
-			Row:    row,
-			Col:    col,
+			Row:    row + s.offsetRow,
+			Col:    col + s.offsetCol,
 		}
 		result.Text = text
 		result.Extent = extent
@@ -82,11 +89,11 @@ func (s *surface) Region(row, col, height, width int) Surface {
 }
 
 func (s *surface) AbsoluteTop() int {
-	return 0
+	return s.offsetRow
 }
 
 func (s *surface) AbsoluteLeft() int {
-	return 0
+	return s.offsetCol
 }
 
 func (s *surface) Clear() {

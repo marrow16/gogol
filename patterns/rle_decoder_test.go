@@ -28,18 +28,18 @@ o2bob2ob$2bo4b2o4b$2b2o9b$2b2o!`
 	assert.Equal(t, 12, p.Height)
 	assert.Len(t, p.Cells, 12*13)
 	expectedPattern := []bool{
-		x, x, x, o, o, o, o, o, o, o, o, o, o,
-		x, o, o, o, o, o, o, o, o, o, x, x, o,
-		o, x, o, o, o, o, o, o, x, x, x, o, x,
-		o, o, o, x, x, o, o, x, x, o, o, o, o,
-		o, o, o, o, x, o, o, o, o, o, o, o, o,
-		o, o, o, o, o, o, o, o, x, o, o, o, o,
-		o, o, o, o, x, x, o, o, o, x, o, o, o,
-		o, o, o, x, o, x, o, x, x, o, o, o, o,
-		o, o, o, x, o, x, o, o, x, o, x, x, o,
-		o, o, x, o, o, o, o, x, x, o, o, o, o,
-		o, o, x, x, o, o, o, o, o, o, o, o, o,
-		o, o, x, x, o, o, o, o, o, o, o, o, o,
+		true, true, true, false, false, false, false, false, false, false, false, false, false,
+		true, false, false, false, false, false, false, false, false, false, true, true, false,
+		false, true, false, false, false, false, false, false, true, true, true, false, true,
+		false, false, false, true, true, false, false, true, true, false, false, false, false,
+		false, false, false, false, true, false, false, false, false, false, false, false, false,
+		false, false, false, false, false, false, false, false, true, false, false, false, false,
+		false, false, false, false, true, true, false, false, false, true, false, false, false,
+		false, false, false, true, false, true, false, true, true, false, false, false, false,
+		false, false, false, true, false, true, false, false, true, false, true, true, false,
+		false, false, true, false, false, false, false, true, true, false, false, false, false,
+		false, false, true, true, false, false, false, false, false, false, false, false, false,
+		false, false, true, true, false, false, false, false, false, false, false, false, false,
 	}
 	assert.Equal(t, expectedPattern, p.Cells)
 }

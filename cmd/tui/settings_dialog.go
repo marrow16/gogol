@@ -11,7 +11,6 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,7 +19,8 @@ import (
 type settings struct {
 	m                  *model
 	tab                int
-	clickPts           clickPts
+	currentForm        *layout.Form[*settings]
+	clickPts           layout.ClickPoints[*settings]
 	absTop, absLeft    int
 	width, height      int
 	currentPattern     *patterns.Pattern
@@ -29,6 +29,7 @@ type settings struct {
 	patternRotate      patterns.Rotation
 	patternOffY        int
 	patternOffX        int
+	patternInfo        bool
 	loadFrom           string
 	loadPatternsResult *loadPatternsResult
 }
@@ -43,12 +44,12 @@ var (
 	settingsTabStyle     = lipgloss.NewStyle().Background(lipgloss.Color("#6680e6")).Foreground(lipgloss.Color("#ffffff"))
 	settingsPreviewStyle = lipgloss.NewStyle().Background(lipgloss.Color("#ffffff")).
 				Foreground(lipgloss.Color("#000000"))
-	settingsPreviewAliveStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).
-					Background(lipgloss.Color("#000000"))
+	settingsPreviewFocusedStyle = lipgloss.NewStyle().Background(lipgloss.Color("#ffffff")).
+					Foreground(lipgloss.Color("#6680e6"))
 )
 
 func (s *settings) render(rgn layout.Surface) *tea.Cursor {
-	s.clickPts = clickPts{}
+	s.clickPts = layout.ClickPoints[*settings]{}
 	s.absTop, s.absLeft, s.width, s.height = rgn.AbsoluteTop(), rgn.AbsoluteLeft(), rgn.Width(), rgn.Height()
 	// outer draw...
 	rgn.FillWith(0, 0, s.height, s.width, '\u00A0', settingsBgStyle)
@@ -56,267 +57,284 @@ func (s *settings) render(rgn layout.Surface) *tea.Cursor {
 	rgn.TextCenter(0, 0, s.width, "Settings", settingsTextStyle)
 	// tabs...
 	s.renderTabs(rgn)
+	s.currentForm = nil
 	var csr *tea.Cursor
 	switch s.tab {
 	case tabGrid:
-		csr = s.renderGridSettings(rgn)
+		s.currentForm = gridForm
 	case tabRule:
-		csr = s.renderRuleSettings(rgn)
-	case tabColors:
-		csr = s.renderColorsSettings(rgn)
+		s.currentForm = ruleForm
 	case tabPatterns:
-		csr = s.renderPatternSettings(rgn)
+		s.currentForm = patternsForm
 	case tabLoad:
-		csr = s.renderLoadPatternsSettings(rgn)
+		s.currentForm = loadPatternsForm
+	}
+	if s.currentForm != nil {
+		csr = s.currentForm.Render(s, s.clickPts, rgn)
 	}
 	return csr
 }
 
-func (s *settings) renderGridSettings(rgn layout.Surface) *tea.Cursor {
-	rgn.BoxRounded(2, 1, 3, 7, settingsTextStyle)
-	s.clickPts.add(rgn.Text(3, 2, "Clear", settingsTextStyle), func() tea.Cmd {
-		s.m.grid.Clear()
-		return nil
-	})
+var gridForm = &layout.Form[*settings]{
+	Style:        settingsTextStyle,
+	FocusedStyle: settingsTabStyle,
+	FormRows: layout.FormRows[*settings]{
+		3: {
+			2: {
+				Item: layout.NewButton("Clear", func(s *settings) tea.Cmd {
+					s.m.grid.Clear()
+					return nil
+				}),
+			},
+		},
+		5: {
+			2: {Item: "Randomization %:"},
+			20: {
+				Item: layout.NewNumberInput(3, 0, 100, func(s *settings) int {
+					return s.m.random
+				}, func(s *settings, value int) tea.Cmd {
+					s.m.random = value
+					s.m.prefs.Random = value
+					return s.m.savePrefs()
+				}),
+			},
+			26: {
+				Item: layout.NewButton("Randomize", func(s *settings) tea.Cmd {
+					s.m.grid.Randomize(s.m.random)
+					return nil
+				}),
+			},
+		},
+		7: {
+			2: {Item: "Step delay (ms):"},
+			20: {
+				Item: layout.NewNumberInput(4, 1, 2000, func(s *settings) int {
+					return s.m.stepDelay
+				}, func(s *settings, value int) tea.Cmd {
+					s.m.stepDelay = value
+					s.m.prefs.StepDelay = value
+					return s.m.savePrefs()
+				}),
+			},
+		},
+		9: {
+			2: {Item: "  Wrapping mode:"},
+			19: {
+				Item: layout.NewRadio([]string{"None", "Horizontal", "Vertical", "Toroidal"}, func(s *settings) int {
+					return int(s.m.grid.WrapMode)
+				}, func(s *settings, value int) tea.Cmd {
+					s.m.grid.WrapMode = logic.WrapMode(value)
+					return nil
+				}),
+			},
+		},
+		11: {
+			2: {Item: " Boundary cells:"},
+			19: {
+				Item: layout.NewRadio([]string{"Dead", "Alive"}, func(s *settings) int {
+					return int(s.m.grid.BoundaryMode)
+				}, func(s *settings, value int) tea.Cmd {
+					s.m.grid.BoundaryMode = logic.BoundaryMode(value)
+					return nil
+				}),
+			},
+		},
+		14: {
+			2: {Item: "Height:       Width:"},
+			10: {
+				Item: layout.NewNumberInput(4, 2, 9999, func(s *settings) int {
+					return s.m.gridHeight
+				}, func(s *settings, value int) tea.Cmd {
+					s.m.gridHeight = value
+					return nil
+				}),
+			},
+			23: {
+				Item: layout.NewNumberInput(4, 2, 9999, func(s *settings) int {
+					return s.m.gridWidth
+				}, func(s *settings, value int) tea.Cmd {
+					s.m.gridWidth = value
+					return nil
+				}),
+			},
+			30: {
+				Item: layout.NewButton("Resize", func(s *settings) tea.Cmd {
+					if s.m.gridHeight == s.m.grid.Height && s.m.gridWidth == s.m.grid.Width {
+						// no resize needed
+						return nil
+					}
+					return func() tea.Msg {
+						if grid, err := logic.NewGrid(s.m.gridHeight, s.m.gridWidth, s.m.grid.WrapMode, s.m.grid.BoundaryMode); err == nil {
+							grid.Rule = s.m.grid.Rule
+							return gridResizeResult{
+								surface: newGridSurface(grid, s.m.cellStyle),
+								grid:    grid,
+							}
+						}
+						return nil
+					}
+				}),
+			},
+			39: {
+				Item: layout.NewButton("Fit Screen", func(s *settings) tea.Cmd {
+					if s.m.gridHeight == s.m.height*2 && s.m.gridWidth == s.m.width*2 {
+						// no resize needed
+						return nil
+					}
+					s.m.gridHeight, s.m.gridWidth = s.m.height*2, s.m.width*2
+					return func() tea.Msg {
+						if grid, err := logic.NewGrid(s.m.gridHeight, s.m.gridWidth, s.m.grid.WrapMode, s.m.grid.BoundaryMode); err == nil {
+							grid.Rule = s.m.grid.Rule
+							return gridResizeResult{
+								surface: newGridSurface(grid, s.m.cellStyle),
+								grid:    grid,
+							}
+						}
+						return nil
+					}
+				}),
+			},
+		},
+		17: {
+			2: {
+				Item: "Foreground  R:      G:      B:",
+			},
+			17: {
+				Item: layout.NewNumberInput(3, 0, 255, func(s *settings) int {
+					v, _, _ := rgb(s.m.cellStyle.GetForeground())
+					return v
+				}, func(s *settings, value int) tea.Cmd {
+					_, g, b := rgb(s.m.cellStyle.GetForeground())
+					s.adjustCellColor(true, value, g, b)
+					s.m.prefs.setCellStyle(s.m.cellStyle)
+					return s.m.savePrefs()
+				}),
+			},
+			24: {
+				Item: layout.NewNumberInput(3, 0, 255, func(s *settings) int {
+					_, v, _ := rgb(s.m.cellStyle.GetForeground())
+					return v
+				}, func(s *settings, value int) tea.Cmd {
+					r, _, b := rgb(s.m.cellStyle.GetForeground())
+					s.adjustCellColor(true, r, value, b)
+					s.m.prefs.setCellStyle(s.m.cellStyle)
+					return s.m.savePrefs()
 
-	rgn.Text(5, 2, "Randomization %: ▲    ▼", settingsTextStyle)
-	rgn.TextRight(5, 20, 4, strconv.Itoa(s.m.random), settingsTextStyle)
-	if s.m.random < 100 {
-		s.clickPts.add(rgn.Text(5, 19, "▲", settingsTextStyle), func() tea.Cmd {
-			s.m.random++
-			s.m.prefs.Random = s.m.random
-			return s.m.savePrefs()
-		})
-	}
-	if s.m.random > 0 {
-		s.clickPts.add(rgn.Text(5, 24, "▼", settingsTextStyle), func() tea.Cmd {
-			s.m.random--
-			s.m.prefs.Random = s.m.random
-			return s.m.savePrefs()
-		})
-	}
-	rgn.BoxRounded(4, 26, 3, 11, settingsTextStyle)
-	s.clickPts.add(rgn.Text(5, 27, "Randomize", settingsTextStyle), func() tea.Cmd {
-		s.m.grid.Randomize(s.m.random)
-		return nil
-	})
+				}),
+			},
+			33: {
+				Item: layout.NewNumberInput(3, 0, 255, func(s *settings) int {
+					_, _, v := rgb(s.m.cellStyle.GetForeground())
+					return v
+				}, func(s *settings, value int) tea.Cmd {
+					r, g, _ := rgb(s.m.cellStyle.GetForeground())
+					s.adjustCellColor(true, r, g, value)
+					s.m.prefs.setCellStyle(s.m.cellStyle)
+					return s.m.savePrefs()
 
-	rgn.Text(7, 2, "Step delay (ms): ▲    ▼", settingsTextStyle)
-	rgn.TextRight(7, 20, 4, strconv.Itoa(s.m.stepDelay), settingsTextStyle)
-	if s.m.stepDelay < 2000 {
-		s.clickPts.add(rgn.Text(7, 19, "▲", settingsTextStyle), func() tea.Cmd {
-			s.m.stepDelay++
-			s.m.prefs.StepDelay = s.m.stepDelay
-			return s.m.savePrefs()
-		})
-	}
-	if s.m.stepDelay > 1 {
-		s.clickPts.add(rgn.Text(7, 24, "▼", settingsTextStyle), func() tea.Cmd {
-			s.m.stepDelay--
-			s.m.prefs.StepDelay = s.m.stepDelay
-			return s.m.savePrefs()
-		})
-	}
+				}),
+			},
+		},
+		18: {
+			2: {
+				Item: "Background  R:      G:      B:",
+			},
+			17: {
+				Item: layout.NewNumberInput(3, 0, 255, func(s *settings) int {
+					v, _, _ := rgb(s.m.cellStyle.GetBackground())
+					return v
+				}, func(s *settings, value int) tea.Cmd {
+					_, g, b := rgb(s.m.cellStyle.GetBackground())
+					s.adjustCellColor(false, value, g, b)
+					s.m.prefs.setCellStyle(s.m.cellStyle)
+					return s.m.savePrefs()
 
-	rgn.Text(9, 2, "  Grid wrapping:", settingsTextStyle)
-	if s.m.grid.WrapMode == logic.WrapNone {
-		rgn.Text(9, 19, " None ", settingsTabStyle)
-	} else {
-		s.clickPts.add(rgn.Text(9, 20, "None", settingsTextUlStyle), func() tea.Cmd {
-			s.m.grid.SetWrapMode(logic.WrapNone)
-			s.m.prefs.setWrapMode(s.m.grid.WrapMode)
-			return s.m.savePrefs()
-		})
-	}
-	if s.m.grid.WrapMode == logic.WrapHorizontal {
-		rgn.Text(9, 25, " Horizontal ", settingsTabStyle)
-	} else {
-		s.clickPts.add(rgn.Text(9, 26, "Horizontal", settingsTextUlStyle), func() tea.Cmd {
-			s.m.grid.SetWrapMode(logic.WrapHorizontal)
-			s.m.prefs.setWrapMode(s.m.grid.WrapMode)
-			return s.m.savePrefs()
-		})
-	}
-	if s.m.grid.WrapMode == logic.WrapVertical {
-		rgn.Text(9, 37, " Vertical ", settingsTabStyle)
-	} else {
-		s.clickPts.add(rgn.Text(9, 38, "Vertical", settingsTextUlStyle), func() tea.Cmd {
-			s.m.grid.SetWrapMode(logic.WrapVertical)
-			s.m.prefs.setWrapMode(s.m.grid.WrapMode)
-			return s.m.savePrefs()
-		})
-	}
-	if s.m.grid.WrapMode == logic.WrapAll {
-		rgn.Text(9, 47, " Toroidal ", settingsTabStyle)
-	} else {
-		s.clickPts.add(rgn.Text(9, 48, "Toroidal", settingsTextUlStyle), func() tea.Cmd {
-			s.m.grid.SetWrapMode(logic.WrapAll)
-			s.m.prefs.setWrapMode(s.m.grid.WrapMode)
-			return s.m.savePrefs()
-		})
-	}
-	rgn.Text(11, 2, " Boundary cells:", settingsTextStyle)
-	if s.m.grid.BoundaryMode == logic.DeadBoundary {
-		rgn.Text(11, 19, " Dead ", settingsTabStyle)
-	} else {
-		s.clickPts.add(rgn.Text(11, 20, "Dead", settingsTextUlStyle), func() tea.Cmd {
-			s.m.grid.SetBoundaryMode(logic.DeadBoundary)
-			s.m.prefs.setBoundaryMode(s.m.grid.BoundaryMode)
-			return s.m.savePrefs()
-		})
-	}
-	if s.m.grid.BoundaryMode == logic.AliveBoundary {
-		rgn.Text(11, 25, " Alive ", settingsTabStyle)
-	} else {
-		s.clickPts.add(rgn.Text(11, 26, "Alive", settingsTextUlStyle), func() tea.Cmd {
-			s.m.grid.SetBoundaryMode(logic.AliveBoundary)
-			s.m.prefs.setBoundaryMode(s.m.grid.BoundaryMode)
-			return s.m.savePrefs()
-		})
-	}
-	rgn.Text(14, 2, "Height: ▲    ▼   Width: ▲    ▼", settingsTextStyle)
-	rgn.TextRight(14, 11, 4, strconv.Itoa(s.m.gridHeight), settingsTextStyle)
-	rgn.TextRight(14, 27, 4, strconv.Itoa(s.m.gridWidth), settingsTextStyle)
-	s.clickPts.add(rgn.Text(14, 10, "▲", settingsTextStyle), func() tea.Cmd {
-		s.m.gridHeight += 2
-		return nil
-	})
-	if s.m.gridHeight > 3 {
-		s.clickPts.add(rgn.Text(14, 15, "▼", settingsTextStyle), func() tea.Cmd {
-			s.m.gridHeight -= 2
-			return nil
-		})
-	}
-	s.clickPts.add(rgn.Text(14, 26, "▲", settingsTextStyle), func() tea.Cmd {
-		s.m.gridWidth += 2
-		return nil
-	})
-	if s.m.gridWidth > 3 {
-		s.clickPts.add(rgn.Text(14, 31, "▼", settingsTextStyle), func() tea.Cmd {
-			s.m.gridWidth -= 2
-			return nil
-		})
-	}
-	rgn.BoxRounded(13, 35, 3, 8, settingsTextStyle)
-	s.clickPts.add(rgn.Text(14, 36, "Resize", settingsTextStyle), func() tea.Cmd {
-		if s.m.gridHeight == s.m.grid.Height && s.m.gridWidth == s.m.grid.Width {
-			// no resize needed
-			return nil
-		}
-		return func() tea.Msg {
-			if grid, err := logic.NewGrid(s.m.gridHeight, s.m.gridWidth, s.m.grid.WrapMode, s.m.grid.BoundaryMode); err == nil {
-				grid.Rule = s.m.grid.Rule
-				return gridResizeResult{
-					surface: newGridSurface(grid, s.m.cellStyle),
-					grid:    grid,
-				}
-			}
-			return nil
-		}
-	})
-	rgn.BoxRounded(13, 44, 3, 12, settingsTextStyle)
-	s.clickPts.add(rgn.Text(14, 45, "Fit Screen", settingsTextStyle), func() tea.Cmd {
-		s.m.gridHeight, s.m.gridWidth = s.m.height*2, s.m.width*2
-		return func() tea.Msg {
-			if grid, err := logic.NewGrid(s.m.gridHeight, s.m.gridWidth, s.m.grid.WrapMode, s.m.grid.BoundaryMode); err == nil {
-				grid.Rule = s.m.grid.Rule
-				return gridResizeResult{
-					surface: newGridSurface(grid, s.m.cellStyle),
-					grid:    grid,
-				}
-			}
-			return nil
-		}
-	})
-	return nil
+				}),
+			},
+			24: {
+				Item: layout.NewNumberInput(3, 0, 255, func(s *settings) int {
+					_, v, _ := rgb(s.m.cellStyle.GetBackground())
+					return v
+				}, func(s *settings, value int) tea.Cmd {
+					r, _, b := rgb(s.m.cellStyle.GetBackground())
+					s.adjustCellColor(false, r, value, b)
+					s.m.prefs.setCellStyle(s.m.cellStyle)
+					return s.m.savePrefs()
+
+				}),
+			},
+			33: {
+				Item: layout.NewNumberInput(3, 0, 255, func(s *settings) int {
+					_, _, v := rgb(s.m.cellStyle.GetBackground())
+					return v
+				}, func(s *settings, value int) tea.Cmd {
+					r, g, _ := rgb(s.m.cellStyle.GetBackground())
+					s.adjustCellColor(false, r, g, value)
+					s.m.prefs.setCellStyle(s.m.cellStyle)
+					return s.m.savePrefs()
+
+				}),
+			},
+		},
+	},
 }
 
-func (s *settings) renderRuleSettings(rgn layout.Surface) *tea.Cursor {
-	rgn.Text(3, 2, "       Name: ▲▼", settingsTextStyle)
-	rgn.Text(3, 18, s.m.grid.Rule.Name(), settingsTextStyle)
-	s.clickPts.add(rgn.Text(3, 15, "▲", settingsTextStyle), func() tea.Cmd {
-		idx := slices.Index(sortedRuleNames, s.m.grid.Rule.Name())
-		if idx <= 0 {
-			idx = len(sortedRuleNames) - 1
-		} else {
-			idx--
-		}
-		s.m.grid.Rule = logic.Rules[sortedRuleNames[idx]]
-		s.m.prefs.setRule(s.m.grid.Rule)
-		return s.m.savePrefs()
-	})
-	s.clickPts.add(rgn.Text(3, 16, "▼", settingsTextStyle), func() tea.Cmd {
-		idx := slices.Index(sortedRuleNames, s.m.grid.Rule.Name())
-		if idx == -1 || idx >= len(sortedRuleNames)-1 {
-			idx = 0
-		} else {
-			idx++
-		}
-		s.m.grid.Rule = logic.Rules[sortedRuleNames[idx]]
-		s.m.prefs.setRule(s.m.grid.Rule)
-		return s.m.savePrefs()
-	})
-	rgn.Text(5, 2, "        RLE:", settingsTextStyle)
-	rgn.Text(5, 15, s.m.grid.Rule.Rle(), settingsTextStyle)
-	rgn.Text(6, 2, "       Born:", settingsTextStyle)
-	bw := s.m.grid.Rule.BornWith()
-	for w := 0; w < 9; w++ {
-		digit := strconv.Itoa(w)
-		if strings.Contains(bw, digit) {
-			s.clickPts.add(rgn.Text(6, 15+(w*2), digit, settingsTabStyle), func() tea.Cmd {
-				s.adjustRule(true, false, digit)
-				s.m.prefs.setRule(s.m.grid.Rule)
-				return s.m.savePrefs()
-			})
-		} else {
-			s.clickPts.add(rgn.Text(6, 15+(w*2), digit, settingsTextUlStyle), func() tea.Cmd {
-				s.adjustRule(true, true, digit)
-				s.m.prefs.setRule(s.m.grid.Rule)
-				return s.m.savePrefs()
-			})
-		}
-	}
-	rgn.Text(7, 2, "   Survives:", settingsTextStyle)
-	sw := s.m.grid.Rule.SurvivesWith()
-	for w := 0; w < 9; w++ {
-		digit := strconv.Itoa(w)
-		if strings.Contains(sw, digit) {
-			s.clickPts.add(rgn.Text(7, 15+(w*2), digit, settingsTabStyle), func() tea.Cmd {
-				s.adjustRule(false, false, digit)
-				s.m.prefs.setRule(s.m.grid.Rule)
-				return s.m.savePrefs()
-			})
-		} else {
-			s.clickPts.add(rgn.Text(7, 15+(w*2), digit, settingsTextUlStyle), func() tea.Cmd {
-				s.adjustRule(false, true, digit)
-				s.m.prefs.setRule(s.m.grid.Rule)
-				return s.m.savePrefs()
-			})
-		}
-	}
-
-	rgn.Text(9, 2, "Permutation: ▲▼", settingsTextStyle)
-	perm := s.m.grid.Rule.Permutation()
-	rgn.Text(9, 18, strconv.Itoa(perm), settingsTextStyle)
-	if perm > 0 {
-		s.clickPts.add(rgn.Text(9, 16, "▼", settingsTextStyle), func() tea.Cmd {
-			if nr, err := logic.NewRuleFromPermutation(s.m.grid.Rule.Permutation() - 1); err == nil {
-				s.m.grid.Rule = nr
-			}
-			s.m.prefs.setRule(s.m.grid.Rule)
-			return s.m.savePrefs()
-		})
-	}
-	if perm < (1 << 18) {
-		s.clickPts.add(rgn.Text(9, 15, "▲", settingsTextStyle), func() tea.Cmd {
-			if nr, err := logic.NewRuleFromPermutation(s.m.grid.Rule.Permutation() + 1); err == nil {
-				s.m.grid.Rule = nr
-			}
-			s.m.prefs.setRule(s.m.grid.Rule)
-			return s.m.savePrefs()
-		})
-	}
-	return nil
+var ruleForm = &layout.Form[*settings]{
+	Style:        settingsTextStyle,
+	FocusedStyle: settingsTabStyle,
+	FormRows: layout.FormRows[*settings]{
+		3: {
+			2: {Item: "       Name:"},
+			15: {
+				Item: layout.NewDropdownSelect(func(s *settings) []string {
+					return sortedRuleNames
+				}, -1, func(s *settings) string {
+					return s.m.grid.Rule.Name()
+				}, func(s *settings, value string) tea.Cmd {
+					if nr, ok := logic.Rules[value]; ok {
+						s.m.grid.Rule = nr
+						s.m.prefs.setRule(s.m.grid.Rule)
+						return s.m.savePrefs()
+					} else if strings.HasPrefix(value, "Custom ") {
+						if nr, err := logic.NewRuleRle("", strings.TrimPrefix(value, "Custom ")); err == nil {
+							s.m.grid.Rule = nr
+							s.m.prefs.setRule(s.m.grid.Rule)
+							return s.m.savePrefs()
+						}
+					}
+					return nil
+				}),
+			},
+		},
+		5: {
+			2: {Item: "       Rule:"},
+			15: {
+				Item: layout.NewTextInput(21, "BbSs/012345678", func(s *settings) string {
+					return s.m.grid.Rule.Rle()
+				}, func(s *settings, value string) tea.Cmd {
+					if nr, err := logic.NewRuleRle("", value); err == nil {
+						s.m.grid.Rule = nr
+						s.m.prefs.setRule(s.m.grid.Rule)
+						return s.m.savePrefs()
+					}
+					return nil
+				}),
+			},
+		},
+		7: {
+			2: {Item: "Permutation:"},
+			15: {Item: layout.NewNumberInput(6, 0, (1<<18)-1, func(s *settings) int {
+				return s.m.grid.Rule.Permutation()
+			}, func(s *settings, value int) tea.Cmd {
+				if nr, err := logic.NewRuleFromPermutation(value); err == nil {
+					s.m.grid.Rule = nr
+					s.m.prefs.setRule(s.m.grid.Rule)
+					return s.m.savePrefs()
+				}
+				return nil
+			})},
+		},
+	},
 }
 
 var sortedRuleNames = func() []string {
@@ -353,258 +371,189 @@ func rgb(c color.Color) (int, int, int) {
 
 func (s *settings) adjustCellColor(fg bool, r, g, b int) {
 	if fg {
-		s.m.cellStyle = s.m.cellStyle.Foreground(lipgloss.RGBColor{R: uint8(r), G: uint8(g), B: uint8(b)})
+		s.m.cellStyle = s.m.cellStyle.Foreground(lipgloss.RGBColor{R: clampRGB(r), G: clampRGB(g), B: clampRGB(b)})
 	} else {
-		s.m.cellStyle = s.m.cellStyle.Background(lipgloss.RGBColor{R: uint8(r), G: uint8(g), B: uint8(b)})
+		s.m.cellStyle = s.m.cellStyle.Background(lipgloss.RGBColor{R: clampRGB(r), G: clampRGB(g), B: clampRGB(b)})
 	}
 	s.m.gridSurface.ClearStyle(0, 0, -1, -1, &s.m.cellStyle)
 }
 
-func (s *settings) renderColorsSettings(rgn layout.Surface) *tea.Cursor {
-	fgR, fgG, fgB := rgb(s.m.cellStyle.GetForeground())
-	bgR, bgG, bgB := rgb(s.m.cellStyle.GetBackground())
-	rgn.Text(3, 2, "Foreground  R: ▲   ▼   G: ▲   ▼   B: ▲   ▼", settingsTextStyle)
-	rgn.Text(4, 2, "Background  R: ▲   ▼   G: ▲   ▼   B: ▲   ▼", settingsTextStyle)
-	rgn.TextRight(3, 18, 3, strconv.Itoa(fgR), settingsTextStyle)
-	rgn.TextRight(3, 29, 3, strconv.Itoa(fgG), settingsTextStyle)
-	rgn.TextRight(3, 40, 3, strconv.Itoa(fgB), settingsTextStyle)
-	rgn.TextRight(4, 18, 3, strconv.Itoa(bgR), settingsTextStyle)
-	rgn.TextRight(4, 29, 3, strconv.Itoa(bgG), settingsTextStyle)
-	rgn.TextRight(4, 40, 3, strconv.Itoa(bgB), settingsTextStyle)
-	if fgR < 255 {
-		s.clickPts.add(rgn.Text(3, 17, "▲", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(true, fgR+1, fgG, fgB)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
+func clampRGB(c int) uint8 {
+	if c < 0 {
+		return 0
+	} else if c > 255 {
+		return 255
 	}
-	if fgR > 0 {
-		s.clickPts.add(rgn.Text(3, 21, "▼", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(true, fgR-1, fgG, fgB)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
-	}
-	if fgG < 255 {
-		s.clickPts.add(rgn.Text(3, 28, "▲", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(true, fgR, fgG+1, fgB)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
-	}
-	if fgG > 0 {
-		s.clickPts.add(rgn.Text(3, 32, "▼", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(true, fgR, fgG-1, fgB)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
-	}
-	if fgB < 255 {
-		s.clickPts.add(rgn.Text(3, 39, "▲", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(true, fgR, fgG, fgB+1)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
-	}
-	if fgB > 0 {
-		s.clickPts.add(rgn.Text(3, 43, "▼", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(true, fgR, fgG, fgB-1)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
-	}
-	if bgR < 255 {
-		s.clickPts.add(rgn.Text(4, 17, "▲", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(false, bgR+1, bgG, bgB)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
-	}
-	if bgR > 0 {
-		s.clickPts.add(rgn.Text(4, 21, "▼", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(false, bgR-1, bgG, bgB)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
-	}
-	if bgG < 255 {
-		s.clickPts.add(rgn.Text(4, 28, "▲", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(false, bgR, bgG+1, bgB)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
-	}
-	if bgG > 0 {
-		s.clickPts.add(rgn.Text(4, 32, "▼", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(false, bgR, bgG-1, bgB)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
-	}
-	if bgB < 255 {
-		s.clickPts.add(rgn.Text(4, 39, "▲", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(false, bgR, bgG, bgB+1)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
-	}
-	if bgB > 0 {
-		s.clickPts.add(rgn.Text(4, 43, "▼", settingsTextStyle), func() tea.Cmd {
-			s.adjustCellColor(false, bgR, bgG, bgB-1)
-			s.m.prefs.setCellStyle(s.m.cellStyle)
-			return s.m.savePrefs()
-		})
+	return uint8(c)
+}
+
+var patternsForm = &layout.Form[*settings]{
+	Style:        settingsTextStyle,
+	FocusedStyle: settingsTabStyle,
+	FormRows: layout.FormRows[*settings]{
+		3: {
+			1: {Item: "Name:"},
+			7: {
+				Item: layout.NewDropdownSelect(func(s *settings) []string {
+					return sortedPatterns
+				}, -1, func(s *settings) string {
+					if s.currentPattern == nil {
+						if p, ok := patterns.PatternLibrary[sortedPatterns[0]]; ok {
+							s.currentPattern = &p
+						} else {
+							return ""
+						}
+					}
+					return s.currentPattern.Name
+				}, func(s *settings, value string) tea.Cmd {
+					s.patternOffY, s.patternOffX = 0, 0
+					if p, ok := patterns.PatternLibrary[value]; ok {
+						s.currentPattern = &p
+					}
+					return nil
+				}),
+			},
+		},
+		4: {
+			0: {Item: &patternPreview[*settings]{}},
+		},
+		18: {
+			1: {Item: "At  Y:      X:       Rotate:"},
+			7: {
+				Item: layout.NewNumberInput(4, 0, 9999, func(s *settings) int {
+					return s.patternPlaceY
+				}, func(s *settings, value int) tea.Cmd {
+					s.patternPlaceY = value
+					return nil
+				}),
+			},
+			14: {
+				Item: layout.NewNumberInput(4, 0, 9999, func(s *settings) int {
+					return s.patternPlaceX
+				}, func(s *settings, value int) tea.Cmd {
+					s.patternPlaceX = value
+					return nil
+				}),
+			},
+			30: {
+				Item: layout.NewRadio([]string{"0°", "90°", "180°", "270°"}, func(s *settings) int {
+					return int(s.patternRotate)
+				}, func(s *settings, value int) tea.Cmd {
+					s.patternRotate = patterns.Rotation(value)
+					return nil
+				}),
+			},
+			52: {
+				Item: layout.NewButton(" Place ", func(s *settings) tea.Cmd {
+					if s.currentPattern != nil {
+						s.currentPattern.Draw(s.m.grid, s.patternPlaceY, s.patternPlaceX, s.patternRotate)
+					}
+					return nil
+				}, false),
+			},
+		},
+	},
+}
+
+type patternPreview[T any] struct{}
+
+func (p *patternPreview[T]) Update(parent T, msg tea.Msg, focused bool) tea.Cmd {
+	if focused {
+		s := asSettings(parent)
+		switch mt := msg.(type) {
+		case tea.KeyPressMsg:
+			switch mt.String() {
+			case "up":
+				if s.patternOffY > 0 {
+					s.patternOffY--
+				}
+			case "down":
+				s.patternOffY++
+			case "left":
+				if s.patternOffX > 0 {
+					s.patternOffX--
+				}
+			case "right":
+				s.patternOffX++
+			case "ctrl+k":
+				s.patternInfo = !s.patternInfo
+			}
+		}
 	}
 	return nil
 }
 
-func (s *settings) renderPatternSettings(rgn layout.Surface) *tea.Cursor {
+func (p *patternPreview[T]) Render(parent T, form *layout.Form[T], inputNo int, sf layout.Surface, clickPts layout.ClickPoints[T], row, col int, focused bool, style lipgloss.Style, focusedStyle lipgloss.Style) {
+	rgn := sf.Region(row, col+1, 14, sf.Width()-2)
+	s := asSettings(parent)
 	if s.currentPattern == nil {
-		if p, ok := patterns.PatternLibrary[sortedPatterns[0]]; ok {
-			s.currentPattern = &p
+		rgn.TextCenter(7, 0, rgn.Width(), "No preview/info available", settingsTextStyle)
+	} else if s.patternInfo {
+		rgn.TextCenter(1, 0, rgn.Width(), "Pattern Information", settingsTextStyle)
+		rgn.Text(2, 2, "Height: "+strconv.Itoa(s.currentPattern.Height), settingsTextStyle)
+		rgn.Text(2, 17, "Width: "+strconv.Itoa(s.currentPattern.Width), settingsTextStyle)
+		clickPts.Add(rgn.Text(2, rgn.Width()-17, "ctrl+k", settingsTextUlStyle), func(parent T) tea.Cmd {
+			s.patternInfo = false
+			return nil
+		})
+		rgn.Text(2, rgn.Width()-10, "- Preview", settingsTextStyle)
+		if s.currentPattern.Rule != nil {
+			rgn.Text(3, 4, "Rule:", settingsTextStyle)
+			clickPts.Add(rgn.Text(3, 10, s.currentPattern.Rule.Rle(), settingsTextUlStyle), func(parent T) tea.Cmd {
+				s.m.grid.Rule = s.currentPattern.Rule
+				s.m.prefs.setRule(s.m.grid.Rule)
+				return s.m.savePrefs()
+			})
 		}
-	}
-	if s.currentPattern != nil {
-		rgn.Text(2, 1, "Name:", settingsTextStyle)
-		s.clickPts.add(rgn.Text(2, 7, "▲", settingsTextStyle), func() tea.Cmd {
-			s.patternOffX, s.patternOffY = 0, 0
-			if s.currentPattern != nil {
-				idx := slices.Index(sortedPatterns, s.currentPattern.Name)
-				if idx <= 0 {
-					idx = len(sortedPatterns) - 1
-				} else {
-					idx--
-				}
-				if p, ok := patterns.PatternLibrary[sortedPatterns[idx]]; ok {
-					s.currentPattern = &p
-				}
+		rgn.Text(5, 2, "Origin: "+s.currentPattern.Origination, settingsTextStyle)
+		if len(s.currentPattern.Comments) > 0 {
+			rgn.Text(6, 1, "Comment:", settingsTextStyle)
+			y := 6
+			for _, comment := range s.currentPattern.Comments {
+				y += rgn.TextWrapped(y, 10, rgn.Width()-11, comment, settingsTextStyle)
 			}
-			return nil
-		})
-		s.clickPts.add(rgn.Text(2, 8, "▼", settingsTextStyle), func() tea.Cmd {
-			s.patternOffX, s.patternOffY = 0, 0
-			if s.currentPattern != nil {
-				idx := slices.Index(sortedPatterns, s.currentPattern.Name)
-				if idx == -1 || idx >= len(sortedPatterns)-1 {
-					idx = 0
-				} else {
-					idx++
-				}
-				if p, ok := patterns.PatternLibrary[sortedPatterns[idx]]; ok {
-					s.currentPattern = &p
-				}
-			}
-			return nil
-		})
-		rgn.Text(2, 10, s.currentPattern.Name, settingsTextStyle)
+		}
+	} else {
 		wd := s.currentPattern.Width - s.patternOffX
-		if wd > rgn.Width()-2 {
-			wd = rgn.Width() - 2
+		if wd > rgn.Width() {
+			wd = rgn.Width()
 		}
 		ht := s.currentPattern.Height - s.patternOffY
-		if ht > rgn.Height()-5 {
-			ht = rgn.Height() - 5
+		if ht > rgn.Height() {
+			ht = rgn.Height()
 		}
-		if preview := rgn.Region(3, 1, ht, wd); preview != nil {
-			preview.FillWith(0, 0, preview.Height(), preview.Width(), '\u00A0', settingsPreviewStyle)
+		if preview := rgn.Region(0, 0, ht, wd); preview != nil {
+			for y := 0; y < ht; y++ {
+				clickPts.Add(layout.Placement{
+					Extent: wd,
+					Row:    preview.AbsoluteTop() + y,
+					Col:    preview.AbsoluteLeft(),
+				}, func(parent T) tea.Cmd {
+					s := asSettings(parent)
+					s.patternInfo = true
+					return nil
+				})
+			}
+			useStyle := settingsPreviewStyle
+			if focused {
+				useStyle = settingsPreviewFocusedStyle
+			}
+			preview.FillWith(0, 0, preview.Height(), preview.Width(), '\u00A0', useStyle)
+			aliveStyle := lipgloss.NewStyle().Foreground(useStyle.GetBackground()).Background(useStyle.GetForeground())
 			s.currentPattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
 				if alive {
 					ar, ac := row-s.patternOffY, col-s.patternOffX
 					if ar >= 0 && ac >= 0 {
-						preview.Text(ar, ac, "\u00A0", settingsPreviewAliveStyle)
+						preview.Text(ar, ac, "\u00A0", aliveStyle)
 					}
 				}
 			})
 		}
-		s.clickPts.add(rgn.Text(rgn.Height()-2, 1, "Place", settingsTabStyle), func() tea.Cmd {
-			if s.currentPattern != nil {
-				s.currentPattern.Draw(s.m.grid, s.patternPlaceY, s.patternPlaceX, s.patternRotate)
-			}
-			return nil
-		})
-		rgn.Text(rgn.Height()-2, 8, "At Y: ▲▼      X: ▲▼", settingsTextStyle)
-		s.clickPts.add(rgn.Text(rgn.Height()-2, 14, "▲", settingsTextStyle), func() tea.Cmd {
-			s.patternPlaceY++
-			return nil
-		})
-		s.clickPts.add(rgn.Text(rgn.Height()-2, 15, "▼", settingsTextStyle), func() tea.Cmd {
-			if s.patternPlaceY > 0 {
-				s.patternPlaceY--
-			}
-			return nil
-		})
-		s.clickPts.add(rgn.Text(rgn.Height()-2, 25, "▲", settingsTextStyle), func() tea.Cmd {
-			s.patternPlaceX++
-			return nil
-		})
-		s.clickPts.add(rgn.Text(rgn.Height()-2, 26, "▼", settingsTextStyle), func() tea.Cmd {
-			if s.patternPlaceX > 0 {
-				s.patternPlaceX--
-			}
-			return nil
-		})
-		rgn.Text(rgn.Height()-2, 16, strconv.Itoa(s.patternPlaceY), settingsTextStyle)
-		rgn.Text(rgn.Height()-2, 27, strconv.Itoa(s.patternPlaceX), settingsTextStyle)
-		switch s.patternRotate {
-		case patterns.Rotate90:
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 35, "0°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate0
-				return nil
-			})
-			rgn.Text(rgn.Height()-2, 39, "90°", settingsTabStyle)
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 44, "180°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate180
-				return nil
-			})
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 50, "270°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate270
-				return nil
-			})
-		case patterns.Rotate180:
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 35, "0°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate0
-				return nil
-			})
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 39, "90°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate90
-				return nil
-			})
-			rgn.Text(rgn.Height()-2, 44, "180°", settingsTabStyle)
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 50, "270°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate270
-				return nil
-			})
-		case patterns.Rotate270:
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 35, "0°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate0
-				return nil
-			})
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 39, "90°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate90
-				return nil
-			})
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 44, "180°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate180
-				return nil
-			})
-			rgn.Text(rgn.Height()-2, 50, "270°", settingsTabStyle)
-		default:
-			rgn.Text(rgn.Height()-2, 35, "0°", settingsTabStyle)
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 39, "90°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate90
-				return nil
-			})
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 44, "180°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate180
-				return nil
-			})
-			s.clickPts.add(rgn.Text(rgn.Height()-2, 50, "270°", settingsTextUlStyle), func() tea.Cmd {
-				s.patternRotate = patterns.Rotate270
-				return nil
-			})
-		}
 	}
-	return nil
+}
+
+func asSettings(parent any) *settings {
+	return parent.(*settings)
 }
 
 var sortedPatterns = sortPatterns()
@@ -618,47 +567,77 @@ func sortPatterns() []string {
 	return names
 }
 
-func (s *settings) renderLoadPatternsSettings(rgn layout.Surface) *tea.Cursor {
-	rgn.Text(3, 2, "From:", settingsTextStyle)
-	maxWd := rgn.Width() - 8
-	show := s.loadFrom
-	if len(show) > maxWd {
-		show = show[len(show)-maxWd:]
-	}
-	rgn.TextFixed(3, 7, maxWd, show, settingsTabStyle)
-	rgn.TextCenter(5, 2, rgn.Width()-4, "Enter path to directory or file and press...", settingsTextStyle)
-	s.clickPts.add(rgn.Text(6, (rgn.Width()/2)-2, " Load ", settingsTabStyle), func() tea.Cmd {
-		s.loadPatternsResult = nil
-		if s.loadFrom != "" {
-			return func() tea.Msg {
-				fs, err := os.Stat(s.loadFrom)
-				if err != nil {
-					return loadPatternsResult{error: "Invalid filepath"}
-				}
-				if fs.IsDir() {
-					return loadPatternsLibrary(s.loadFrom, false)
-				} else if err = loadPattern(s.loadFrom); err == nil {
+var loadPatternsForm = &layout.Form[*settings]{
+	Style:        settingsTextStyle,
+	FocusedStyle: settingsTabStyle,
+	FormRows: layout.FormRows[*settings]{
+		3: {
+			2: {Item: "From:"},
+			8: {Item: layout.NewTextInput(-1, "", func(s *settings) string {
+				return s.loadFrom
+			}, func(s *settings, value string) tea.Cmd {
+				s.loadFrom = value
+				return nil
+			})},
+		},
+		5: {
+			0: {Item: "Enter path to directory or file and press...", Alignment: layout.AlignCenter},
+		},
+		7: {
+			0: {
+				Item: layout.NewButton("Load", func(s *settings) tea.Cmd {
+					s.loadPatternsResult = nil
+					if s.loadFrom != "" {
+						return func() tea.Msg {
+							fs, err := os.Stat(s.loadFrom)
+							if err != nil {
+								return loadPatternsResult{error: "Invalid filepath"}
+							}
+							if fs.IsDir() {
+								return loadPatternsLibrary(s.loadFrom, false)
+							} else if err = loadPattern(s.loadFrom); err == nil {
+								sortedPatterns = sortPatterns()
+								return loadPatternsResult{loaded: 1, filename: s.loadFrom}
+							} else {
+								return loadPatternsResult{error: err.Error()}
+							}
+						}
+					}
+					return nil
+				}).Align(layout.AlignCenter),
+			},
+		},
+		9: {
+			0: {
+				Item: func(s *settings) any {
+					if s.loadPatternsResult != nil {
+						if s.loadPatternsResult.error != "" {
+							return "Error: " + s.loadPatternsResult.error
+						} else {
+							return fmt.Sprintf("Successfully loaded %d pattern(s)", s.loadPatternsResult.loaded)
+						}
+					}
+					return ""
+				},
+				Alignment: layout.AlignCenter,
+				Width:     -1,
+			},
+		},
+		15: {
+			0: {Item: "To clear all loaded patterns and libraries...", Alignment: layout.AlignCenter},
+		},
+		17: {
+			0: {
+				Item: layout.NewButton("Clear", func(s *settings) tea.Cmd {
+					s.loadPatternsResult = nil
+					patterns.ResetLibrary()
 					sortedPatterns = sortPatterns()
-					return loadPatternsResult{loaded: 1, filename: s.loadFrom}
-				} else {
-					return loadPatternsResult{error: err.Error()}
-				}
-			}
-		}
-		return nil
-	})
-	if s.loadPatternsResult != nil {
-		if s.loadPatternsResult.error != "" {
-			rgn.TextWrapped(7, 1, rgn.Width()-2, "Error: "+s.loadPatternsResult.error, settingsTextStyle)
-		} else {
-			rgn.TextCenter(7, 1, rgn.Width()-2, fmt.Sprintf("Successfully loaded %d pattern(s)", s.loadPatternsResult.loaded), settingsTextStyle)
-		}
-	}
-	l := len(show)
-	if l == maxWd {
-		l--
-	}
-	return tea.NewCursor(rgn.AbsoluteLeft()+7+l, rgn.AbsoluteTop()+3)
+					s.m.prefs.clearPatterns()
+					return s.m.savePrefs()
+				}).Align(layout.AlignCenter),
+			},
+		},
+	},
 }
 
 type loadPatternsResult struct {
@@ -699,6 +678,9 @@ func loadPattern(fp string) error {
 	if p, err := patterns.NewPatternFromRle(f); err != nil {
 		return err
 	} else {
+		if p.Name == "" {
+			p.Name = filepath.Base(fp)
+		}
 		patterns.PatternLibrary[p.Name] = p
 		return nil
 	}
@@ -707,7 +689,6 @@ func loadPattern(fp string) error {
 const (
 	tabGrid = iota
 	tabRule
-	tabColors
 	tabPatterns
 	tabLoad
 )
@@ -719,9 +700,8 @@ var tabs = []struct {
 }{
 	{"Grid", 0, tabGrid},
 	{"Rule", 0, tabRule},
-	{"Colors", 1, tabColors},
 	{"Patterns", 0, tabPatterns},
-	{"Load", -1, tabLoad},
+	{"Load", 1, tabLoad},
 }
 
 func (s *settings) renderTabs(rgn layout.Surface) {
@@ -730,7 +710,7 @@ func (s *settings) renderTabs(rgn layout.Surface) {
 		if tab.tabNo == s.tab {
 			rgn.Text(1, x-1, " "+tab.title+" ", settingsTabStyle)
 		} else {
-			s.clickPts.add(rgn.Text(1, x, tab.title, settingsTextStyle), func() tea.Cmd {
+			s.clickPts.Add(rgn.Text(1, x, tab.title, settingsTextStyle), func(s *settings) tea.Cmd {
 				s.tab = tab.tabNo
 				return nil
 			})
@@ -754,96 +734,33 @@ func (s *settings) update(msg tea.Msg) tea.Cmd {
 			s.tab = tabGrid
 		case "ctrl+r":
 			s.tab = tabRule
-		case "ctrl+o":
-			s.tab = tabColors
 		case "ctrl+p":
 			s.tab = tabPatterns
-		case "backspace":
-			if s.tab == tabLoad && len(s.loadFrom) > 0 {
-				s.loadFrom = s.loadFrom[:len(s.loadFrom)-1]
-			}
-		case "up":
-			if s.tab == tabPatterns && s.patternOffY > 0 {
-				s.patternOffY--
-			}
-		case "down":
-			if s.tab == tabPatterns {
-				s.patternOffY++
-			}
-		case "left":
-			if s.tab == tabPatterns && s.patternOffX > 0 {
-				s.patternOffX--
-			}
-		case "right":
-			if s.tab == tabPatterns {
-				s.patternOffX++
-			}
-		case "pgup":
-			if s.tab == tabPatterns {
-				s.patternOffX, s.patternOffY = 0, 0
-				idx := 0
-				if s.currentPattern != nil {
-					idx = slices.Index(sortedPatterns, s.currentPattern.Name)
-					if idx <= 0 {
-						idx = len(sortedPatterns) - 1
-					} else {
-						idx--
-					}
-				}
-				if p, ok := patterns.PatternLibrary[sortedPatterns[idx]]; ok {
-					s.currentPattern = &p
-				}
-			}
-		case "pgdown":
-			if s.tab == tabPatterns {
-				s.patternOffX, s.patternOffY = 0, 0
-				idx := 0
-				if s.currentPattern != nil {
-					idx = slices.Index(sortedPatterns, s.currentPattern.Name)
-					if idx == -1 || idx >= len(sortedPatterns)-1 {
-						idx = 0
-					} else {
-						idx++
-					}
-				}
-				if p, ok := patterns.PatternLibrary[sortedPatterns[idx]]; ok {
-					s.currentPattern = &p
-				}
-			}
+		case "ctrl+o":
+			s.tab = tabLoad
 		default:
-			if len(mt.String()) == 1 {
-				if s.tab == tabLoad {
-					s.loadFrom += mt.String()
-				} else if s.tab == tabPatterns {
-					str := strings.ToLower(mt.String())
-					idx := slices.IndexFunc(sortedPatterns, func(s string) bool {
-						return strings.HasPrefix(strings.ToLower(s), str)
-					})
-					if idx != -1 {
-						if p, ok := patterns.PatternLibrary[sortedPatterns[idx]]; ok {
-							s.currentPattern = &p
-						}
-					}
-				}
+			if s.currentForm != nil {
+				return s.currentForm.Update(s, msg)
 			}
 		}
 	case tea.MouseClickMsg:
 		clickX, clickY := mt.X-s.absLeft, mt.Y-s.absTop
 		if clickX < 0 || clickX >= s.width || clickY < 0 || clickY >= s.height {
 			s.m.settingsShowing = false
-		} else if fn, ok := s.clickPts[clickPt{mt.Y, mt.X}]; ok {
-			return fn()
+		} else if fn, ok := s.clickPts[layout.ClickPoint{mt.Y, mt.X}]; ok {
+			return fn(s)
+		} else if s.currentForm != nil {
+			return s.currentForm.Update(s, msg)
+		}
+	case tea.MouseWheelMsg:
+		if s.currentForm != nil {
+			return s.currentForm.Update(s, msg)
 		}
 	case tea.PasteMsg:
-		switch s.tab {
-		case tabRule:
-			if r, err := logic.NewRuleRle("", mt.Content); err == nil {
-				s.m.grid.Rule = r
-				s.m.prefs.setRule(s.m.grid.Rule)
-				return s.m.savePrefs()
+		if s.currentForm != nil {
+			if cmd := s.currentForm.Update(s, mt); cmd != nil {
+				return cmd
 			}
-		case tabLoad:
-			s.loadFrom = strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(mt.Content, "\n", ""), "\r", ""), "\t", "")
 		}
 	case loadPatternsResult:
 		s.loadPatternsResult = &mt
@@ -855,16 +772,10 @@ func (s *settings) update(msg tea.Msg) tea.Cmd {
 			}
 			return s.m.savePrefs()
 		}
+	default:
+		if s.currentForm != nil {
+			return s.currentForm.Update(s, msg)
+		}
 	}
 	return nil
-}
-
-type clickPt [2]int //Y,X
-
-type clickPts map[clickPt]func() tea.Cmd
-
-func (cp clickPts) add(pl layout.Placement, fn func() tea.Cmd) {
-	for l := 0; l < pl.Extent; l++ {
-		cp[clickPt{pl.Row, pl.Col + l}] = fn
-	}
 }

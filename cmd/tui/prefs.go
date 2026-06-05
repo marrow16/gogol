@@ -184,6 +184,11 @@ func (p *prefs) addPatternLibrary(path string) {
 	}
 }
 
+func (p *prefs) clearPatterns() {
+	p.PatternLibraries = []string{}
+	p.Patterns = []string{}
+}
+
 func (p *prefs) save() {
 	if f, err := os.Create(prefsFilename); err == nil {
 		defer f.Close()
