@@ -60,13 +60,13 @@ func (s *settings) render(rgn layout.Surface) *tea.Cursor {
 	s.currentForm = nil
 	var csr *tea.Cursor
 	switch s.tab {
-	case tabGrid:
+	case settingsTabGrid:
 		s.currentForm = gridForm
-	case tabRule:
+	case settingsTabRule:
 		s.currentForm = ruleForm
-	case tabPatterns:
+	case settingsTabPatterns:
 		s.currentForm = patternsForm
-	case tabLoad:
+	case settingsTabLoad:
 		s.currentForm = loadPatternsForm
 	}
 	if s.currentForm != nil {
@@ -415,7 +415,7 @@ var patternsForm = &layout.Form[*settings]{
 			},
 		},
 		4: {
-			0: {Item: &patternPreview[*settings]{}},
+			0: {Item: &settingsPatternPreview[*settings]{}},
 		},
 		18: {
 			1: {Item: "At  Y:      X:       Rotate:"},
@@ -455,9 +455,9 @@ var patternsForm = &layout.Form[*settings]{
 	},
 }
 
-type patternPreview[T any] struct{}
+type settingsPatternPreview[T any] struct{}
 
-func (p *patternPreview[T]) Update(parent T, msg tea.Msg, focused bool) tea.Cmd {
+func (p *settingsPatternPreview[T]) Update(parent T, msg tea.Msg, focused bool) tea.Cmd {
 	if focused {
 		s := asSettings(parent)
 		switch mt := msg.(type) {
@@ -483,7 +483,7 @@ func (p *patternPreview[T]) Update(parent T, msg tea.Msg, focused bool) tea.Cmd 
 	return nil
 }
 
-func (p *patternPreview[T]) Render(parent T, form *layout.Form[T], inputNo int, sf layout.Surface, clickPts layout.ClickPoints[T], row, col int, focused bool, style lipgloss.Style, focusedStyle lipgloss.Style) {
+func (p *settingsPatternPreview[T]) Render(parent T, form *layout.Form[T], inputNo int, sf layout.Surface, clickPts layout.ClickPoints[T], row, col int, focused bool, style lipgloss.Style, focusedStyle lipgloss.Style) *tea.Cursor {
 	rgn := sf.Region(row, col+1, 14, sf.Width()-2)
 	s := asSettings(parent)
 	if s.currentPattern == nil {
@@ -550,6 +550,7 @@ func (p *patternPreview[T]) Render(parent T, form *layout.Form[T], inputNo int, 
 			})
 		}
 	}
+	return nil
 }
 
 func asSettings(parent any) *settings {
@@ -578,7 +579,7 @@ var loadPatternsForm = &layout.Form[*settings]{
 			}, func(s *settings, value string) tea.Cmd {
 				s.loadFrom = value
 				return nil
-			})},
+			}, true)},
 		},
 		5: {
 			0: {Item: "Enter path to directory or file and press...", Alignment: layout.AlignCenter},
@@ -687,26 +688,26 @@ func loadPattern(fp string) error {
 }
 
 const (
-	tabGrid = iota
-	tabRule
-	tabPatterns
-	tabLoad
+	settingsTabGrid = iota
+	settingsTabRule
+	settingsTabPatterns
+	settingsTabLoad
 )
 
-var tabs = []struct {
+var settingsTabs = []struct {
 	title string
 	ul    int
 	tabNo int
 }{
-	{"Grid", 0, tabGrid},
-	{"Rule", 0, tabRule},
-	{"Patterns", 0, tabPatterns},
-	{"Load", 1, tabLoad},
+	{"Grid", 0, settingsTabGrid},
+	{"Rule", 0, settingsTabRule},
+	{"Patterns", 0, settingsTabPatterns},
+	{"Load", 1, settingsTabLoad},
 }
 
 func (s *settings) renderTabs(rgn layout.Surface) {
 	x := 3
-	for _, tab := range tabs {
+	for _, tab := range settingsTabs {
 		if tab.tabNo == s.tab {
 			rgn.Text(1, x-1, " "+tab.title+" ", settingsTabStyle)
 		} else {
@@ -731,13 +732,13 @@ func (s *settings) update(msg tea.Msg) tea.Cmd {
 		case "esc":
 			s.m.settingsShowing = false
 		case "ctrl+g":
-			s.tab = tabGrid
+			s.tab = settingsTabGrid
 		case "ctrl+r":
-			s.tab = tabRule
+			s.tab = settingsTabRule
 		case "ctrl+p":
-			s.tab = tabPatterns
+			s.tab = settingsTabPatterns
 		case "ctrl+o":
-			s.tab = tabLoad
+			s.tab = settingsTabLoad
 		default:
 			if s.currentForm != nil {
 				return s.currentForm.Update(s, msg)

@@ -20,6 +20,8 @@ type Surface interface {
 	ClearArea(row, col, height, width int)
 	Get(row, col int) string
 	ClearStyle(row, col, height, width int, style *lipgloss.Style)
+	GetStyle(row, col int) *lipgloss.Style
+	SetStyle(row, col int, style *lipgloss.Style)
 }
 
 type surface struct {
@@ -127,6 +129,23 @@ func (s *surface) ClearStyle(row, col, height, width int, style *lipgloss.Style)
 					seg.style = style
 				}
 			}
+		}
+	}
+}
+
+func (s *surface) GetStyle(row, col int) *lipgloss.Style {
+	if row >= 0 && row < s.height && col >= 0 && col < s.width {
+		if seg := s.rows[row][col]; seg != nil {
+			return seg.style
+		}
+	}
+	return nil
+}
+
+func (s *surface) SetStyle(row, col int, style *lipgloss.Style) {
+	if row >= 0 && row < s.height && col >= 0 && col < s.width {
+		if seg := s.rows[row][col]; seg != nil {
+			seg.style = style
 		}
 	}
 }

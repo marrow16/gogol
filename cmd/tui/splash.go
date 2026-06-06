@@ -7,7 +7,7 @@ import (
 
 func renderSplash(sf layout.Surface) {
 	const (
-		height = 11
+		height = 12
 		width  = 40
 	)
 	rgn := sf.Region((sf.Height()/2)-(height/2), (sf.Width()/2)-(width/2), height, width)
@@ -26,10 +26,12 @@ func renderSplash(sf layout.Surface) {
 	rgn.Text(6, 16, "- to start/stop", settingsTextStyle)
 	rgn.Text(7, 9, "space", settingsTextUlStyle)
 	rgn.Text(7, 16, "- to step", settingsTextStyle)
-	rgn.Text(8, 9, "ctrl+s", settingsTextUlStyle)
-	rgn.Text(8, 16, "- for settings", settingsTextStyle)
-	rgn.Text(9, 9, "esc", settingsTextUlStyle)
-	rgn.Text(9, 13, "/", settingsTextStyle)
-	rgn.Text(9, 15, "ctrl+c", settingsTextUlStyle)
-	rgn.Text(9, 22, "- to quit", settingsTextStyle)
+	rgn.Text(8, 9, "ctrl+k", settingsTextUlStyle)
+	rgn.Text(8, 16, "- capture mode", settingsTextStyle)
+	rgn.Text(9, 9, "ctrl+s", settingsTextUlStyle)
+	rgn.Text(9, 16, "- for settings", settingsTextStyle)
+	rgn.Text(10, 9, "esc", settingsTextUlStyle)
+	rgn.Text(10, 13, "/", settingsTextStyle)
+	rgn.Text(10, 15, "ctrl+c", settingsTextUlStyle)
+	rgn.Text(10, 22, "- to quit", settingsTextStyle)
 }
