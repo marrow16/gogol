@@ -58,7 +58,7 @@ func TestRlePatternsWalk(t *testing.T) {
 	fmt.Println("count:", count)
 }
 
-func testRleDecodeFile(t *testing.T, filename string) {
+func testRleDecodeFile(t *testing.T, filename string) Pattern {
 	f, err := os.Open(patternsPath + "/" + filename)
 	if err != nil {
 		t.Fatal(err)
@@ -68,4 +68,5 @@ func testRleDecodeFile(t *testing.T, filename string) {
 	assert.NoError(t, err, filename)
 	assert.True(t, p.Height <= 100)
 	assert.True(t, p.Width <= 100)
+	return p
 }

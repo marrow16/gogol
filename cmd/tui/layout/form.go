@@ -39,7 +39,10 @@ func (f *Form[T]) Render(parent T, clickPts ClickPoints[T], sf Surface) *tea.Cur
 					onInput++
 				case CustomInput[T]:
 					f.customInputs[onInput] = it
-					it.Render(parent, f, onInput, sf, clickPts, r, c, onInput == f.focusedInput, f.Style, f.FocusedStyle)
+					fcsr := it.Render(parent, f, onInput, sf, clickPts, r, c, onInput == f.focusedInput, f.Style, f.FocusedStyle)
+					if onInput == f.focusedInput {
+						csr = fcsr
+					}
 					onInput++
 				default:
 					styles := []lipgloss.Style{f.Style}

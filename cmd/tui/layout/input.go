@@ -16,10 +16,10 @@ type Input[T any] interface {
 
 type CustomInput[T any] interface {
 	Update(parent T, msg tea.Msg, focused bool) tea.Cmd
-	Render(parent T, form *Form[T], inputNo int, sf Surface, clickPts ClickPoints[T], row, col int, focused bool, style lipgloss.Style, focusedStyle lipgloss.Style)
+	Render(parent T, form *Form[T], inputNo int, sf Surface, clickPts ClickPoints[T], row, col int, focused bool, style lipgloss.Style, focusedStyle lipgloss.Style) *tea.Cursor
 }
 
-func NewNumberInput[T any](width int, min, max int, getFn func(parent T) int, setFn func(parent T, value int) tea.Cmd) Input[T] {
+func NewNumberInput[T any](width int, min, max any, getFn func(parent T) int, setFn func(parent T, value int) tea.Cmd) Input[T] {
 	return &numberInput[T]{
 		width:    width,
 		min:      min,
@@ -32,12 +32,32 @@ func NewNumberInput[T any](width int, min, max int, getFn func(parent T) int, se
 type numberInput[T any] struct {
 	alignment Alignment
 	width     int
-	max       int
-	min       int
+	max       any
+	min       any
 	value     string
 	got       bool
 	getValue  func(parent T) int
 	setValue  func(parent T, value int) tea.Cmd
+}
+
+func (n *numberInput[T]) getMin(parent T) int {
+	switch mt := n.min.(type) {
+	case int:
+		return mt
+	case func(parent T) int:
+		return mt(parent)
+	}
+	return 0
+}
+
+func (n *numberInput[T]) getMax(parent T) int {
+	switch mt := n.max.(type) {
+	case int:
+		return mt
+	case func(parent T) int:
+		return mt(parent)
+	}
+	return 0
 }
 
 func (n *numberInput[T]) Align(a Alignment) Input[T] {
@@ -66,20 +86,20 @@ func (n *numberInput[T]) key(parent T, msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "up":
 		if n.value == "" {
-			v := n.max
+			v := n.getMax(parent)
 			n.value = strconv.Itoa(v)
 			return n.setValue(parent, v)
-		} else if v, err := strconv.Atoi(n.value); err == nil && v < n.max {
+		} else if v, err := strconv.Atoi(n.value); err == nil && v < n.getMax(parent) {
 			v++
 			n.value = strconv.Itoa(v)
 			return n.setValue(parent, v)
 		}
 	case "down":
 		if n.value == "" {
-			v := n.min
+			v := n.getMin(parent)
 			n.value = strconv.Itoa(v)
 			return n.setValue(parent, v)
-		} else if v, err := strconv.Atoi(n.value); err == nil && v > n.min {
+		} else if v, err := strconv.Atoi(n.value); err == nil && v > n.getMin(parent) {
 			v--
 			n.value = strconv.Itoa(v)
 			return n.setValue(parent, v)
@@ -87,13 +107,13 @@ func (n *numberInput[T]) key(parent T, msg tea.KeyPressMsg) tea.Cmd {
 	case "backspace":
 		if len(n.value) > 0 {
 			n.value = n.value[:len(n.value)-1]
-			if v, err := strconv.Atoi(n.value); err == nil && v >= n.min && v <= n.max {
+			if v, err := strconv.Atoi(n.value); err == nil && v >= n.getMin(parent) && v <= n.getMax(parent) {
 				n.value = strconv.Itoa(v)
 				return n.setValue(parent, v)
 			}
 		}
 	case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
-		if v, err := strconv.Atoi(n.value + msg.String()); err == nil && v >= n.min && v <= n.max {
+		if v, err := strconv.Atoi(n.value + msg.String()); err == nil && v >= n.getMin(parent) && v <= n.getMax(parent) {
 			n.value = strconv.Itoa(v)
 			return n.setValue(parent, v)
 		}
@@ -108,7 +128,7 @@ func (n *numberInput[T]) paste(parent T, msg tea.PasteMsg) tea.Cmd {
 			sb.WriteRune(r)
 		}
 	}
-	if v, err := strconv.Atoi(sb.String()); err == nil && v >= n.min && v <= n.max {
+	if v, err := strconv.Atoi(sb.String()); err == nil && v >= n.getMin(parent) && v <= n.getMax(parent) {
 		n.value = strconv.Itoa(v)
 		return n.setValue(parent, v)
 	}
@@ -140,9 +160,11 @@ func (n *numberInput[T]) Render(parent T, form *Form[T], inputNo int, sf Surface
 	}
 }
 
-func NewTextInput[T any](width int, validChars string, getFn func(parent T) string, setFn func(parent T, value string) tea.Cmd) Input[T] {
+func NewTextInput[T any](width int, validChars string, getFn func(parent T) string, setFn func(parent T, value string) tea.Cmd, opts ...bool) Input[T] {
+	unlimited := len(opts) > 0 && opts[0]
 	return &textInput[T]{
 		width:      width,
+		unlimited:  unlimited,
 		validChars: validChars,
 		getValue:   getFn,
 		setValue:   setFn,
@@ -152,6 +174,7 @@ func NewTextInput[T any](width int, validChars string, getFn func(parent T) stri
 type textInput[T any] struct {
 	alignment  Alignment
 	width      int
+	unlimited  bool
 	validChars string
 	value      string
 	got        bool
@@ -182,7 +205,7 @@ func (t *textInput[T]) key(parent T, msg tea.KeyPressMsg) tea.Cmd {
 			return t.setValue(parent, t.value)
 		}
 	default:
-		if ch := msg.String(); len(ch) == 1 && len(t.value) < t.width {
+		if ch := msg.String(); len(ch) == 1 && (t.unlimited || len(t.value) < t.width) {
 			if t.validChars == "" || strings.Contains(t.validChars, ch) {
 				t.value += ch
 				return t.setValue(parent, t.value)
@@ -216,12 +239,11 @@ func (t *textInput[T]) Render(parent T, form *Form[T], inputNo int, sf Surface, 
 			t.value = t.getValue(parent)
 			t.got = true
 		}
-		sf.Text(row, col, strings.Repeat(" ", t.width), focusedStyle)
 		csrX := len(t.value)
 		if csrX >= t.width {
 			csrX = t.width - 1
 		}
-		sf.Text(row, col, t.value, focusedStyle)
+		sf.TextFixed(row, col, t.width, t.value, focusedStyle)
 		return tea.NewCursor(sf.AbsoluteLeft()+col+csrX, sf.AbsoluteTop()+row), nil
 	} else {
 		t.got = false

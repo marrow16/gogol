@@ -23,6 +23,8 @@ type prefs struct {
 	Rule             string   `json:"rule"`
 	Patterns         []string `json:"patterns,omitempty"`
 	PatternLibraries []string `json:"pattern_libraries,omitempty"`
+	Originator       string   `json:"originator,omitempty"`
+	SavePath         string   `json:"save_path,omitempty"`
 }
 
 const (

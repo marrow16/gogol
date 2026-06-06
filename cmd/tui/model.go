@@ -30,6 +30,7 @@ func newModel() *model {
 	}
 	grid.Render = m.renderCell
 	m.settings = &settings{m: m}
+	m.capture = &capture{m: m}
 	grid.Randomize(m.random)
 	return m
 }
@@ -65,7 +66,9 @@ type model struct {
 	cellStyle       lipgloss.Style
 	running         bool
 	settingsShowing bool
+	capturing       bool
 	settings        *settings
+	capture         *capture
 	splashShowing   bool
 	// settings...
 	stepDelay  int
@@ -106,6 +109,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.splashShowing = false
 		if m.settingsShowing {
 			return m, m.settings.update(msg)
+		} else if m.capturing {
+			return m, m.capture.update(msg)
 		} else {
 			switch mt.String() {
 			case "ctrl+c", "esc":
@@ -113,6 +118,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+s":
 				m.running = false
 				m.settingsShowing = true
+			case "ctrl+k":
+				m.running = false
+				m.capture.start()
 			case "f1":
 				m.running = false
 				m.splashShowing = true
@@ -128,7 +136,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tickMsg:
-		if m.running && !m.settingsShowing {
+		if m.running && !m.settingsShowing && !m.capturing {
 			if m.grid.Step() {
 				return m, m.tick()
 			} else {
@@ -138,6 +146,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		if m.settingsShowing {
 			return m, m.settings.update(msg)
+		} else if m.capturing {
+			return m, m.capture.update(msg)
 		}
 	}
 	return m, nil
@@ -161,8 +171,14 @@ func (m *model) View() tea.View {
 		rgn := sf2.Region(2, 5, 20, 60)
 		csr = m.settings.render(rgn)
 		sf = sf2
+	} else if m.capturing {
+		title = "[capture-" + m.capture.stage.String() + "]"
+		sf2 := layout.NewSurface(m.height, m.width)
+		sf2.Draw(0, 0, sf)
+		csr = m.capture.render(sf2)
+		sf = sf2
 	} else if m.running {
-		title = "[running]"
+		title = "[running - " + m.grid.Rule.Name() + "]"
 	}
 	return tea.View{
 		WindowTitle:     title,

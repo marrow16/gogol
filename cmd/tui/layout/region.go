@@ -119,3 +119,16 @@ func (r *region) ClearStyle(row, col, height, width int, style *lipgloss.Style) 
 		r.parent.ClearStyle(r.offsetRow+row, r.offsetCol+col, height, width, style)
 	}
 }
+
+func (r *region) GetStyle(row, col int) *lipgloss.Style {
+	if row >= 0 && row < r.height && col >= 0 && col < r.width {
+		return r.parent.GetStyle(r.offsetRow+row, r.offsetCol+col)
+	}
+	return nil
+}
+
+func (r *region) SetStyle(row, col int, style *lipgloss.Style) {
+	if row >= 0 && row < r.height && col >= 0 && col < r.width {
+		r.parent.SetStyle(r.offsetRow+row, r.offsetCol+col, style)
+	}
+}
