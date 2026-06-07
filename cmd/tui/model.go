@@ -31,6 +31,7 @@ func newModel() *model {
 		random:        prfs.Random,
 		gridHeight:    prfs.Height,
 		gridWidth:     prfs.Width,
+		stepAheadBy:   prfs.StepAheadBy,
 		splashShowing: true,
 	}
 	grid.Render = m.renderCell
@@ -41,15 +42,13 @@ func newModel() *model {
 }
 
 func (m *model) renderCell(row int, col int, alive bool, changed bool) {
-	tRow, tCol := row/2, col/2
-	curr := m.gridSurface.Get(tRow, tCol)
+	qRow, qCol := row>>1, col>>1
+	curr := m.gridSurface.Get(qRow, qCol)
 	if len(curr) < 1 {
 		curr = " "
 	}
 	r, _ := utf8.DecodeRuneInString(curr)
-	qr := quadRune(r)
-	qr = qr.update(col%2, row%2, alive, changed)
-	m.gridSurface.Text(tRow, tCol, string(qr), m.cellStyle)
+	m.gridSurface.Rune(qRow, qCol, rune(quadRune(r).update(col%2, row%2, alive, changed)), m.cellStyle)
 }
 
 func newGridSurface(g *logic.Grid, cellStyle lipgloss.Style) layout.Surface {
@@ -76,10 +75,11 @@ type model struct {
 	capture         *capture
 	splashShowing   bool
 	// settings...
-	stepDelay  int
-	random     int
-	gridHeight int
-	gridWidth  int
+	stepDelay   int
+	stepAheadBy int
+	random      int
+	gridHeight  int
+	gridWidth   int
 }
 
 func (m *model) Init() tea.Cmd {
@@ -126,6 +126,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+k":
 				m.running = false
 				m.capture.start()
+			case "end":
+				m.running = false
+				return m, m.stepAhead()
 			case "f1":
 				m.running = false
 				m.splashShowing = true
@@ -140,6 +143,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+	case steppedAhead:
+		m.grid.Draw()
 	case tickMsg:
 		if m.running && !m.settingsShowing && !m.capturing {
 			if m.grid.Step() {
@@ -164,12 +169,15 @@ func (m *model) View() tea.View {
 	sf := m.gridSurface
 	title := "[stopped]"
 	var csr *tea.Cursor
+	overlayed := false
 	if m.splashShowing {
+		overlayed = true
 		sf2 := layout.NewSurface(m.height, m.width)
 		sf2.Draw(0, 0, sf)
 		renderSplash(sf2)
 		sf = sf2
 	} else if m.settingsShowing {
+		overlayed = true
 		title = "[settings]"
 		sf2 := layout.NewSurface(m.height, m.width)
 		sf2.Draw(0, 0, sf)
@@ -177,6 +185,7 @@ func (m *model) View() tea.View {
 		csr = m.settings.render(rgn)
 		sf = sf2
 	} else if m.capturing {
+		overlayed = true
 		title = "[capture-" + m.capture.stage.String() + "]"
 		sf2 := layout.NewSurface(m.height, m.width)
 		sf2.Draw(0, 0, sf)
@@ -185,13 +194,25 @@ func (m *model) View() tea.View {
 	} else if m.running {
 		title = "[running - " + m.grid.Rule.Name() + "]"
 	}
-	return tea.View{
-		WindowTitle:     title,
-		Content:         sf.Render(),
-		AltScreen:       true,
-		MouseMode:       tea.MouseModeCellMotion,
-		Cursor:          csr,
-		BackgroundColor: bgColor,
+	gsf, isGsf := sf.(layout.GridSurface)
+	if overlayed || !isGsf {
+		return tea.View{
+			WindowTitle:     title,
+			Content:         sf.Render(),
+			AltScreen:       true,
+			MouseMode:       tea.MouseModeCellMotion,
+			Cursor:          csr,
+			BackgroundColor: bgColor,
+		}
+	} else {
+		return tea.View{
+			WindowTitle:     title,
+			Content:         gsf.RenderGrid(m.cellStyle),
+			AltScreen:       true,
+			MouseMode:       tea.MouseModeCellMotion,
+			Cursor:          csr,
+			BackgroundColor: bgColor,
+		}
 	}
 }
 
@@ -201,4 +222,13 @@ func (m *model) tick() tea.Cmd {
 	return tea.Tick(time.Duration(m.stepDelay)*time.Millisecond, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
+}
+
+type steppedAhead struct{}
+
+func (m *model) stepAhead() tea.Cmd {
+	return func() tea.Msg {
+		m.grid.StepAhead(m.stepAheadBy)
+		return steppedAhead{}
+	}
 }

@@ -8,11 +8,13 @@ import (
 
 type placer interface {
 	place(row, col int, text string, extent int, styles ...lipgloss.Style) Placement
+	placeRune(row, col int, pr rune, style lipgloss.Style)
 }
 
 type surfaceText interface {
 	Height() int
 	Width() int
+	Rune(row int, col int, pr rune, style lipgloss.Style)
 	Text(row int, col int, text string, styles ...lipgloss.Style) Placement
 	TextRun(row int, col int, items Runs) []Placement
 	TextRunWrapped(row, col, width int, items Runs) int
@@ -41,6 +43,10 @@ func (s textSurface) Height() int {
 
 func (s textSurface) Width() int {
 	return s.width
+}
+
+func (s textSurface) Rune(row int, col int, pr rune, style lipgloss.Style) {
+	s.placer.placeRune(row, col, pr, style)
 }
 
 func (s textSurface) Text(row, col int, text string, styles ...lipgloss.Style) (result Placement) {

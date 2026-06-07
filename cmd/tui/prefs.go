@@ -15,6 +15,7 @@ type prefs struct {
 	Height           int               `json:"height"`
 	Width            int               `json:"width"`
 	StepDelay        int               `json:"step_delay"`
+	StepAheadBy      int               `json:"step_ahead_by"`
 	Random           int               `json:"random"`
 	WrapMode         string            `json:"wrap_mode"`
 	BoundaryMode     string            `json:"boundary_mode"`
@@ -33,6 +34,7 @@ const (
 	defaultHeight       = 100
 	defaultWidth        = 200
 	defaultStep         = 50
+	defaultStepAhead    = 1000
 	defaultRandom       = 30
 	defaultWrapMode     = "toroidal"
 	defaultBoundaryMode = "dead"
@@ -55,6 +57,7 @@ func loadPrefs() *prefs {
 		Height:       defaultHeight,
 		Width:        defaultWidth,
 		StepDelay:    defaultStep,
+		StepAheadBy:  defaultStepAhead,
 		Random:       defaultRandom,
 		WrapMode:     defaultWrapMode,
 		BoundaryMode: defaultBoundaryMode,
@@ -79,7 +82,10 @@ func (p *prefs) validate() {
 		p.Width++
 	}
 	if p.StepDelay < 1 {
-		p.StepDelay = 1
+		p.StepDelay = defaultStep
+	}
+	if p.StepAheadBy < 1 {
+		p.StepAheadBy = defaultStepAhead
 	}
 	if p.Random < 0 || p.Random > 100 {
 		p.Random = defaultRandom

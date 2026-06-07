@@ -100,6 +100,17 @@ func (g *Grid) Clear() {
 	}
 }
 
+func (g *Grid) Draw() {
+	for row := 0; row < g.Height; row++ {
+		for col := 0; col < g.Width; col++ {
+			cell := g.Rows[row][col]
+			if g.Render != nil {
+				g.Render(row, col, cell.Alive, true)
+			}
+		}
+	}
+}
+
 func (g *Grid) joinAdjacents() {
 	for r := 0; r < g.Height; r++ {
 		for c := 0; c < g.Width; c++ {
@@ -197,4 +208,26 @@ func (g *Grid) Step() (gridChanged bool) {
 		cell.flip()
 	}
 	return gridChanged
+}
+
+func (g *Grid) StepAhead(by int) {
+	if g.Rule == nil {
+		g.Rule = StandardRule
+	}
+	for i := 0; i < by; i++ {
+		g.changesBuffer = g.changesBuffer[:0]
+		for _, row := range g.Rows {
+			for _, cell := range row {
+				if g.Rule.StateChanged(cell) {
+					g.changesBuffer = append(g.changesBuffer, cell)
+				}
+			}
+		}
+		if len(g.changesBuffer) == 0 {
+			break
+		}
+		for _, cell := range g.changesBuffer {
+			cell.flip()
+		}
+	}
 }

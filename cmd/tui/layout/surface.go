@@ -5,8 +5,12 @@ import (
 )
 
 type surfaceInternal interface {
-	place(row int, col int, text string, extent int, styles ...lipgloss.Style) Placement
+	placer
 	rows_() rows
+}
+
+type GridSurface interface {
+	RenderGrid(style lipgloss.Style) string
 }
 
 type Surface interface {
@@ -52,19 +56,21 @@ func (s *surface) Render() string {
 	return s.rows.render()
 }
 
+func (s *surface) RenderGrid(style lipgloss.Style) string {
+	return s.rows.renderGrid(style)
+}
+
 func (s *surface) rows_() rows {
 	return s.rows
 }
 
 func (s *surface) place(row, col int, text string, extent int, styles ...lipgloss.Style) (result Placement) {
 	if row >= 0 && row < s.height && col < s.width && extent > 0 {
-		style := inheritStyles(styles...)
-		seg := &surfaceSegment{
+		s.rows[row].place(col, &surfaceSegment{
 			text:   text,
 			extent: extent,
-			style:  style,
-		}
-		s.rows[row].place(col, seg)
+			style:  inheritStyles(styles...),
+		})
 		result = Placement{
 			Text:   text,
 			Extent: extent,
@@ -75,6 +81,16 @@ func (s *surface) place(row, col int, text string, extent int, styles ...lipglos
 		result.Extent = extent
 	}
 	return result
+}
+
+func (s *surface) placeRune(row, col int, pr rune, style lipgloss.Style) {
+	if row >= 0 && col >= 0 && row < s.height && col < s.width {
+		s.rows[row].placeRuneSegment(col, &surfaceSegment{
+			text:   string(pr),
+			extent: 1,
+			style:  &style,
+		})
+	}
 }
 
 func (s *surface) Region(row, col, height, width int) Surface {

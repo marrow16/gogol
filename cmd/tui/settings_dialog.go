@@ -100,7 +100,7 @@ var gridForm = &layout.Form[*settings]{
 					return s.m.savePrefs()
 				}),
 			},
-			26: {
+			28: {
 				Item: layout.NewButton("Randomize", func(s *settings) tea.Cmd {
 					s.m.grid.Randomize(s.m.random)
 					return nil
@@ -117,6 +117,18 @@ var gridForm = &layout.Form[*settings]{
 					s.m.prefs.StepDelay = value
 					return s.m.savePrefs()
 				}),
+			},
+			28: {Item: "Ahead size:      (use end key)"},
+			39: {
+				Item: layout.NewNumberInput(5, 1, 99999,
+					func(s *settings) int {
+						return s.m.stepAheadBy
+					},
+					func(s *settings, value int) tea.Cmd {
+						s.m.stepAheadBy = value
+						s.m.prefs.StepAheadBy = value
+						return s.m.savePrefs()
+					}),
 			},
 		},
 		9: {

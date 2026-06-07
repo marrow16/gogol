@@ -44,6 +44,28 @@ func (rs rows) render() string {
 	return buf.String()
 }
 
+func (rs rows) renderGrid(style lipgloss.Style) string {
+	if len(rs) == 0 {
+		return ""
+	}
+	width := len(rs[0])
+	height := len(rs)
+	var buf bytes.Buffer
+	buf.Grow((width*3 + len(cr)) * height) // 3 because of utf-8 quadrant cells
+	for _, r := range rs {
+		for _, seg := range r {
+			if seg == nil {
+				buf.WriteByte(' ')
+				continue
+			}
+			buf.WriteString(seg.text)
+		}
+		buf.Write(cr)
+	}
+	out := buf.String()
+	return style.Render(out)
+}
+
 func (rs rows) clear(row, col, height, width int) {
 	if row < 0 {
 		height += row
@@ -65,6 +87,13 @@ type surfaceSegment struct {
 }
 
 type row []*surfaceSegment
+
+func (r row) placeRuneSegment(col int, seg *surfaceSegment) {
+	if seg == nil || col >= len(r) {
+		return
+	}
+	r[col] = seg
+}
 
 func (r row) place(col int, seg *surfaceSegment) bool {
 	if seg == nil || seg.extent <= 0 || col >= len(r) {

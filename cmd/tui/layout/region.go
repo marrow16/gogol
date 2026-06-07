@@ -53,6 +53,12 @@ func (r *region) place(row int, col int, text string, extent int, styles ...lipg
 	return result
 }
 
+func (r *region) placeRune(row, col int, pr rune, style lipgloss.Style) {
+	if row >= 0 && col >= 0 && row < r.height && col < r.width {
+		r.parent.placeRune(r.offsetRow+row, r.offsetCol+col, pr, style)
+	}
+}
+
 func (r *region) rows_() rows {
 	parentRows := r.parent.rows_()[r.offsetRow : r.offsetRow+r.height]
 	result := make(rows, len(parentRows))
