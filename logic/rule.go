@@ -14,6 +14,7 @@ type Rule interface {
 	SurvivesWith() string
 	Permutation() int
 	Name() string
+	IsCustom() bool
 }
 
 type rule struct {
@@ -92,6 +93,11 @@ func (r rule) Name() string {
 	return "Custom " + r.Rle()
 }
 
+func (r rule) IsCustom() bool {
+	_, known := rleToName[r.Rle()]
+	return !known
+}
+
 func NewRuleFromPermutation(permutation int) (Rule, error) {
 	if permutation < 0 || permutation >= 1<<18 {
 		return nil, ErrInvalidPermutation
@@ -121,19 +127,33 @@ func NewRuleRle(name string, rle string) (Rule, error) {
 	parts := strings.Split(strings.ToUpper(rle), "/")
 	b := ""
 	s := ""
+	foundB, foundS := false, false
 	if len(parts) > 0 {
 		if strings.HasPrefix(parts[0], "B") {
+			foundB = true
 			b = parts[0][1:]
 		} else if strings.HasPrefix(parts[0], "S") {
+			foundS = true
 			s = parts[0][1:]
 		}
 	}
 	if len(parts) > 1 {
 		if strings.HasPrefix(parts[1], "B") {
+			if foundB {
+				return nil, ErrInvalidRule
+			}
+			foundB = true
 			b = parts[1][1:]
 		} else if strings.HasPrefix(parts[1], "S") {
+			if foundS {
+				return nil, ErrInvalidRule
+			}
+			foundS = true
 			s = parts[1][1:]
 		}
+	}
+	if !foundB || !foundS {
+		return nil, ErrInvalidRule
 	}
 	for _, ch := range b {
 		idx := ch - '0'
@@ -217,6 +237,22 @@ var Rules = map[string]Rule{
 	"Vote":                    MustNewRuleRle("Vote", "B5678/S45678"),
 	"Walled cities":           MustNewRuleRle("Walled cities", "B45678/S2345"),
 	"Water Surface":           MustNewRuleRle("Water Surface", "B34/S23"),
+}
+
+func AddRule(name string, r Rule) {
+	if _, exists := Rules[name]; !exists && name != "" {
+		if _, exists = rleToName[r.Rle()]; !exists {
+			Rules[name] = r
+			rleToName[r.Rle()] = name
+		}
+	}
+}
+
+func RleToName(rle string) (string, bool) {
+	if n, ok := rleToName[rle]; ok {
+		return n, true
+	}
+	return "", false
 }
 
 var rleToName = map[string]string{

@@ -1,0 +1,5 @@
+#N Battery Charge
+#O Marrow
+#C Captured from GoGoL (https://github.com/marrow16/gogol)
+x = 6, y = 7, rule = B45/S12345
+2b2o$bo2bo$6o$o4bo$o4bo$o4bo$b5o!

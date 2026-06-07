@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 type Input[T any] interface {
@@ -205,7 +206,11 @@ func (t *textInput[T]) key(parent T, msg tea.KeyPressMsg) tea.Cmd {
 			return t.setValue(parent, t.value)
 		}
 	default:
-		if ch := msg.String(); len(ch) == 1 && (t.unlimited || len(t.value) < t.width) {
+		ch := msg.String()
+		if ch == "space" {
+			ch = " "
+		}
+		if len(ch) == 1 && (t.unlimited || len(t.value) < t.width) {
 			if t.validChars == "" || strings.Contains(t.validChars, ch) {
 				t.value += ch
 				return t.setValue(parent, t.value)
@@ -226,7 +231,7 @@ func (t *textInput[T]) paste(parent T, msg tea.PasteMsg) tea.Cmd {
 			}
 		}
 	}
-	t.value = sb.String()
+	t.value += sb.String()
 	return t.setValue(parent, t.value)
 }
 
@@ -248,13 +253,19 @@ func (t *textInput[T]) Render(parent T, form *Form[T], inputNo int, sf Surface, 
 	} else {
 		t.got = false
 		t.value = t.getValue(parent)
-		pl := sf.TextFixed(row, col, t.width, t.value, style)
-		clickPts.Add(pl, func(parent T) tea.Cmd {
+		clickPts.Add(sf.TextFixed(row, col, t.width, MaxWidth(t.value, t.width), style), func(parent T) tea.Cmd {
 			form.SetFocusedInput(inputNo)
 			return nil
 		})
 		return nil, nil
 	}
+}
+
+func MaxWidth(s string, width int) string {
+	if l := utf8.RuneCountInString(s); l > width {
+		return string([]rune(s)[:width])
+	}
+	return s
 }
 
 func NewRadio[T any](options []string, getFn func(parent T) int, setFn func(parent T, value int) tea.Cmd) Input[T] {
@@ -472,6 +483,21 @@ func (d *dropdownSelect[T]) Update(parent T, msg tea.Msg) tea.Cmd {
 			return d.scroll(parent, ScrollDown)
 		case tea.MouseWheelUp:
 			return d.scroll(parent, ScrollUp)
+		}
+	case tea.PasteMsg:
+		items := d.getItems(parent)
+		if search := strings.ToLower(strings.TrimSpace(mt.Content)); len(search) > 0 {
+			idx := slices.IndexFunc(items, func(item string) bool {
+				return strings.HasPrefix(strings.ToLower(item), search)
+			})
+			if idx == -1 {
+				idx = slices.IndexFunc(items, func(item string) bool {
+					return strings.Contains(strings.ToLower(item), search)
+				})
+			}
+			if idx != -1 {
+				return d.setValue(parent, items[idx])
+			}
 		}
 	}
 	return nil

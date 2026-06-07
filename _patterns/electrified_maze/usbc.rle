@@ -1,0 +1,5 @@
+#N usbc
+#O Marrow
+#C Captured from GoGoL (https://github.com/marrow16/gogol)
+x = 5, y = 9, rule = B45/S12345
+b3o$o3bo$o3bo$o3bo$o3bo$o3bo$o3bo$o3bo$b3o!

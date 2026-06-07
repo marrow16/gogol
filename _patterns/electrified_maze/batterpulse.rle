@@ -1,0 +1,5 @@
+#N Battery Pulse
+#O Marrow
+#C Captured from GoGoL (https://github.com/marrow16/gogol)
+x = 9, y = 4, rule = B45/S12345
+b6o$2o5bo$b2o4b2o$2b6o!

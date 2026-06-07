@@ -289,9 +289,10 @@ var captureModifyForm = &layout.Form[*capture]{
 		captureDialogHeight - 2: {
 			2: {Item: "Crop  Top:     Left:     Bottom:     Right:"},
 			12: {
-				Item: layout.NewNumberInput(3, 0, func(c *capture) int {
-					return c.pattern.Height - c.cropBottom - 1
-				},
+				Item: layout.NewNumberInput(3, 0,
+					func(c *capture) int {
+						return c.pattern.Height - c.cropBottom - 1
+					},
 					func(c *capture) int {
 						return c.cropTop
 					}, func(c *capture, value int) tea.Cmd {
@@ -304,9 +305,10 @@ var captureModifyForm = &layout.Form[*capture]{
 					}),
 			},
 			22: {
-				Item: layout.NewNumberInput(3, 0, func(c *capture) int {
-					return c.pattern.Width - c.cropRight - 1
-				},
+				Item: layout.NewNumberInput(3, 0,
+					func(c *capture) int {
+						return c.pattern.Width - c.cropRight - 1
+					},
 					func(c *capture) int {
 						return c.cropLeft
 					}, func(c *capture, value int) tea.Cmd {
@@ -319,9 +321,10 @@ var captureModifyForm = &layout.Form[*capture]{
 					}),
 			},
 			34: {
-				Item: layout.NewNumberInput(3, 0, func(c *capture) int {
-					return c.pattern.Height - c.cropTop - 1
-				},
+				Item: layout.NewNumberInput(3, 0,
+					func(c *capture) int {
+						return c.pattern.Height - c.cropTop - 1
+					},
 					func(c *capture) int {
 						return c.cropBottom
 					}, func(c *capture, value int) tea.Cmd {
@@ -334,9 +337,10 @@ var captureModifyForm = &layout.Form[*capture]{
 					}),
 			},
 			45: {
-				Item: layout.NewNumberInput(3, 0, func(c *capture) int {
-					return c.pattern.Width - c.cropLeft - 1
-				},
+				Item: layout.NewNumberInput(3, 0,
+					func(c *capture) int {
+						return c.pattern.Width - c.cropLeft - 1
+					},
 					func(c *capture) int {
 						return c.cropRight
 					}, func(c *capture, value int) tea.Cmd {
@@ -561,7 +565,7 @@ func (c *capture) scrapePattern() {
 			idx++
 		}
 	}
-	now := time.Now().Format("2006-01-02T150405")
+	now := time.Now().Format("2006-01-02T1504")
 	if c.filename == "" {
 		c.filename = now
 		if path := c.m.prefs.SavePath; path != "" {
@@ -590,6 +594,7 @@ func (c *capture) update(msg tea.Msg) tea.Cmd {
 			c.m.capturing = false
 			c.m.prefs.Originator = mt.pattern.Origination
 			c.m.prefs.SavePath = filepath.Dir(mt.filename)
+			c.m.prefs.addPattern(mt.filename)
 			if c.addLibrary == 0 {
 				patterns.PatternLibrary[mt.pattern.Name] = *mt.pattern
 				sortedPatterns = sortPatterns()

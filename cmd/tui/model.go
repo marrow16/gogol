@@ -11,6 +11,11 @@ import (
 
 func newModel() *model {
 	prfs := loadPrefs()
+	for n, rle := range prfs.Rules {
+		if nr, err := logic.NewRuleRle(n, rle); err == nil {
+			logic.AddRule(n, nr)
+		}
+	}
 	grid, err := logic.NewGrid(prfs.Height, prfs.Width, prfs.wrapMode(), prfs.boundaryMode())
 	grid.Rule = prfs.rule()
 	if err != nil {

@@ -1,0 +1,5 @@
+#N usbc3
+#O Marrow
+#C Captured from GoGoL (https://github.com/marrow16/gogol)
+x = 6, y = 7, rule = B45/S12345
+b4o$o3b2o$ob4o$obo2bo$ob4o$o3b2o$b4o!

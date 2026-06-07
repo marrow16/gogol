@@ -12,19 +12,20 @@ import (
 )
 
 type prefs struct {
-	Height           int      `json:"height"`
-	Width            int      `json:"width"`
-	StepDelay        int      `json:"step_delay"`
-	Random           int      `json:"random"`
-	WrapMode         string   `json:"wrap_mode"`
-	BoundaryMode     string   `json:"boundary_mode"`
-	CellFG           string   `json:"cell_foreground_color"`
-	CellBG           string   `json:"cell_background_color"`
-	Rule             string   `json:"rule"`
-	Patterns         []string `json:"patterns,omitempty"`
-	PatternLibraries []string `json:"pattern_libraries,omitempty"`
-	Originator       string   `json:"originator,omitempty"`
-	SavePath         string   `json:"save_path,omitempty"`
+	Height           int               `json:"height"`
+	Width            int               `json:"width"`
+	StepDelay        int               `json:"step_delay"`
+	Random           int               `json:"random"`
+	WrapMode         string            `json:"wrap_mode"`
+	BoundaryMode     string            `json:"boundary_mode"`
+	CellFG           string            `json:"cell_foreground_color"`
+	CellBG           string            `json:"cell_background_color"`
+	Rule             string            `json:"rule"`
+	Rules            map[string]string `json:"rules,omitempty"`
+	Patterns         []string          `json:"patterns,omitempty"`
+	PatternLibraries []string          `json:"pattern_libraries,omitempty"`
+	Originator       string            `json:"originator,omitempty"`
+	SavePath         string            `json:"save_path,omitempty"`
 }
 
 const (
@@ -60,6 +61,7 @@ func loadPrefs() *prefs {
 		CellFG:       defaultFg,
 		CellBG:       defaultBg,
 		Rule:         defaultRule,
+		Rules:        make(map[string]string),
 	}
 }
 
@@ -88,6 +90,9 @@ func (p *prefs) validate() {
 	}
 	if !colorRegex.MatchString(p.CellBG) {
 		p.CellBG = defaultBg
+	}
+	if p.Rules == nil {
+		p.Rules = make(map[string]string)
 	}
 }
 
@@ -184,6 +189,10 @@ func (p *prefs) addPatternLibrary(path string) {
 	if !slices.Contains(p.PatternLibraries, path) {
 		p.PatternLibraries = append(p.PatternLibraries, path)
 	}
+}
+
+func (p *prefs) addRule(name string, rle string) {
+	p.Rules[name] = rle
 }
 
 func (p *prefs) clearPatterns() {

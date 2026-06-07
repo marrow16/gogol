@@ -24,3 +24,17 @@ TUI (terminal UI):
 ```
 go run ./cmd/tui
 ```
+
+## Screenshots
+
+![screenshot](./_screenshots/screenshot1.png)
+![screenshot](./_screenshots/screenshot2.png)
+![screenshot](./_screenshots/screenshot3.png)
+![screenshot](./_screenshots/screenshot4.png)
+![screenshot](./_screenshots/screenshot5.png)
+![screenshot](./_screenshots/screenshot6.png)
+![screenshot](./_screenshots/screenshot7.png)
+![screenshot](./_screenshots/screenshot8.png)
+![screenshot](./_screenshots/screenshot9.png)
+![screenshot](./_screenshots/screenshot10.png)
+

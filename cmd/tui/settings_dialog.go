@@ -11,6 +11,7 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,6 +33,7 @@ type settings struct {
 	patternInfo        bool
 	loadFrom           string
 	loadPatternsResult *loadPatternsResult
+	customRuleName     string
 }
 
 var (
@@ -296,6 +298,7 @@ var ruleForm = &layout.Form[*settings]{
 						s.m.prefs.setRule(s.m.grid.Rule)
 						return s.m.savePrefs()
 					} else if strings.HasPrefix(value, "Custom ") {
+						s.customRuleName = ""
 						if nr, err := logic.NewRuleRle("", strings.TrimPrefix(value, "Custom ")); err == nil {
 							s.m.grid.Rule = nr
 							s.m.prefs.setRule(s.m.grid.Rule)
@@ -313,6 +316,7 @@ var ruleForm = &layout.Form[*settings]{
 					return s.m.grid.Rule.Rle()
 				}, func(s *settings, value string) tea.Cmd {
 					if nr, err := logic.NewRuleRle("", value); err == nil {
+						s.customRuleName = ""
 						s.m.grid.Rule = nr
 						s.m.prefs.setRule(s.m.grid.Rule)
 						return s.m.savePrefs()
@@ -327,12 +331,45 @@ var ruleForm = &layout.Form[*settings]{
 				return s.m.grid.Rule.Permutation()
 			}, func(s *settings, value int) tea.Cmd {
 				if nr, err := logic.NewRuleFromPermutation(value); err == nil {
+					s.customRuleName = ""
 					s.m.grid.Rule = nr
 					s.m.prefs.setRule(s.m.grid.Rule)
 					return s.m.savePrefs()
 				}
 				return nil
 			})},
+		},
+		17: {
+			6: {
+				Item: "As name:",
+				Condition: func(s *settings) bool {
+					return s.m.grid.Rule.IsCustom()
+				},
+			},
+			15: {
+				Item: layout.NewTextInput(25, "", func(s *settings) string {
+					return s.customRuleName
+				}, func(s *settings, value string) tea.Cmd {
+					s.customRuleName = value
+					return nil
+				}),
+				Condition: func(s *settings) bool {
+					return s.m.grid.Rule.IsCustom()
+				},
+			},
+			42: {
+				Item: layout.NewButton("Save", func(s *settings) tea.Cmd {
+					if s.customRuleName != "" {
+						s.m.prefs.addRule(s.customRuleName, s.m.grid.Rule.Rle())
+						logic.AddRule(s.customRuleName, s.m.grid.Rule)
+						return s.m.savePrefs()
+					}
+					return nil
+				}),
+				Condition: func(s *settings) bool {
+					return s.m.grid.Rule.IsCustom() && len(s.customRuleName) > 0
+				},
+			},
 		},
 	},
 }
@@ -420,20 +457,34 @@ var patternsForm = &layout.Form[*settings]{
 		18: {
 			1: {Item: "At  Y:      X:       Rotate:"},
 			7: {
-				Item: layout.NewNumberInput(4, 0, 9999, func(s *settings) int {
-					return s.patternPlaceY
-				}, func(s *settings, value int) tea.Cmd {
-					s.patternPlaceY = value
-					return nil
-				}),
+				Item: layout.NewNumberInput(4, 0,
+					func(s *settings) int {
+						return s.m.grid.Height - 1
+					},
+					func(s *settings) int {
+						return s.patternPlaceY
+					},
+					func(s *settings, value int) tea.Cmd {
+						if value < s.m.grid.Height {
+							s.patternPlaceY = value
+						}
+						return nil
+					}),
 			},
-			14: {
-				Item: layout.NewNumberInput(4, 0, 9999, func(s *settings) int {
-					return s.patternPlaceX
-				}, func(s *settings, value int) tea.Cmd {
-					s.patternPlaceX = value
-					return nil
-				}),
+			15: {
+				Item: layout.NewNumberInput(4, 0,
+					func(s *settings) int {
+						return s.m.grid.Width - 1
+					},
+					func(s *settings) int {
+						return s.patternPlaceX
+					},
+					func(s *settings, value int) tea.Cmd {
+						if value < s.m.grid.Width {
+							s.patternPlaceX = value
+						}
+						return nil
+					}),
 			},
 			30: {
 				Item: layout.NewRadio([]string{"0°", "90°", "180°", "270°"}, func(s *settings) int {
@@ -499,7 +550,11 @@ func (p *settingsPatternPreview[T]) Render(parent T, form *layout.Form[T], input
 		rgn.Text(2, rgn.Width()-10, "- Preview", settingsTextStyle)
 		if s.currentPattern.Rule != nil {
 			rgn.Text(3, 4, "Rule:", settingsTextStyle)
-			clickPts.Add(rgn.Text(3, 10, s.currentPattern.Rule.Rle(), settingsTextUlStyle), func(parent T) tea.Cmd {
+			rn := s.currentPattern.Rule.Rle()
+			if n, ok := logic.RleToName(rn); ok {
+				rn = n
+			}
+			clickPts.Add(rgn.Text(3, 10, rn, settingsTextUlStyle), func(parent T) tea.Cmd {
 				s.m.grid.Rule = s.currentPattern.Rule
 				s.m.prefs.setRule(s.m.grid.Rule)
 				return s.m.savePrefs()
@@ -564,7 +619,12 @@ func sortPatterns() []string {
 	for name := range patterns.PatternLibrary {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.SortStableFunc(names, func(a, b string) int {
+		return strings.Compare(
+			strings.ToLower(a),
+			strings.ToLower(b),
+		)
+	})
 	return names
 }
 

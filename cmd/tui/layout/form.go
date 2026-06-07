@@ -26,6 +26,9 @@ func (f *Form[T]) Render(parent T, clickPts ClickPoints[T], sf Surface) *tea.Cur
 	for r, fr := range f.FormRows {
 		for c, el := range fr {
 			if el != nil {
+				if el.Condition != nil && !el.Condition(parent) {
+					continue
+				}
 				switch it := el.Item.(type) {
 				case Input[T]:
 					fcsr, ds := it.Render(parent, f, onInput, sf, clickPts, r, c, onInput == f.focusedInput, f.Style, f.FocusedStyle)
@@ -144,6 +147,7 @@ type FormElement[T any] struct {
 	StyleFn   func(parent T, element *FormElement[T]) *lipgloss.Style
 	Width     int // only used when Alignment is center or right
 	Alignment Alignment
+	Condition func(parent T) bool
 }
 
 func (e FormElement[T]) text(parent T) string {

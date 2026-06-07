@@ -54,7 +54,14 @@ func PatternRleDecoder(r io.Reader) (result Pattern, err error) {
 							result.Height = n
 						}
 					case "rule":
-						result.Rule, err = logic.NewRuleRle("", strings.TrimSpace(dims[1]))
+						rle := strings.TrimSpace(strings.ToUpper(dims[1]))
+						if !strings.ContainsRune(rle, 'S') && !strings.ContainsRune(rle, 'B') {
+							// fix up lazy rules - e.g. "23/3" is "B3/S23"
+							if bs := strings.Split(rle, "/"); len(bs) == 2 {
+								rle = "B" + strings.TrimSpace(bs[1]) + "/S" + strings.TrimSpace(bs[0])
+							}
+						}
+						result.Rule, err = logic.NewRuleRle("", rle)
 						if err != nil {
 							return
 						}
