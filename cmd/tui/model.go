@@ -5,6 +5,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/marrow16/gogol/cmd/tui/layout"
 	"github.com/marrow16/gogol/logic"
+	"strconv"
 	"time"
 	"unicode/utf8"
 )
@@ -197,7 +198,9 @@ func (m *model) View() tea.View {
 		csr = m.capture.render(sf2)
 		sf = sf2
 	} else if m.running {
-		title = "[running - " + m.grid.Rule.Name() + "]"
+		title = "[running " + strconv.FormatUint(m.grid.StepCount.Load(), 10) + " - " + m.grid.Rule.Name() + "]"
+	} else {
+		title = "[stopped " + strconv.FormatUint(m.grid.StepCount.Load(), 10) + " - " + m.grid.Rule.Name() + "]"
 	}
 	gsf, isGsf := sf.(layout.GridSurface)
 	if overlayed || !isGsf {

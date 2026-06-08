@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/rand"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -85,6 +86,7 @@ type Grid struct {
 	boundarySentinel *Cell
 	changesBuffer    []*Cell
 	Render           RenderCell
+	StepCount        atomic.Uint64
 }
 
 var ErrInvalidGridDimension = errors.New("invalid grid dimension")
@@ -126,6 +128,7 @@ func makeCols(width int) []*Cell {
 var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 func (g *Grid) Randomize(rf int) {
+	g.StepCount.Store(0)
 	for row := 0; row < g.Height; row++ {
 		for col := 0; col < g.Width; col++ {
 			cell := g.Rows[row][col]
@@ -138,6 +141,7 @@ func (g *Grid) Randomize(rf int) {
 }
 
 func (g *Grid) Clear() {
+	g.StepCount.Store(0)
 	for row := 0; row < g.Height; row++ {
 		for col := 0; col < g.Width; col++ {
 			cell := g.Rows[row][col]
@@ -234,6 +238,7 @@ func (g *Grid) GetCell(row, col int) *Cell {
 func nullRender(row, col int, alive, changed bool) {}
 
 func (g *Grid) Step() (gridChanged bool) {
+	g.StepCount.Add(1)
 	if g.Rule == nil {
 		g.Rule = StandardRule
 	}
@@ -260,6 +265,7 @@ func (g *Grid) Step() (gridChanged bool) {
 }
 
 func (g *Grid) StepAhead(by int) {
+	g.StepCount.Add(uint64(by))
 	if g.Rule == nil {
 		g.Rule = StandardRule
 	}
