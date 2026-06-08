@@ -87,8 +87,9 @@ func (m *model) Init() tea.Cmd {
 }
 
 type gridResizeResult struct {
-	grid    *logic.Grid
-	surface layout.Surface
+	grid        *logic.Grid
+	surface     layout.Surface
+	noRandomize bool
 }
 
 func (m *model) savePrefs() tea.Cmd {
@@ -107,7 +108,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.gridSurface = mt.surface
 		m.grid = mt.grid
 		m.grid.Render = m.renderCell
-		m.grid.Randomize(m.random)
+		if mt.noRandomize {
+			m.grid.Draw()
+		} else {
+			m.grid.Randomize(m.random)
+		}
 		m.prefs.Height, m.prefs.Width = m.grid.Height, m.grid.Width
 		return m, m.savePrefs()
 	case tea.KeyPressMsg:

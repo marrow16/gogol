@@ -9,13 +9,19 @@ import (
 	"unicode/utf8"
 )
 
+type ResetInput[T any] interface {
+	Reset(parent T)
+}
+
 type Input[T any] interface {
+	ResetInput[T]
 	Align(a Alignment) Input[T]
 	Update(parent T, msg tea.Msg) tea.Cmd
 	Render(parent T, form *Form[T], inputNo int, sf Surface, clickPts ClickPoints[T], row, col int, focused bool, style lipgloss.Style, focusedStyle lipgloss.Style) (*tea.Cursor, Surface)
 }
 
 type CustomInput[T any] interface {
+	ResetInput[T]
 	Update(parent T, msg tea.Msg, focused bool) tea.Cmd
 	Render(parent T, form *Form[T], inputNo int, sf Surface, clickPts ClickPoints[T], row, col int, focused bool, style lipgloss.Style, focusedStyle lipgloss.Style) *tea.Cursor
 }
@@ -39,6 +45,10 @@ type numberInput[T any] struct {
 	got       bool
 	getValue  func(parent T) int
 	setValue  func(parent T, value int) tea.Cmd
+}
+
+func (n *numberInput[T]) Reset(parent T) {
+	n.got = false
 }
 
 func (n *numberInput[T]) getMin(parent T) int {
@@ -183,6 +193,10 @@ type textInput[T any] struct {
 	setValue   func(parent T, value string) tea.Cmd
 }
 
+func (t *textInput[T]) Reset(parent T) {
+	t.got = false
+}
+
 func (t *textInput[T]) Align(a Alignment) Input[T] {
 	t.alignment = a
 	return t
@@ -223,7 +237,7 @@ func (t *textInput[T]) key(parent T, msg tea.KeyPressMsg) tea.Cmd {
 func (t *textInput[T]) paste(parent T, msg tea.PasteMsg) tea.Cmd {
 	var sb strings.Builder
 	if t.validChars == "" {
-		sb.WriteString(t.value)
+		sb.WriteString(msg.Content)
 	} else {
 		for _, r := range msg.Content {
 			if strings.ContainsRune(t.validChars, r) {
@@ -253,7 +267,9 @@ func (t *textInput[T]) Render(parent T, form *Form[T], inputNo int, sf Surface, 
 	} else {
 		t.got = false
 		t.value = t.getValue(parent)
-		clickPts.Add(sf.TextFixed(row, col, t.width, MaxWidth(t.value, t.width), style), func(parent T) tea.Cmd {
+		pl := sf.TextFixed(row, col, t.width, MaxWidth(t.value, t.width), style)
+		pl.Extent = t.width
+		clickPts.Add(pl, func(parent T) tea.Cmd {
 			form.SetFocusedInput(inputNo)
 			return nil
 		})
@@ -280,6 +296,9 @@ type radio[T any] struct {
 	options  []string
 	getValue func(parent T) int
 	setValue func(parent T, value int) tea.Cmd
+}
+
+func (r *radio[T]) Reset(parent T) {
 }
 
 func (r *radio[T]) Align(a Alignment) Input[T] {
@@ -383,6 +402,9 @@ type button[T any] struct {
 	onClick   func(parent T) tea.Cmd
 }
 
+func (b *button[T]) Reset(parent T) {
+}
+
 func (b *button[T]) Align(a Alignment) Input[T] {
 	b.alignment = a
 	return b
@@ -462,6 +484,9 @@ type dropdownSelect[T any] struct {
 	valuesSupplier func(parent T) []string
 	getValue       func(parent T) string
 	setValue       func(parent T, value string) tea.Cmd
+}
+
+func (d *dropdownSelect[T]) Reset(parent T) {
 }
 
 func (d *dropdownSelect[T]) Align(a Alignment) Input[T] {

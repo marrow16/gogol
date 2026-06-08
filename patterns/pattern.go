@@ -50,6 +50,25 @@ func MustNewPatternFromRle(r io.Reader) Pattern {
 	}
 }
 
+func NewPatternFromGrid(grid *logic.Grid) (result Pattern, err error) {
+	if grid == nil {
+		return Pattern{}, errors.New("grid must not be nil")
+	}
+	result = Pattern{
+		Name:   "Grid",
+		Width:  grid.Width,
+		Height: grid.Height,
+		Rule:   grid.Rule,
+		Cells:  make([]bool, grid.Width*grid.Height),
+	}
+	for r := 0; r < grid.Height; r++ {
+		for c := 0; c < grid.Width; c++ {
+			result.Cells[r*grid.Width+c] = grid.GetCell(r, c).Alive
+		}
+	}
+	return result, nil
+}
+
 type Rotation int
 
 const (

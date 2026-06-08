@@ -8,9 +8,9 @@ import (
 
 type Form[T any] struct {
 	FormRows[T]
-	// other fields that control focus
 	focusedInput int
 	maxInput     int
+	resetInputs  []ResetInput[T]
 	currentInput Input[T]
 	customInputs map[int]CustomInput[T]
 	Style        lipgloss.Style
@@ -22,6 +22,7 @@ func (f *Form[T]) Render(parent T, clickPts ClickPoints[T], sf Surface) *tea.Cur
 	f.customInputs = make(map[int]CustomInput[T])
 	onInput := 0
 	f.currentInput = nil
+	f.resetInputs = make([]ResetInput[T], 0)
 	delayedSurfaces := map[[2]int]Surface{}
 	for r, fr := range f.FormRows {
 		for c, el := range fr {
@@ -31,6 +32,7 @@ func (f *Form[T]) Render(parent T, clickPts ClickPoints[T], sf Surface) *tea.Cur
 				}
 				switch it := el.Item.(type) {
 				case Input[T]:
+					f.resetInputs = append(f.resetInputs, it)
 					fcsr, ds := it.Render(parent, f, onInput, sf, clickPts, r, c, onInput == f.focusedInput, f.Style, f.FocusedStyle)
 					if onInput == f.focusedInput {
 						if ds != nil {
@@ -41,6 +43,7 @@ func (f *Form[T]) Render(parent T, clickPts ClickPoints[T], sf Surface) *tea.Cur
 					}
 					onInput++
 				case CustomInput[T]:
+					f.resetInputs = append(f.resetInputs, it)
 					f.customInputs[onInput] = it
 					fcsr := it.Render(parent, f, onInput, sf, clickPts, r, c, onInput == f.focusedInput, f.Style, f.FocusedStyle)
 					if onInput == f.focusedInput {
@@ -90,6 +93,14 @@ func (f *Form[T]) Render(parent T, clickPts ClickPoints[T], sf Surface) *tea.Cur
 	}
 	f.maxInput = onInput
 	return csr
+}
+
+func (f *Form[T]) Reset(parent T) {
+	f.focusedInput = 0
+	f.currentInput = nil
+	for _, ri := range f.resetInputs {
+		ri.Reset(parent)
+	}
 }
 
 func (f *Form[T]) SetFocusedInput(input int) {

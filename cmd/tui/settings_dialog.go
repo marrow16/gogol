@@ -9,12 +9,14 @@ import (
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
 	"image/color"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type settings struct {
@@ -34,6 +36,11 @@ type settings struct {
 	loadFrom           string
 	loadPatternsResult *loadPatternsResult
 	customRuleName     string
+	exportResult       *exportResult
+	importFrom         string
+	importNoResize     bool
+	importResult       *importResult
+	patternRuleFilter  string
 }
 
 var (
@@ -70,6 +77,8 @@ func (s *settings) render(rgn layout.Surface) *tea.Cursor {
 		s.currentForm = patternsForm
 	case settingsTabLoad:
 		s.currentForm = loadPatternsForm
+	case settingsTabExport:
+		s.currentForm = exportForm
 	}
 	if s.currentForm != nil {
 		csr = s.currentForm.Render(s, s.clickPts, rgn)
@@ -436,6 +445,19 @@ func clampRGB(c int) uint8 {
 	return uint8(c)
 }
 
+func (s *settings) getPatterns() []string {
+	if len(s.patternRuleFilter) == 0 {
+		return sortedPatterns
+	}
+	result := make([]string, 0, len(sortedPatterns))
+	for _, n := range sortedPatterns {
+		if p, ok := patterns.PatternLibrary[n]; ok && p.Rule != nil && p.Rule.Rle() == s.patternRuleFilter {
+			result = append(result, n)
+		}
+	}
+	return result
+}
+
 var patternsForm = &layout.Form[*settings]{
 	Style:        settingsTextStyle,
 	FocusedStyle: settingsTabStyle,
@@ -444,7 +466,7 @@ var patternsForm = &layout.Form[*settings]{
 			1: {Item: "Name:"},
 			7: {
 				Item: layout.NewDropdownSelect(func(s *settings) []string {
-					return sortedPatterns
+					return s.getPatterns()
 				}, -1, func(s *settings) string {
 					if s.currentPattern == nil {
 						if p, ok := patterns.PatternLibrary[sortedPatterns[0]]; ok {
@@ -546,6 +568,9 @@ func (p *settingsPatternPreview[T]) Update(parent T, msg tea.Msg, focused bool) 
 	return nil
 }
 
+func (p *settingsPatternPreview[T]) Reset(parent T) {
+}
+
 func (p *settingsPatternPreview[T]) Render(parent T, form *layout.Form[T], inputNo int, sf layout.Surface, clickPts layout.ClickPoints[T], row, col int, focused bool, style lipgloss.Style, focusedStyle lipgloss.Style) *tea.Cursor {
 	rgn := sf.Region(row, col+1, 14, sf.Width()-2)
 	s := asSettings(parent)
@@ -571,6 +596,18 @@ func (p *settingsPatternPreview[T]) Render(parent T, form *layout.Form[T], input
 				s.m.prefs.setRule(s.m.grid.Rule)
 				return s.m.savePrefs()
 			})
+
+			if len(s.patternRuleFilter) > 0 && s.patternRuleFilter == s.currentPattern.Rule.Rle() {
+				clickPts.Add(rgn.Text(3, rgn.Width()-9, "Filtered", settingsTextUlStyle), func(parent T) tea.Cmd {
+					s.patternRuleFilter = ""
+					return nil
+				})
+			} else {
+				clickPts.Add(rgn.Text(3, rgn.Width()-7, "Filter", settingsTextUlStyle), func(parent T) tea.Cmd {
+					s.patternRuleFilter = s.currentPattern.Rule.Rle()
+					return nil
+				})
+			}
 		}
 		rgn.Text(5, 2, "Origin: "+s.currentPattern.Origination, settingsTextStyle)
 		if len(s.currentPattern.Comments) > 0 {
@@ -713,6 +750,200 @@ var loadPatternsForm = &layout.Form[*settings]{
 	},
 }
 
+var exportForm = &layout.Form[*settings]{
+	Style:        settingsTextStyle,
+	FocusedStyle: settingsTabStyle,
+	FormRows: layout.FormRows[*settings]{
+		4: {
+			25: {
+				Item: layout.NewButton("Export Grid", func(s *settings) tea.Cmd {
+					s.exportResult = nil
+					return func() tea.Msg {
+						gp, err := patterns.NewPatternFromGrid(s.m.grid)
+						if err != nil {
+							return exportResult{
+								error: err,
+							}
+						}
+						now := time.Now()
+						gp.Name = "Grid " + now.Format("2006-01-02 15:04:05")
+						gp.Comments = []string{
+							"Exported from GoGoL (https://github.com/marrow16/gogol)",
+							"Wrap mode: " + s.m.grid.WrapMode.String(),
+							"Boundary mode: " + s.m.grid.BoundaryMode.String(),
+						}
+						gp.Origination = s.m.prefs.Originator
+						fn := "Grid " + now.Format("2006-01-02T150405") + ".rle"
+						f, err := os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+						if err != nil {
+							if errors.Is(err, fs.ErrExist) {
+								return exportResult{
+									error: errors.New("File already exists"),
+								}
+							} else {
+								return exportResult{
+									error: err,
+								}
+							}
+						}
+						defer func() {
+							_ = f.Close()
+						}()
+						err = patterns.PatternRleEncode(gp, f)
+						return exportResult{
+							filename: fn,
+							error:    err,
+						}
+					}
+				}),
+			},
+		},
+		6: {
+			1: {
+				Item: func(s *settings) any {
+					if s.exportResult != nil {
+						if s.exportResult.error != nil {
+							return s.exportResult.error.Error()
+						}
+						return "Saved to " + s.exportResult.filename
+					}
+					return ""
+				},
+				Alignment: layout.AlignCenter,
+				Condition: func(s *settings) bool {
+					return s.exportResult != nil
+				},
+			},
+		},
+		8: {
+			1: {Item: strings.Repeat("─", 58)},
+		},
+		10: {
+			2: {Item: "Import from:"},
+			15: {
+				Item: layout.NewTextInput(43, "",
+					func(s *settings) string {
+						return s.importFrom
+					},
+					func(s *settings, value string) tea.Cmd {
+						s.importFrom = value
+						return nil
+					}, true),
+			},
+		},
+		11: {
+			7: {Item: "Resize:"},
+			15: {
+				Item: layout.NewRadio([]string{"Yes", "No"},
+					func(s *settings) int {
+						if s.importNoResize {
+							return 1
+						}
+						return 0
+					},
+					func(s *settings, value int) tea.Cmd {
+						s.importNoResize = value != 0
+						return nil
+					}),
+			},
+		},
+		13: {
+			25: {
+				Item: layout.NewButton("Import Grid", func(s *settings) tea.Cmd {
+					s.importResult = nil
+					if len(s.importFrom) == 0 {
+						return nil
+					}
+					return func() tea.Msg {
+						f, err := os.Open(s.importFrom)
+						if err != nil {
+							if errors.Is(err, fs.ErrNotExist) {
+								return importResult{
+									error: errors.New("File does not exist"),
+								}
+							} else {
+								return importResult{error: err}
+							}
+						}
+						defer func() {
+							_ = f.Close()
+						}()
+						if p, err := patterns.NewPatternFromRle(f); err == nil {
+							// parse wrap and boundary modes...
+							wrap := s.m.grid.WrapMode
+							boundary := s.m.grid.BoundaryMode
+							for _, c := range p.Comments {
+								if after, ok := strings.CutPrefix(c, "Wrap mode: "); ok {
+									wrap = logic.WrapModeFromString(after, wrap)
+								} else if after, ok := strings.CutPrefix(c, "Boundary mode: "); ok {
+									boundary = logic.BoundaryModeFromString(after, boundary)
+								}
+							}
+							noResize := s.importNoResize || (p.Height == s.m.grid.Height && p.Width == s.m.grid.Width)
+							if noResize {
+								// if no resize, draw it now...
+								s.importResult = nil
+								s.m.grid.Clear()
+								p.Draw(s.m.grid, 0, 0, patterns.Rotate0)
+								s.m.grid.Rule = p.Rule
+								s.m.grid.BoundaryMode = boundary
+								s.m.grid.WrapMode = wrap
+								s.m.prefs.setRule(s.m.grid.Rule)
+								s.m.prefs.setWrapMode(wrap)
+								s.m.prefs.setBoundaryMode(boundary)
+								return s.m.savePrefs()
+							} else if grid, err := logic.NewGrid(p.Height, p.Width, wrap, boundary); err == nil {
+								s.importResult = nil
+								grid.Rule = p.Rule
+								p.Draw(grid, 0, 0, patterns.Rotate0)
+								s.m.prefs.setRule(grid.Rule)
+								s.m.prefs.setWrapMode(wrap)
+								s.m.prefs.setBoundaryMode(boundary)
+								s.m.gridHeight, s.m.gridWidth = grid.Height, grid.Width
+								s.m.prefs.Height, s.m.prefs.Width = grid.Height, grid.Width
+								gridForm.Reset(s)
+								return gridResizeResult{
+									surface:     newGridSurface(grid, s.m.cellStyle),
+									grid:        grid,
+									noRandomize: true,
+								}
+							} else {
+								return importResult{error: err}
+							}
+						} else {
+							return importResult{error: err}
+						}
+					}
+				}),
+			},
+		},
+		15: {
+			1: {
+				Item: func(s *settings) any {
+					if s.importResult != nil && s.importResult.error != nil {
+						return s.importResult.error.Error()
+					}
+					return ""
+				},
+				Alignment: layout.AlignCenter,
+				Condition: func(s *settings) bool {
+					return s.importResult != nil
+				},
+			},
+		},
+	},
+}
+
+type exportResult struct {
+	error    error
+	filename string
+}
+
+type importResult struct {
+	error  error
+	resize bool
+}
+
 type loadPatternsResult struct {
 	error     string
 	loaded    int
@@ -764,6 +995,7 @@ const (
 	settingsTabRule
 	settingsTabPatterns
 	settingsTabLoad
+	settingsTabExport
 )
 
 var settingsTabs = []struct {
@@ -775,6 +1007,7 @@ var settingsTabs = []struct {
 	{"Rule", 0, settingsTabRule},
 	{"Patterns", 0, settingsTabPatterns},
 	{"Load", 1, settingsTabLoad},
+	{"Export/Import", 1, settingsTabExport},
 }
 
 func (s *settings) renderTabs(rgn layout.Surface) {
@@ -811,6 +1044,8 @@ func (s *settings) update(msg tea.Msg) tea.Cmd {
 			s.tab = settingsTabPatterns
 		case "ctrl+o":
 			s.tab = settingsTabLoad
+		case "ctrl+x":
+			s.tab = settingsTabExport
 		default:
 			if s.currentForm != nil {
 				return s.currentForm.Update(s, msg)
@@ -845,6 +1080,10 @@ func (s *settings) update(msg tea.Msg) tea.Cmd {
 			}
 			return s.m.savePrefs()
 		}
+	case exportResult:
+		s.exportResult = &mt
+	case importResult:
+		s.importResult = &mt
 	default:
 		if s.currentForm != nil {
 			return s.currentForm.Update(s, msg)
