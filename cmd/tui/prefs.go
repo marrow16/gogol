@@ -8,7 +8,6 @@ import (
 	"os"
 	"regexp"
 	"slices"
-	"strings"
 )
 
 type prefs struct {
@@ -103,45 +102,20 @@ func (p *prefs) validate() {
 }
 
 func (p *prefs) wrapMode() logic.WrapMode {
-	switch strings.ToLower(p.WrapMode) {
-	case "toroidal":
-		return logic.WrapAll
-	case "horizontal":
-		return logic.WrapHorizontal
-	case "vertical":
-		return logic.WrapVertical
-	}
-	return logic.WrapNone
+	return logic.WrapModeFromString(p.WrapMode, logic.WrapNone)
 }
 
 func (p *prefs) setWrapMode(m logic.WrapMode) *prefs {
-	switch m {
-	case logic.WrapAll:
-		p.WrapMode = "toroidal"
-	case logic.WrapHorizontal:
-		p.WrapMode = "horizontal"
-	case logic.WrapVertical:
-		p.WrapMode = "vertical"
-	default:
-		p.WrapMode = "none"
-	}
+	p.WrapMode = m.String()
 	return p
 }
 
 func (p *prefs) boundaryMode() logic.BoundaryMode {
-	if p.BoundaryMode == "alive" {
-		return logic.AliveBoundary
-	}
-	return logic.DeadBoundary
+	return logic.BoundaryModeFromString(p.BoundaryMode, logic.DeadBoundary)
 }
 
 func (p *prefs) setBoundaryMode(m logic.BoundaryMode) *prefs {
-	switch m {
-	case logic.AliveBoundary:
-		p.BoundaryMode = "alive"
-	default:
-		p.BoundaryMode = "dead"
-	}
+	p.BoundaryMode = m.String()
 	return p
 }
 

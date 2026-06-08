@@ -360,6 +360,9 @@ type capturePatternPreview[T any] struct {
 	preview layout.Surface
 }
 
+func (p *capturePatternPreview[T]) Reset(parent T) {
+}
+
 func (p *capturePatternPreview[T]) Update(parent T, msg tea.Msg, focused bool) tea.Cmd {
 	if focused && p.preview != nil {
 		c := asCapture(parent)
@@ -700,6 +703,8 @@ func (c *capture) updateEnd(msg tea.Msg) tea.Cmd {
 			c.markArea()
 		case "space", "enter":
 			c.scrapePattern()
+			captureDetailsForm.Reset(c)
+			captureModifyForm.Reset(c)
 			c.stage = captureEditPattern
 		}
 	case tea.MouseClickMsg:
