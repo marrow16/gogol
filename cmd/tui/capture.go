@@ -599,6 +599,7 @@ func (c *capture) update(msg tea.Msg) tea.Cmd {
 			c.m.prefs.SavePath = filepath.Dir(mt.filename)
 			c.m.prefs.addPattern(mt.filename)
 			if c.addLibrary == 0 {
+				mt.pattern.Filename = filepath.Base(mt.filename)
 				patterns.PatternLibrary[mt.pattern.Name] = *mt.pattern
 				sortedPatterns = sortPatterns()
 			}

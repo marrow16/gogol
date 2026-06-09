@@ -135,6 +135,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "end":
 				m.running = false
 				return m, m.stepAhead()
+			case "home":
+				m.running = false
+				m.grid.Randomize(m.random)
 			case "f1":
 				m.running = false
 				m.splashShowing = true

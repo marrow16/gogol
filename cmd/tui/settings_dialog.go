@@ -578,7 +578,7 @@ func (p *settingsPatternPreview[T]) Render(parent T, form *layout.Form[T], input
 		rgn.TextCenter(7, 0, rgn.Width(), "No preview/info available", settingsTextStyle)
 	} else if s.patternInfo {
 		rgn.TextCenter(1, 0, rgn.Width(), "Pattern Information", settingsTextStyle)
-		rgn.Text(2, 2, "Height: "+strconv.Itoa(s.currentPattern.Height), settingsTextStyle)
+		rgn.Text(2, 3, "Height: "+strconv.Itoa(s.currentPattern.Height), settingsTextStyle)
 		rgn.Text(2, 17, "Width: "+strconv.Itoa(s.currentPattern.Width), settingsTextStyle)
 		clickPts.Add(rgn.Text(2, rgn.Width()-17, "ctrl+k", settingsTextUlStyle), func(parent T) tea.Cmd {
 			s.patternInfo = false
@@ -586,12 +586,12 @@ func (p *settingsPatternPreview[T]) Render(parent T, form *layout.Form[T], input
 		})
 		rgn.Text(2, rgn.Width()-10, "- Preview", settingsTextStyle)
 		if s.currentPattern.Rule != nil {
-			rgn.Text(3, 4, "Rule:", settingsTextStyle)
+			rgn.Text(3, 5, "Rule:", settingsTextStyle)
 			rn := s.currentPattern.Rule.Rle()
 			if n, ok := logic.RleToName(rn); ok {
 				rn = n
 			}
-			clickPts.Add(rgn.Text(3, 10, rn, settingsTextUlStyle), func(parent T) tea.Cmd {
+			clickPts.Add(rgn.Text(3, 11, rn, settingsTextUlStyle), func(parent T) tea.Cmd {
 				s.m.grid.Rule = s.currentPattern.Rule
 				s.m.prefs.setRule(s.m.grid.Rule)
 				return s.m.savePrefs()
@@ -609,12 +609,13 @@ func (p *settingsPatternPreview[T]) Render(parent T, form *layout.Form[T], input
 				})
 			}
 		}
-		rgn.Text(5, 2, "Origin: "+s.currentPattern.Origination, settingsTextStyle)
+		rgn.Text(4, 1, "Filename: "+s.currentPattern.Filename, settingsTextStyle)
+		rgn.Text(5, 3, "Origin: "+s.currentPattern.Origination, settingsTextStyle)
 		if len(s.currentPattern.Comments) > 0 {
-			rgn.Text(6, 1, "Comment:", settingsTextStyle)
+			rgn.Text(6, 2, "Comment:", settingsTextStyle)
 			y := 6
 			for _, comment := range s.currentPattern.Comments {
-				y += rgn.TextWrapped(y, 10, rgn.Width()-11, comment, settingsTextStyle)
+				y += rgn.TextWrapped(y, 11, rgn.Width()-11, comment, settingsTextStyle)
 			}
 		}
 	} else {
@@ -688,7 +689,7 @@ var loadPatternsForm = &layout.Form[*settings]{
 			}, func(s *settings, value string) tea.Cmd {
 				s.loadFrom = value
 				return nil
-			}, true)},
+			}, true, true)},
 		},
 		5: {
 			0: {Item: "Enter path to directory or file and press...", Alignment: layout.AlignCenter},
@@ -828,7 +829,7 @@ var exportForm = &layout.Form[*settings]{
 					func(s *settings, value string) tea.Cmd {
 						s.importFrom = value
 						return nil
-					}, true),
+					}, true, true),
 			},
 		},
 		11: {
@@ -985,6 +986,7 @@ func loadPattern(fp string) error {
 		if p.Name == "" {
 			p.Name = filepath.Base(fp)
 		}
+		p.Filename = filepath.Base(fp)
 		patterns.PatternLibrary[p.Name] = p
 		return nil
 	}

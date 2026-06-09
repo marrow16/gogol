@@ -15,6 +15,7 @@ type Pattern struct {
 	Origination string
 	Coordinates string
 	Rule        logic.Rule
+	Filename    string
 }
 
 func NewPattern(name string, width int, cells []bool) (Pattern, error) {

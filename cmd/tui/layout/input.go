@@ -3,6 +3,8 @@ package layout
 import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"os/exec"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -173,24 +175,27 @@ func (n *numberInput[T]) Render(parent T, form *Form[T], inputNo int, sf Surface
 
 func NewTextInput[T any](width int, validChars string, getFn func(parent T) string, setFn func(parent T, value string) tea.Cmd, opts ...bool) Input[T] {
 	unlimited := len(opts) > 0 && opts[0]
+	openSupport := len(opts) > 1 && opts[1]
 	return &textInput[T]{
-		width:      width,
-		unlimited:  unlimited,
-		validChars: validChars,
-		getValue:   getFn,
-		setValue:   setFn,
+		width:       width,
+		unlimited:   unlimited,
+		validChars:  validChars,
+		getValue:    getFn,
+		setValue:    setFn,
+		openSupport: openSupport,
 	}
 }
 
 type textInput[T any] struct {
-	alignment  Alignment
-	width      int
-	unlimited  bool
-	validChars string
-	value      string
-	got        bool
-	getValue   func(parent T) string
-	setValue   func(parent T, value string) tea.Cmd
+	alignment   Alignment
+	width       int
+	unlimited   bool
+	validChars  string
+	value       string
+	got         bool
+	getValue    func(parent T) string
+	setValue    func(parent T, value string) tea.Cmd
+	openSupport bool
 }
 
 func (t *textInput[T]) Reset(parent T) {
@@ -212,12 +217,35 @@ func (t *textInput[T]) Update(parent T, msg tea.Msg) tea.Cmd {
 	return nil
 }
 
+func (t *textInput[T]) open(parent T) tea.Cmd {
+	type dummyCmd struct{}
+	if runtime.GOOS == "darwin" {
+		return func() tea.Msg {
+			out, err := exec.Command(
+				"osascript",
+				"-e",
+				`POSIX path of (choose file)`,
+			).Output()
+			if err == nil {
+				t.value = strings.TrimSpace(string(out))
+				t.setValue(parent, t.value)
+			}
+			return dummyCmd{}
+		}
+	}
+	return nil
+}
+
 func (t *textInput[T]) key(parent T, msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "backspace":
 		if len(t.value) > 0 {
 			t.value = t.value[:len(t.value)-1]
 			return t.setValue(parent, t.value)
+		}
+	case "ctrl+f":
+		if t.openSupport {
+			return t.open(parent)
 		}
 	default:
 		ch := msg.String()
