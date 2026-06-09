@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/marrow16/gogol/cmd/tui/layout"
 	"github.com/marrow16/gogol/logic"
+	"github.com/marrow16/gogol/patterns"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 )
@@ -24,21 +27,29 @@ func newModel() *model {
 	}
 	cs := prfs.cellStyle()
 	m := &model{
-		prefs:         prfs,
-		grid:          grid,
-		gridSurface:   newGridSurface(grid, cs),
-		cellStyle:     cs,
-		stepDelay:     prfs.StepDelay,
-		random:        prfs.Random,
-		gridHeight:    prfs.Height,
-		gridWidth:     prfs.Width,
-		stepAheadBy:   prfs.StepAheadBy,
-		splashShowing: true,
+		prefs:       prfs,
+		grid:        grid,
+		gridSurface: newGridSurface(grid, cs),
+		cellStyle:   cs,
+		stepDelay:   prfs.StepDelay,
+		random:      prfs.Random,
+		gridHeight:  prfs.Height,
+		gridWidth:   prfs.Width,
+		stepAheadBy: prfs.StepAheadBy,
 	}
 	grid.Render = m.renderCell
 	m.settings = &settings{m: m}
 	m.capture = &capture{m: m}
-	grid.Randomize(m.random)
+	if len(prfs.Grid) > 0 {
+		if p, err := patterns.NewPatternFromRle(strings.NewReader(prfs.Grid)); err == nil {
+			p.Draw(grid, 0, 0, patterns.Rotate0)
+		} else {
+			grid.Randomize(m.random)
+		}
+		prfs.Grid = ""
+	} else {
+		grid.Randomize(m.random)
+	}
 	return m
 }
 
@@ -62,19 +73,26 @@ func newGridSurface(g *logic.Grid, cellStyle lipgloss.Style) layout.Surface {
 	return sf
 }
 
+type displayMode int
+
+const (
+	modeSplash displayMode = iota
+	modeStopped
+	modeRunning
+	modeSettings
+	modeCapture
+)
+
 type model struct {
-	prefs           *prefs
-	height          int
-	width           int
-	grid            *logic.Grid
-	gridSurface     layout.Surface
-	cellStyle       lipgloss.Style
-	running         bool
-	settingsShowing bool
-	capturing       bool
-	settings        *settings
-	capture         *capture
-	splashShowing   bool
+	mode        displayMode
+	prefs       *prefs
+	height      int
+	width       int
+	grid        *logic.Grid
+	gridSurface layout.Surface
+	cellStyle   lipgloss.Style
+	settings    *settings
+	capture     *capture
 	// settings...
 	stepDelay   int
 	stepAheadBy int
@@ -117,59 +135,97 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.prefs.Height, m.prefs.Width = m.grid.Height, m.grid.Width
 		return m, m.savePrefs()
 	case tea.KeyPressMsg:
-		m.splashShowing = false
-		if m.settingsShowing {
+		switch m.mode {
+		case modeSettings:
 			return m, m.settings.update(msg)
-		} else if m.capturing {
+		case modeCapture:
 			return m, m.capture.update(msg)
-		} else {
-			switch mt.String() {
-			case "ctrl+c", "esc":
-				return m, tea.Quit
-			case "ctrl+s":
-				m.running = false
-				m.settingsShowing = true
-			case "ctrl+k":
-				m.running = false
-				m.capture.start()
-			case "end":
-				m.running = false
-				return m, m.stepAhead()
-			case "home":
-				m.running = false
-				m.grid.Randomize(m.random)
-			case "f1":
-				m.running = false
-				m.splashShowing = true
-			case "space":
-				m.grid.Step()
-			case "enter":
-				if m.running {
-					m.running = false
-				} else {
-					m.running = true
-					return m, m.tick()
-				}
-			}
+		default:
+			return m, m.key(mt)
 		}
 	case steppedAhead:
 		m.grid.Draw()
 	case tickMsg:
-		if m.running && !m.settingsShowing && !m.capturing {
+		if m.mode == modeRunning {
 			if m.grid.Step() {
 				return m, m.tick()
 			} else {
-				m.running = false
+				m.mode = modeStopped
 			}
 		}
 	default:
-		if m.settingsShowing {
+		switch m.mode {
+		case modeSettings:
 			return m, m.settings.update(msg)
-		} else if m.capturing {
+		case modeCapture:
 			return m, m.capture.update(msg)
 		}
 	}
 	return m, nil
+}
+
+func (m *model) key(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.String() {
+	case "ctrl+c":
+		return tea.Quit
+	case "esc":
+		if m.mode == modeSplash {
+			m.mode = modeStopped
+		} else {
+			m.save()
+			return tea.Quit
+		}
+	case "ctrl+s":
+		m.mode = modeSettings
+	case "ctrl+k":
+		m.capture.start()
+		m.mode = modeCapture
+	case "end":
+		m.mode = modeStopped
+		return m.stepAhead()
+	case "home":
+		m.mode = modeStopped
+		m.grid.Randomize(m.random)
+	case "f1":
+		m.mode = modeSplash
+	case "space":
+		m.mode = modeStopped
+		m.grid.Step()
+	case "enter":
+		if m.mode != modeRunning {
+			m.mode = modeRunning
+			return m.tick()
+		} else {
+			m.mode = modeStopped
+		}
+	}
+	return nil
+}
+
+func (m *model) save() {
+	// save current grid as rle
+	cells := make([]bool, m.grid.Height*m.grid.Width)
+	idx := 0
+	for y := 0; y < m.grid.Height; y++ {
+		for x := 0; x < m.grid.Width; x++ {
+			if cell := m.grid.GetCell(y, x); cell != nil {
+				cells[idx] = cell.Alive
+			}
+			idx++
+		}
+	}
+	m.prefs.Grid = ""
+	if p, err := patterns.NewPattern("Grid save", m.grid.Width, cells); err == nil {
+		var buf bytes.Buffer
+		if err = patterns.PatternRleEncode(p, &buf); err == nil {
+			m.prefs.Grid = buf.String()
+		}
+	}
+	m.prefs.save()
+}
+
+func (m *model) stopped() {
+	m.mode = modeStopped
 }
 
 var bgColor = lipgloss.Color("#eeeeee")
@@ -178,52 +234,49 @@ func (m *model) View() tea.View {
 	sf := m.gridSurface
 	title := "[stopped]"
 	var csr *tea.Cursor
-	overlayed := false
-	if m.splashShowing {
-		overlayed = true
+	switch m.mode {
+	case modeRunning:
+		return tea.View{
+			WindowTitle:     "[running " + strconv.FormatUint(m.grid.StepCount.Load(), 10) + " - " + m.grid.Rule.Name() + "]",
+			Content:         sf.(layout.GridSurface).RenderGrid(m.cellStyle),
+			AltScreen:       true,
+			MouseMode:       tea.MouseModeCellMotion,
+			BackgroundColor: bgColor,
+		}
+	case modeStopped:
+		return tea.View{
+			WindowTitle:     "[stopped " + strconv.FormatUint(m.grid.StepCount.Load(), 10) + " - " + m.grid.Rule.Name() + "]",
+			Content:         sf.(layout.GridSurface).RenderGrid(m.cellStyle),
+			AltScreen:       true,
+			MouseMode:       tea.MouseModeCellMotion,
+			BackgroundColor: bgColor,
+		}
+	case modeSplash:
 		sf2 := layout.NewSurface(m.height, m.width)
 		sf2.Draw(0, 0, sf)
 		renderSplash(sf2)
 		sf = sf2
-	} else if m.settingsShowing {
-		overlayed = true
+	case modeSettings:
 		title = "[settings]"
 		sf2 := layout.NewSurface(m.height, m.width)
 		sf2.Draw(0, 0, sf)
 		rgn := sf2.Region(2, 5, 20, 60)
 		csr = m.settings.render(rgn)
 		sf = sf2
-	} else if m.capturing {
-		overlayed = true
+	case modeCapture:
 		title = "[capture-" + m.capture.stage.String() + "]"
 		sf2 := layout.NewSurface(m.height, m.width)
 		sf2.Draw(0, 0, sf)
 		csr = m.capture.render(sf2)
 		sf = sf2
-	} else if m.running {
-		title = "[running " + strconv.FormatUint(m.grid.StepCount.Load(), 10) + " - " + m.grid.Rule.Name() + "]"
-	} else {
-		title = "[stopped " + strconv.FormatUint(m.grid.StepCount.Load(), 10) + " - " + m.grid.Rule.Name() + "]"
 	}
-	gsf, isGsf := sf.(layout.GridSurface)
-	if overlayed || !isGsf {
-		return tea.View{
-			WindowTitle:     title,
-			Content:         sf.Render(),
-			AltScreen:       true,
-			MouseMode:       tea.MouseModeCellMotion,
-			Cursor:          csr,
-			BackgroundColor: bgColor,
-		}
-	} else {
-		return tea.View{
-			WindowTitle:     title,
-			Content:         gsf.RenderGrid(m.cellStyle),
-			AltScreen:       true,
-			MouseMode:       tea.MouseModeCellMotion,
-			Cursor:          csr,
-			BackgroundColor: bgColor,
-		}
+	return tea.View{
+		WindowTitle:     title,
+		Content:         sf.Render(),
+		AltScreen:       true,
+		MouseMode:       tea.MouseModeCellMotion,
+		Cursor:          csr,
+		BackgroundColor: bgColor,
 	}
 }
 

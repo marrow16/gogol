@@ -54,7 +54,6 @@ type capture struct {
 }
 
 func (c *capture) start() {
-	c.m.capturing = true
 	c.stage = captureStartMark
 	c.tab = captureTabDetails
 	c.startRow, c.startCol = 0, 0
@@ -594,7 +593,7 @@ func (c *capture) update(msg tea.Msg) tea.Cmd {
 			if c.stage > captureStartMark {
 				c.resetArea()
 			}
-			c.m.capturing = false
+			c.m.stopped()
 			c.m.prefs.Originator = mt.pattern.Origination
 			c.m.prefs.SavePath = filepath.Dir(mt.filename)
 			c.m.prefs.addPattern(mt.filename)
@@ -613,7 +612,7 @@ func (c *capture) update(msg tea.Msg) tea.Cmd {
 			if c.stage > captureStartMark {
 				c.resetArea()
 			}
-			c.m.capturing = false
+			c.m.stopped()
 			return nil
 		}
 	}
