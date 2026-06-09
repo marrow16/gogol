@@ -97,11 +97,17 @@ var gridForm = &layout.Form[*settings]{
 					return nil
 				}),
 			},
+			10: {
+				Item: layout.NewButton("Randomize", func(s *settings) tea.Cmd {
+					s.m.grid.Randomize(s.m.random)
+					return nil
+				}),
+			},
 		},
 		5: {
 			2: {Item: "Randomization %:"},
 			20: {
-				Item: layout.NewNumberInput(3, 0, 100, func(s *settings) int {
+				Item: layout.NewNumberInput(4, 0, 100, func(s *settings) int {
 					return s.m.random
 				}, func(s *settings, value int) tea.Cmd {
 					s.m.random = value
@@ -109,14 +115,8 @@ var gridForm = &layout.Form[*settings]{
 					return s.m.savePrefs()
 				}),
 			},
-			28: {
-				Item: layout.NewButton("Randomize", func(s *settings) tea.Cmd {
-					s.m.grid.Randomize(s.m.random)
-					return nil
-				}),
-			},
 		},
-		7: {
+		6: {
 			2: {Item: "Step delay (ms):"},
 			20: {
 				Item: layout.NewNumberInput(4, 1, 2000, func(s *settings) int {
@@ -127,9 +127,11 @@ var gridForm = &layout.Form[*settings]{
 					return s.m.savePrefs()
 				}),
 			},
-			28: {Item: "Ahead size:      (use end key)"},
-			39: {
-				Item: layout.NewNumberInput(5, 1, 99999,
+		},
+		7: {
+			2: {Item: "Step ahead size:"},
+			20: {
+				Item: layout.NewNumberInput(4, 1, 9999,
 					func(s *settings) int {
 						return s.m.stepAheadBy
 					},
@@ -1037,7 +1039,7 @@ func (s *settings) update(msg tea.Msg) tea.Cmd {
 		case "ctrl+c":
 			return tea.Quit
 		case "esc":
-			s.m.settingsShowing = false
+			s.m.stopped()
 		case "ctrl+g":
 			s.tab = settingsTabGrid
 		case "ctrl+r":
@@ -1056,7 +1058,7 @@ func (s *settings) update(msg tea.Msg) tea.Cmd {
 	case tea.MouseClickMsg:
 		clickX, clickY := mt.X-s.absLeft, mt.Y-s.absTop
 		if clickX < 0 || clickX >= s.width || clickY < 0 || clickY >= s.height {
-			s.m.settingsShowing = false
+			s.m.stopped()
 		} else if fn, ok := s.clickPts[layout.ClickPoint{mt.Y, mt.X}]; ok {
 			return fn(s)
 		} else if s.currentForm != nil {

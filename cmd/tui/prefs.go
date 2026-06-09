@@ -26,6 +26,7 @@ type prefs struct {
 	PatternLibraries []string          `json:"pattern_libraries,omitempty"`
 	Originator       string            `json:"originator,omitempty"`
 	SavePath         string            `json:"save_path,omitempty"`
+	Grid             string            `json:"grid,omitempty"`
 }
 
 const (
