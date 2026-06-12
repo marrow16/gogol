@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/rand"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -87,6 +88,7 @@ type Grid struct {
 	changesBuffer    []*Cell
 	Render           RenderCell
 	StepCount        atomic.Uint64
+	mutex            sync.Mutex
 }
 
 var ErrInvalidGridDimension = errors.New("invalid grid dimension")
@@ -128,6 +130,8 @@ func makeCols(width int) []*Cell {
 var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 func (g *Grid) Randomize(rf int) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
 	g.StepCount.Store(0)
 	for row := 0; row < g.Height; row++ {
 		for col := 0; col < g.Width; col++ {
@@ -141,6 +145,8 @@ func (g *Grid) Randomize(rf int) {
 }
 
 func (g *Grid) Clear() {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
 	g.StepCount.Store(0)
 	for row := 0; row < g.Height; row++ {
 		for col := 0; col < g.Width; col++ {
@@ -217,6 +223,8 @@ func (g *Grid) SetWrapMode(m WrapMode) {
 
 func (g *Grid) SetCell(row, col int, alive bool) (changed bool) {
 	if row >= 0 && row < g.Height && col >= 0 && col < g.Width {
+		g.mutex.Lock()
+		defer g.mutex.Unlock()
 		cell := g.Rows[row][col]
 		was := cell.Alive
 		cell.Alive = alive
@@ -238,7 +246,8 @@ func (g *Grid) GetCell(row, col int) *Cell {
 func nullRender(row, col int, alive, changed bool) {}
 
 func (g *Grid) Step() (gridChanged bool) {
-	g.StepCount.Add(1)
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
 	if g.Rule == nil {
 		g.Rule = StandardRule
 	}
@@ -261,14 +270,19 @@ func (g *Grid) Step() (gridChanged bool) {
 	for _, cell := range g.changesBuffer {
 		cell.flip()
 	}
+	if gridChanged {
+		g.StepCount.Add(1)
+	}
 	return gridChanged
 }
 
 func (g *Grid) StepAhead(by int) {
-	g.StepCount.Add(uint64(by))
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
 	if g.Rule == nil {
 		g.Rule = StandardRule
 	}
+	count := uint64(0)
 	for i := 0; i < by; i++ {
 		g.changesBuffer = g.changesBuffer[:0]
 		for _, row := range g.Rows {
@@ -281,8 +295,10 @@ func (g *Grid) StepAhead(by int) {
 		if len(g.changesBuffer) == 0 {
 			break
 		}
+		count++
 		for _, cell := range g.changesBuffer {
 			cell.flip()
 		}
 	}
+	g.StepCount.Add(count)
 }

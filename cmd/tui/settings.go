@@ -16,7 +16,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type settings struct {
@@ -44,16 +43,16 @@ type settings struct {
 }
 
 var (
-	settingsBgStyle   = lipgloss.NewStyle().Background(lipgloss.Color("#eeeeee"))
-	settingsTextStyle = lipgloss.NewStyle().Background(lipgloss.Color("#eeeeee")).
-				Foreground(lipgloss.Color("#6680e6"))
-	settingsTextUlStyle = lipgloss.NewStyle().Background(lipgloss.Color("#eeeeee")).
+	dialogBgStyle   = lipgloss.NewStyle().Background(lipgloss.Color("#eeeeee"))
+	dialogTextStyle = lipgloss.NewStyle().Background(lipgloss.Color("#eeeeee")).
+			Foreground(lipgloss.Color("#6680e6"))
+	dialogTextUlStyle = lipgloss.NewStyle().Background(lipgloss.Color("#eeeeee")).
 				Foreground(lipgloss.Color("#6680e6")).
 				Underline(true)
-	settingsTabStyle     = lipgloss.NewStyle().Background(lipgloss.Color("#6680e6")).Foreground(lipgloss.Color("#ffffff"))
-	settingsPreviewStyle = lipgloss.NewStyle().Background(lipgloss.Color("#ffffff")).
+	dialogTabStyle     = lipgloss.NewStyle().Background(lipgloss.Color("#6680e6")).Foreground(lipgloss.Color("#ffffff"))
+	dialogPreviewStyle = lipgloss.NewStyle().Background(lipgloss.Color("#ffffff")).
 				Foreground(lipgloss.Color("#000000"))
-	settingsPreviewFocusedStyle = lipgloss.NewStyle().Background(lipgloss.Color("#ffffff")).
+	dialogPreviewFocusedStyle = lipgloss.NewStyle().Background(lipgloss.Color("#ffffff")).
 					Foreground(lipgloss.Color("#6680e6"))
 )
 
@@ -61,9 +60,9 @@ func (s *settings) render(rgn layout.Surface) *tea.Cursor {
 	s.clickPts = layout.ClickPoints[*settings]{}
 	s.absTop, s.absLeft, s.width, s.height = rgn.AbsoluteTop(), rgn.AbsoluteLeft(), rgn.Width(), rgn.Height()
 	// outer draw...
-	rgn.FillWith(0, 0, s.height, s.width, '\u00A0', settingsBgStyle)
-	rgn.BoxRounded(0, 0, s.height, s.width, settingsTextStyle)
-	rgn.TextCenter(0, 0, s.width, "Settings", settingsTextStyle)
+	rgn.FillWith(0, 0, s.height, s.width, '\u00A0', dialogBgStyle)
+	rgn.BoxRounded(0, 0, s.height, s.width, dialogTextStyle)
+	rgn.TextCenter(0, 0, s.width, "Settings", dialogTextStyle)
 	// tabs...
 	s.renderTabs(rgn)
 	s.currentForm = nil
@@ -87,8 +86,8 @@ func (s *settings) render(rgn layout.Surface) *tea.Cursor {
 }
 
 var gridForm = &layout.Form[*settings]{
-	Style:        settingsTextStyle,
-	FocusedStyle: settingsTabStyle,
+	Style:        dialogTextStyle,
+	FocusedStyle: dialogTabStyle,
 	FormRows: layout.FormRows[*settings]{
 		3: {
 			2: {
@@ -138,6 +137,21 @@ var gridForm = &layout.Form[*settings]{
 					func(s *settings, value int) tea.Cmd {
 						s.m.stepAheadBy = value
 						s.m.prefs.StepAheadBy = value
+						return s.m.savePrefs()
+					}),
+			},
+			30: {Item: "Snapshot before:"},
+			47: {
+				Item: layout.NewRadio([]string{"No", "Yes"},
+					func(s *settings) int {
+						if s.m.snapshotBefore {
+							return 1
+						}
+						return 0
+					},
+					func(s *settings, value int) tea.Cmd {
+						s.m.snapshotBefore = value != 0
+						s.m.prefs.SnapshotBefore = s.m.snapshotBefore
 						return s.m.savePrefs()
 					}),
 			},
@@ -305,8 +319,8 @@ var gridForm = &layout.Form[*settings]{
 }
 
 var ruleForm = &layout.Form[*settings]{
-	Style:        settingsTextStyle,
-	FocusedStyle: settingsTabStyle,
+	Style:        dialogTextStyle,
+	FocusedStyle: dialogTabStyle,
 	FormRows: layout.FormRows[*settings]{
 		3: {
 			2: {Item: "       Name:"},
@@ -461,12 +475,12 @@ func (s *settings) getPatterns() []string {
 }
 
 var patternsForm = &layout.Form[*settings]{
-	Style:        settingsTextStyle,
-	FocusedStyle: settingsTabStyle,
+	Style:        dialogTextStyle,
+	FocusedStyle: dialogTabStyle,
 	FormRows: layout.FormRows[*settings]{
 		3: {
-			1: {Item: "Name:"},
-			7: {
+			2: {Item: "Name:"},
+			8: {
 				Item: layout.NewDropdownSelect(func(s *settings) []string {
 					return s.getPatterns()
 				}, -1, func(s *settings) string {
@@ -577,47 +591,47 @@ func (p *settingsPatternPreview[T]) Render(parent T, form *layout.Form[T], input
 	rgn := sf.Region(row, col+1, 14, sf.Width()-2)
 	s := asSettings(parent)
 	if s.currentPattern == nil {
-		rgn.TextCenter(7, 0, rgn.Width(), "No preview/info available", settingsTextStyle)
+		rgn.TextCenter(7, 0, rgn.Width(), "No preview/info available", dialogTextStyle)
 	} else if s.patternInfo {
-		rgn.TextCenter(1, 0, rgn.Width(), "Pattern Information", settingsTextStyle)
-		rgn.Text(2, 3, "Height: "+strconv.Itoa(s.currentPattern.Height), settingsTextStyle)
-		rgn.Text(2, 17, "Width: "+strconv.Itoa(s.currentPattern.Width), settingsTextStyle)
-		clickPts.Add(rgn.Text(2, rgn.Width()-17, "ctrl+k", settingsTextUlStyle), func(parent T) tea.Cmd {
+		rgn.TextCenter(1, 0, rgn.Width(), "Pattern Information", dialogTextStyle)
+		rgn.Text(2, 3, "Height: "+strconv.Itoa(s.currentPattern.Height), dialogTextStyle)
+		rgn.Text(2, 17, "Width: "+strconv.Itoa(s.currentPattern.Width), dialogTextStyle)
+		clickPts.Add(rgn.Text(2, rgn.Width()-17, "ctrl+k", dialogTextUlStyle), func(parent T) tea.Cmd {
 			s.patternInfo = false
 			return nil
 		})
-		rgn.Text(2, rgn.Width()-10, "- Preview", settingsTextStyle)
+		rgn.Text(2, rgn.Width()-10, "- Preview", dialogTextStyle)
 		if s.currentPattern.Rule != nil {
-			rgn.Text(3, 5, "Rule:", settingsTextStyle)
+			rgn.Text(3, 5, "Rule:", dialogTextStyle)
 			rn := s.currentPattern.Rule.Rle()
 			if n, ok := logic.RleToName(rn); ok {
 				rn = n
 			}
-			clickPts.Add(rgn.Text(3, 11, rn, settingsTextUlStyle), func(parent T) tea.Cmd {
+			clickPts.Add(rgn.Text(3, 11, rn, dialogTextUlStyle), func(parent T) tea.Cmd {
 				s.m.grid.Rule = s.currentPattern.Rule
 				s.m.prefs.setRule(s.m.grid.Rule)
 				return s.m.savePrefs()
 			})
 
 			if len(s.patternRuleFilter) > 0 && s.patternRuleFilter == s.currentPattern.Rule.Rle() {
-				clickPts.Add(rgn.Text(3, rgn.Width()-9, "Filtered", settingsTextUlStyle), func(parent T) tea.Cmd {
+				clickPts.Add(rgn.Text(3, rgn.Width()-9, "Filtered", dialogTextUlStyle), func(parent T) tea.Cmd {
 					s.patternRuleFilter = ""
 					return nil
 				})
 			} else {
-				clickPts.Add(rgn.Text(3, rgn.Width()-7, "Filter", settingsTextUlStyle), func(parent T) tea.Cmd {
+				clickPts.Add(rgn.Text(3, rgn.Width()-7, "Filter", dialogTextUlStyle), func(parent T) tea.Cmd {
 					s.patternRuleFilter = s.currentPattern.Rule.Rle()
 					return nil
 				})
 			}
 		}
-		rgn.Text(4, 1, "Filename: "+s.currentPattern.Filename, settingsTextStyle)
-		rgn.Text(5, 3, "Origin: "+s.currentPattern.Origination, settingsTextStyle)
+		rgn.Text(4, 1, "Filename: "+s.currentPattern.Filename, dialogTextStyle)
+		rgn.Text(5, 3, "Origin: "+s.currentPattern.Origination, dialogTextStyle)
 		if len(s.currentPattern.Comments) > 0 {
-			rgn.Text(6, 2, "Comment:", settingsTextStyle)
+			rgn.Text(6, 2, "Comment:", dialogTextStyle)
 			y := 6
 			for _, comment := range s.currentPattern.Comments {
-				y += rgn.TextWrapped(y, 11, rgn.Width()-11, comment, settingsTextStyle)
+				y += rgn.TextWrapped(y, 11, rgn.Width()-11, comment, dialogTextStyle)
 			}
 		}
 	} else {
@@ -641,9 +655,9 @@ func (p *settingsPatternPreview[T]) Render(parent T, form *layout.Form[T], input
 					return nil
 				})
 			}
-			useStyle := settingsPreviewStyle
+			useStyle := dialogPreviewStyle
 			if focused {
-				useStyle = settingsPreviewFocusedStyle
+				useStyle = dialogPreviewFocusedStyle
 			}
 			preview.FillWith(0, 0, preview.Height(), preview.Width(), '\u00A0', useStyle)
 			aliveStyle := lipgloss.NewStyle().Foreground(useStyle.GetBackground()).Background(useStyle.GetForeground())
@@ -681,8 +695,8 @@ func sortPatterns() []string {
 }
 
 var loadPatternsForm = &layout.Form[*settings]{
-	Style:        settingsTextStyle,
-	FocusedStyle: settingsTabStyle,
+	Style:        dialogTextStyle,
+	FocusedStyle: dialogTabStyle,
 	FormRows: layout.FormRows[*settings]{
 		3: {
 			2: {Item: "From:"},
@@ -754,45 +768,15 @@ var loadPatternsForm = &layout.Form[*settings]{
 }
 
 var exportForm = &layout.Form[*settings]{
-	Style:        settingsTextStyle,
-	FocusedStyle: settingsTabStyle,
+	Style:        dialogTextStyle,
+	FocusedStyle: dialogTabStyle,
 	FormRows: layout.FormRows[*settings]{
 		4: {
 			25: {
 				Item: layout.NewButton("Export Grid", func(s *settings) tea.Cmd {
 					s.exportResult = nil
 					return func() tea.Msg {
-						gp, err := patterns.NewPatternFromGrid(s.m.grid)
-						if err != nil {
-							return exportResult{
-								error: err,
-							}
-						}
-						now := time.Now()
-						gp.Name = "Grid " + now.Format("2006-01-02 15:04:05")
-						gp.Comments = []string{
-							"Exported from GoGoL (https://github.com/marrow16/gogol)",
-							"Wrap mode: " + s.m.grid.WrapMode.String(),
-							"Boundary mode: " + s.m.grid.BoundaryMode.String(),
-						}
-						gp.Origination = s.m.prefs.Originator
-						fn := "Grid " + now.Format("2006-01-02T150405") + ".rle"
-						f, err := os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
-						if err != nil {
-							if errors.Is(err, fs.ErrExist) {
-								return exportResult{
-									error: errors.New("File already exists"),
-								}
-							} else {
-								return exportResult{
-									error: err,
-								}
-							}
-						}
-						defer func() {
-							_ = f.Close()
-						}()
-						err = patterns.PatternRleEncode(gp, f)
+						fn, err := s.m.exportGrid()
 						return exportResult{
 							filename: fn,
 							error:    err,
@@ -875,11 +859,16 @@ var exportForm = &layout.Form[*settings]{
 							// parse wrap and boundary modes...
 							wrap := s.m.grid.WrapMode
 							boundary := s.m.grid.BoundaryMode
+							step := uint64(0)
 							for _, c := range p.Comments {
 								if after, ok := strings.CutPrefix(c, "Wrap mode: "); ok {
 									wrap = logic.WrapModeFromString(after, wrap)
 								} else if after, ok := strings.CutPrefix(c, "Boundary mode: "); ok {
 									boundary = logic.BoundaryModeFromString(after, boundary)
+								} else if after, ok := strings.CutPrefix(c, "Step: "); ok {
+									if n, err := strconv.ParseUint(after, 10, 64); err == nil {
+										step = uint64(n)
+									}
 								}
 							}
 							noResize := s.importNoResize || (p.Height == s.m.grid.Height && p.Width == s.m.grid.Width)
@@ -888,6 +877,7 @@ var exportForm = &layout.Form[*settings]{
 								s.importResult = nil
 								s.m.grid.Clear()
 								p.Draw(s.m.grid, 0, 0, patterns.Rotate0)
+								s.m.grid.StepCount.Store(step)
 								s.m.grid.Rule = p.Rule
 								s.m.grid.BoundaryMode = boundary
 								s.m.grid.WrapMode = wrap
@@ -899,6 +889,7 @@ var exportForm = &layout.Form[*settings]{
 								s.importResult = nil
 								grid.Rule = p.Rule
 								p.Draw(grid, 0, 0, patterns.Rotate0)
+								s.m.grid.StepCount.Store(step)
 								s.m.prefs.setRule(grid.Rule)
 								s.m.prefs.setWrapMode(wrap)
 								s.m.prefs.setBoundaryMode(boundary)
@@ -1018,14 +1009,14 @@ func (s *settings) renderTabs(rgn layout.Surface) {
 	x := 3
 	for _, tab := range settingsTabs {
 		if tab.tabNo == s.tab {
-			rgn.Text(1, x-1, " "+tab.title+" ", settingsTabStyle)
+			rgn.Text(1, x-1, " "+tab.title+" ", dialogTabStyle)
 		} else {
-			s.clickPts.Add(rgn.Text(1, x, tab.title, settingsTextStyle), func(s *settings) tea.Cmd {
+			s.clickPts.Add(rgn.Text(1, x, tab.title, dialogTextStyle), func(s *settings) tea.Cmd {
 				s.tab = tab.tabNo
 				return nil
 			})
 			if tab.ul != -1 {
-				rgn.Text(1, x+tab.ul, tab.title[tab.ul:tab.ul+1], settingsTextUlStyle)
+				rgn.Text(1, x+tab.ul, tab.title[tab.ul:tab.ul+1], dialogTextUlStyle)
 			}
 		}
 		x += len(tab.title) + 3

@@ -482,7 +482,7 @@ func (b *button[T]) Render(parent T, form *Form[T], inputNo int, sf Surface, cli
 	return nil, nil
 }
 
-func NewDropdownSelect[T any, V []string | func(parent T) []string](values V, maxWidth int, getFn func(parent T) string, setFn func(parent T, value string) tea.Cmd) Input[T] {
+func NewDropdownSelect[T any, V []string | func(parent T) []string](values V, maxWidth int, getFn func(parent T) string, setFn func(parent T, value string) tea.Cmd, opts ...bool) Input[T] {
 	vs, vsup := getValuesOrSupplier[T](values)
 	return &dropdownSelect[T]{
 		values:         vs,
@@ -490,6 +490,7 @@ func NewDropdownSelect[T any, V []string | func(parent T) []string](values V, ma
 		valuesSupplier: vsup,
 		getValue:       getFn,
 		setValue:       setFn,
+		startEllipses:  len(opts) > 0 && opts[0],
 	}
 }
 
@@ -512,6 +513,7 @@ type dropdownSelect[T any] struct {
 	valuesSupplier func(parent T) []string
 	getValue       func(parent T) string
 	setValue       func(parent T, value string) tea.Cmd
+	startEllipses  bool
 }
 
 func (d *dropdownSelect[T]) Reset(parent T) {
@@ -571,7 +573,11 @@ func (d *dropdownSelect[T]) key(parent T, msg tea.KeyPressMsg) tea.Cmd {
 	case "end":
 		return d.scroll(parent, ScrollEnd)
 	case "enter":
-		d.droppedDown = !d.droppedDown
+		if d.droppedDown {
+			d.droppedDown = false
+		} else if len(d.getItems(parent)) > 1 {
+			d.droppedDown = true
+		}
 	default:
 		if ch := strings.ToUpper(msg.String()); len(ch) == 1 {
 			items := d.getItems(parent)
@@ -609,7 +615,11 @@ func (d *dropdownSelect[T]) Render(parent T, form *Form[T], inputNo int, sf Surf
 	current := d.getValue(parent)
 	show := current
 	if len(show) > maxWd {
-		show = current[:maxWd]
+		if d.startEllipses {
+			show = "..." + show[len(show)-(maxWd-4):]
+		} else {
+			show = current[:maxWd]
+		}
 	}
 	if focused {
 		var ddRgn Surface
@@ -656,10 +666,12 @@ func (d *dropdownSelect[T]) Render(parent T, form *Form[T], inputNo int, sf Surf
 				d.droppedDown = true
 				return nil
 			})
-			clickPts.Add(sf.Text(row, col+maxWd-1, "▼", focusedStyle), func(parent T) tea.Cmd {
-				d.droppedDown = true
-				return nil
-			})
+			if len(d.getItems(parent)) > 1 {
+				clickPts.Add(sf.Text(row, col+maxWd-1, "▼", focusedStyle), func(parent T) tea.Cmd {
+					d.droppedDown = true
+					return nil
+				})
+			}
 		}
 		return nil, ddRgn
 	} else {
