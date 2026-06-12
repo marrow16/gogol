@@ -5,16 +5,20 @@ Game Of Life implementation in Go.
 ## Features
 
 * Easy-to-use terminal UI (TUI)
-* Fast rendering and simulation (~100 FPS)
-* Mouse and keyboard support
-* Full control over grid state
+* Fast rendering and simulation (up to ~60 FPS)
+* Step ahead (steps the simulation ahead without rendering)
+* Snapshot current grid and revert back to snapshot
+* Full control over grid settings
 * Standard and custom Life rules
 * Built-in pattern library
 * Load individual RLE patterns and/or entire libraries
 * Pattern preview and metadata viewer
 * Pattern placement, rotation and positioning
-* Pattern capture from a running simulation
-* Interactive pattern editor (cropping and cleanup; metadata editing; save as RLE)
+* Pattern capture from a simulation
+  * Interactive pattern editor (cropping and cleanup; metadata editing; save as RLE)
+* Grid recipes - JSON files to create initial grid
+* Save and load current grid as RLE
+* Mouse and keyboard support
 
 ## Running
 

@@ -70,14 +70,15 @@ func (w *rleWriter) writeDimensions(x, y int, r logic.Rule) {
 func (w *rleWriter) writeData(width int, cells []bool) {
 	ht := len(cells) / width
 	var lb strings.Builder
-	checkLineLen := func() {
-		if lb.Len()+1 >= maxLineLength {
+	checkLineLen := func(l int) {
+		if lb.Len()+l > maxLineLength {
 			w.writeLine(lb.String())
 			lb.Reset()
 		}
 	}
 	for r := 0; r < ht; r++ {
 		if r > 0 {
+			checkLineLen(1)
 			lb.WriteRune('$')
 		}
 		row := cells[r*width : (r+1)*width]
@@ -89,7 +90,7 @@ func (w *rleWriter) writeData(width int, cells []bool) {
 			row = make([]bool, width)
 		}
 		for _, run := range runs(row) {
-			checkLineLen()
+			checkLineLen(len(run))
 			lb.WriteString(run)
 		}
 	}

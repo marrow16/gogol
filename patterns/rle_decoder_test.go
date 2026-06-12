@@ -44,7 +44,7 @@ o2bob2ob$2bo4b2o4b$2b2o9b$2b2o!`
 	assert.Equal(t, expectedPattern, p.Cells)
 }
 
-const patternsPath = "./../_patterns"
+const patternsPath = "./../_patterns/standard"
 
 func TestRlePatternsWalk(t *testing.T) {
 	count := 0

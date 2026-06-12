@@ -24,11 +24,11 @@ const (
 func (c captureStage) String() string {
 	switch c {
 	case captureStartMark:
-		return "start-mark"
+		return "capture start - space/enter"
 	case captureEndMark:
-		return "end-mark"
+		return "capture end - space/enter"
 	case captureEditPattern:
-		return "edit-pattern"
+		return "capture"
 	}
 	return ""
 }
@@ -69,11 +69,6 @@ func (c *capture) start() {
 	// anything else to reset???
 }
 
-const (
-	captureDialogWidth  = 50
-	captureDialogHeight = 22
-)
-
 func (c *capture) render(sf layout.Surface) *tea.Cursor {
 	c.clickPts = layout.ClickPoints[*capture]{}
 	var csr *tea.Cursor
@@ -85,10 +80,11 @@ func (c *capture) render(sf layout.Surface) *tea.Cursor {
 		csr = tea.NewCursor(c.endCol, c.endRow)
 		csr.Color = lipgloss.Color("#00D000")
 	default:
-		rgn := sf.Region(1, (sf.Width()-captureDialogWidth)/2, captureDialogHeight, captureDialogWidth)
-		rgn.FillWith(0, 0, rgn.Height(), rgn.Width(), '\u00A0', settingsBgStyle)
-		rgn.BoxRounded(0, 0, rgn.Height(), rgn.Width(), settingsTextStyle)
-		rgn.TextCenter(0, 0, rgn.Width(), "Pattern Capture", settingsTextStyle)
+		topPos, leftPos := c.positionDialog(sf)
+		rgn := sf.Region(topPos, leftPos, dialogHeight, dialogWidth)
+		rgn.FillWith(0, 0, rgn.Height(), rgn.Width(), '\u00A0', dialogBgStyle)
+		rgn.BoxRounded(0, 0, rgn.Height(), rgn.Width(), dialogTextStyle)
+		rgn.TextCenter(0, 0, rgn.Width(), "Pattern Capture", dialogTextStyle)
 		c.renderTabs(rgn)
 		c.currentForm = nil
 		switch c.tab {
@@ -104,14 +100,51 @@ func (c *capture) render(sf layout.Surface) *tea.Cursor {
 	return csr
 }
 
+func (c *capture) positionDialog(sf layout.Surface) (topPos, leftPos int) {
+	sr, sc, er, ec := c.normalizeDimensions()
+	maxLeft := max(0, sf.Width()-dialogWidth)
+	topPos = clamp(sr, 0, max(0, sf.Height()-dialogHeight))
+	leftPos = clamp((sf.Width()-dialogWidth)/2, 0, maxLeft)
+	switch {
+	case ec+2+dialogWidth <= sf.Width():
+		// right of capture
+		leftPos = ec + 2
+	case sc-2-dialogWidth >= 0:
+		// left of capture
+		leftPos = sc - 2 - dialogWidth
+	case er+1+dialogHeight <= sf.Height():
+		// below capture
+		topPos = er + 1
+		leftPos = clamp(sc, 0, maxLeft)
+	case sr-1-dialogHeight >= 0:
+		// above capture
+		topPos = sr - 1 - dialogHeight
+		leftPos = clamp(sc, 0, maxLeft)
+	default:
+		// nowhere ideal - fallback centered
+		topPos, leftPos = c.m.dialogPosition(dialogHeight, dialogWidth)
+	}
+	return topPos, leftPos
+}
+
+func clamp(v, min, max int) int {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
 var captureDetailsForm = &layout.Form[*capture]{
-	Style:        settingsTextStyle,
-	FocusedStyle: settingsTabStyle,
+	Style:        dialogTextStyle,
+	FocusedStyle: dialogTabStyle,
 	FormRows: layout.FormRows[*capture]{
 		3: {
 			3: {Item: "File:"},
 			9: {
-				Item: layout.NewTextInput(captureDialogWidth-10, "",
+				Item: layout.NewTextInput(dialogWidth-10, "",
 					func(c *capture) string {
 						return c.filename
 					}, func(c *capture, value string) tea.Cmd {
@@ -123,7 +156,7 @@ var captureDetailsForm = &layout.Form[*capture]{
 		4: {
 			3: {Item: "Name:"},
 			9: {
-				Item: layout.NewTextInput(captureDialogWidth-10, "",
+				Item: layout.NewTextInput(dialogWidth-10, "",
 					func(c *capture) string {
 						return c.pattern.Name
 					}, func(c *capture, value string) tea.Cmd {
@@ -135,7 +168,7 @@ var captureDetailsForm = &layout.Form[*capture]{
 		5: {
 			1: {Item: "Origin:"},
 			9: {
-				Item: layout.NewTextInput(captureDialogWidth-10, "",
+				Item: layout.NewTextInput(dialogWidth-10, "",
 					func(c *capture) string {
 						return c.pattern.Origination
 					}, func(c *capture, value string) tea.Cmd {
@@ -149,7 +182,7 @@ var captureDetailsForm = &layout.Form[*capture]{
 		},
 		8: {
 			1: {
-				Item: layout.NewTextInput(captureDialogWidth-2, "",
+				Item: layout.NewTextInput(dialogWidth-2, "",
 					func(c *capture) string {
 						if len(c.pattern.Comments) > 0 {
 							return c.pattern.Comments[0]
@@ -163,7 +196,7 @@ var captureDetailsForm = &layout.Form[*capture]{
 		},
 		9: {
 			1: {
-				Item: layout.NewTextInput(captureDialogWidth-2, "",
+				Item: layout.NewTextInput(dialogWidth-2, "",
 					func(c *capture) string {
 						if len(c.pattern.Comments) > 1 {
 							return c.pattern.Comments[1]
@@ -177,7 +210,7 @@ var captureDetailsForm = &layout.Form[*capture]{
 		},
 		10: {
 			1: {
-				Item: layout.NewTextInput(captureDialogWidth-2, "",
+				Item: layout.NewTextInput(dialogWidth-2, "",
 					func(c *capture) string {
 						if len(c.pattern.Comments) > 2 {
 							return c.pattern.Comments[2]
@@ -191,7 +224,7 @@ var captureDetailsForm = &layout.Form[*capture]{
 		},
 		11: {
 			1: {
-				Item: layout.NewTextInput(captureDialogWidth-2, "",
+				Item: layout.NewTextInput(dialogWidth-2, "",
 					func(c *capture) string {
 						if len(c.pattern.Comments) > 3 {
 							return c.pattern.Comments[3]
@@ -203,7 +236,7 @@ var captureDetailsForm = &layout.Form[*capture]{
 					}, true),
 			},
 		},
-		captureDialogHeight - 6: {
+		dialogHeight - 6: {
 			1: {
 				Item: func(c *capture) any {
 					if c.saveResult != nil && c.saveResult.error != nil {
@@ -214,9 +247,9 @@ var captureDetailsForm = &layout.Form[*capture]{
 				Style: &errorStyle,
 			},
 		},
-		captureDialogHeight - 5: {
-			captureDialogWidth - 21: {Item: "Add pattern:"},
-			captureDialogWidth - 8: {
+		dialogHeight - 5: {
+			dialogWidth - 21: {Item: "Add pattern:"},
+			dialogWidth - 8: {
 				Item: layout.NewRadio([]string{"Yes", "No"}, func(c *capture) int {
 					return c.addLibrary
 				}, func(c *capture, value int) tea.Cmd {
@@ -225,8 +258,8 @@ var captureDetailsForm = &layout.Form[*capture]{
 				}),
 			},
 		},
-		captureDialogHeight - 3: {
-			captureDialogWidth - 6: {
+		dialogHeight - 3: {
+			dialogWidth - 6: {
 				Item: layout.NewButton("Save", func(c *capture) tea.Cmd {
 					c.saveResult = nil
 					return c.save()
@@ -277,15 +310,15 @@ func (c *capture) setComment(n int, value string) {
 }
 
 var captureModifyForm = &layout.Form[*capture]{
-	Style:        settingsTextStyle,
-	FocusedStyle: settingsTabStyle,
+	Style:        dialogTextStyle,
+	FocusedStyle: dialogTabStyle,
 	FormRows: layout.FormRows[*capture]{
 		2: {
 			1: {
 				Item: &capturePatternPreview[*capture]{},
 			},
 		},
-		captureDialogHeight - 2: {
+		dialogHeight - 2: {
 			2: {Item: "Crop  Top:     Left:     Bottom:     Right:"},
 			12: {
 				Item: layout.NewNumberInput(3, 0,
@@ -433,7 +466,7 @@ func (p *capturePatternPreview[T]) Update(parent T, msg tea.Msg, focused bool) t
 }
 
 func (p *capturePatternPreview[T]) Render(parent T, form *layout.Form[T], inputNo int, sf layout.Surface, clickPts layout.ClickPoints[T], row, col int, focused bool, style lipgloss.Style, focusedStyle lipgloss.Style) *tea.Cursor {
-	rgn := sf.Region(row, col, captureDialogHeight-4, sf.Width()-2)
+	rgn := sf.Region(row, col, dialogHeight-4, sf.Width()-2)
 	c := asCapture(parent)
 	wd := c.pattern.Width - c.cropLeft - c.cropRight - c.patternOffX
 	if wd > rgn.Width() {
@@ -457,9 +490,9 @@ func (p *capturePatternPreview[T]) Render(parent T, form *layout.Form[T], inputN
 				})
 			}
 		}
-		useStyle := settingsPreviewStyle
+		useStyle := dialogPreviewStyle
 		if focused {
-			useStyle = settingsPreviewFocusedStyle
+			useStyle = dialogPreviewFocusedStyle
 		}
 		p.preview.FillWith(0, 0, p.preview.Height(), p.preview.Width(), '\u00A0', useStyle)
 		aliveStyle := lipgloss.NewStyle().Foreground(useStyle.GetBackground()).Background(useStyle.GetForeground())
@@ -487,14 +520,14 @@ func (c *capture) renderTabs(rgn layout.Surface) {
 	x := 3
 	for _, tab := range captureTabs {
 		if tab.tabNo == c.tab {
-			rgn.Text(1, x-1, " "+tab.title+" ", settingsTabStyle)
+			rgn.Text(1, x-1, " "+tab.title+" ", dialogTabStyle)
 		} else {
-			c.clickPts.Add(rgn.Text(1, x, tab.title, settingsTextStyle), func(c *capture) tea.Cmd {
+			c.clickPts.Add(rgn.Text(1, x, tab.title, dialogTextStyle), func(c *capture) tea.Cmd {
 				c.tab = tab.tabNo
 				return nil
 			})
 			if tab.ul != -1 {
-				rgn.Text(1, x+tab.ul, tab.title[tab.ul:tab.ul+1], settingsTextUlStyle)
+				rgn.Text(1, x+tab.ul, tab.title[tab.ul:tab.ul+1], dialogTextUlStyle)
 			}
 		}
 		x += len(tab.title) + 3
@@ -515,14 +548,19 @@ var captureTabs = []struct {
 	{"Modify", 1, captureTabModify},
 }
 
+func (c *capture) normalizeDimensions() (startRow, startCol, endRow, endCol int) {
+	startRow, startCol, endRow, endCol = c.startRow, c.startCol, c.endRow, c.endCol
+	if endRow < startRow {
+		startRow, endRow = endRow, startRow
+	}
+	if endCol < startCol {
+		startCol, endCol = endCol, startCol
+	}
+	return startRow, startCol, endRow, endCol
+}
+
 func (c *capture) resetArea() {
-	sr, sc, er, ec := c.startRow, c.startCol, c.endRow, c.endCol
-	if er < sr {
-		sr, er = er, sr
-	}
-	if ec < sc {
-		sc, ec = ec, sc
-	}
+	sr, sc, er, ec := c.normalizeDimensions()
 	for row := sr; row <= er; row++ {
 		for col := sc; col <= ec; col++ {
 			c.m.gridSurface.SetStyle(row, col, c.resetStyle)
@@ -531,13 +569,7 @@ func (c *capture) resetArea() {
 }
 
 func (c *capture) markArea() {
-	sr, sc, er, ec := c.startRow, c.startCol, c.endRow, c.endCol
-	if er < sr {
-		sr, er = er, sr
-	}
-	if ec < sc {
-		sc, ec = ec, sc
-	}
+	sr, sc, er, ec := c.normalizeDimensions()
 	for row := sr; row <= er; row++ {
 		for col := sc; col <= ec; col++ {
 			c.m.gridSurface.SetStyle(row, col, c.markedStyle)
@@ -546,13 +578,7 @@ func (c *capture) markArea() {
 }
 
 func (c *capture) scrapePattern() {
-	sr, sc, er, ec := c.startRow, c.startCol, c.endRow, c.endCol
-	if er < sr {
-		sr, er = er, sr
-	}
-	if ec < sc {
-		sc, ec = ec, sc
-	}
+	sr, sc, er, ec := c.normalizeDimensions()
 	sr, sc, er, ec = sr*2, sc*2, (er*2)+1, (ec*2)+1
 	ht, wd := er-sr+1, ec-sc+1
 	idx := 0
@@ -609,6 +635,12 @@ func (c *capture) update(msg tea.Msg) tea.Cmd {
 		case "ctrl+c":
 			return tea.Quit
 		case "esc", "ctrl+k":
+			if c.stage == captureEndMark {
+				c.resetArea()
+				c.startRow, c.startCol = c.endRow, c.endCol
+				c.stage = captureStartMark
+				return nil
+			}
 			if c.stage > captureStartMark {
 				c.resetArea()
 			}

@@ -23,7 +23,8 @@ func (rs rows) render() string {
 	}
 	spaces := bytes.Repeat([]byte{' '}, len(rs[0]))
 	var buf bytes.Buffer
-	for _, r := range rs {
+	lr := len(rs) - 1
+	for l, r := range rs {
 		lastCol := 0
 		for c, seg := range r {
 			if seg == nil {
@@ -39,7 +40,9 @@ func (rs rows) render() string {
 			}
 			lastCol = c + seg.extent
 		}
-		buf.Write(cr)
+		if l < lr {
+			buf.Write(cr)
+		}
 	}
 	return buf.String()
 }

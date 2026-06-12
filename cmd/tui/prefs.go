@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/marrow16/gogol/logic"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 )
@@ -15,6 +16,7 @@ type prefs struct {
 	Width            int               `json:"width"`
 	StepDelay        int               `json:"step_delay"`
 	StepAheadBy      int               `json:"step_ahead_by"`
+	SnapshotBefore   bool              `json:"snapshot_before_step_ahead"`
 	Random           int               `json:"random"`
 	WrapMode         string            `json:"wrap_mode"`
 	BoundaryMode     string            `json:"boundary_mode"`
@@ -27,6 +29,7 @@ type prefs struct {
 	Originator       string            `json:"originator,omitempty"`
 	SavePath         string            `json:"save_path,omitempty"`
 	Grid             string            `json:"grid,omitempty"`
+	Recipes          []string          `json:"recipes,omitempty"`
 }
 
 const (
@@ -54,17 +57,18 @@ func loadPrefs() *prefs {
 		}
 	}
 	return &prefs{
-		Height:       defaultHeight,
-		Width:        defaultWidth,
-		StepDelay:    defaultStep,
-		StepAheadBy:  defaultStepAhead,
-		Random:       defaultRandom,
-		WrapMode:     defaultWrapMode,
-		BoundaryMode: defaultBoundaryMode,
-		CellFG:       defaultFg,
-		CellBG:       defaultBg,
-		Rule:         defaultRule,
-		Rules:        make(map[string]string),
+		Height:         defaultHeight,
+		Width:          defaultWidth,
+		StepDelay:      defaultStep,
+		StepAheadBy:    defaultStepAhead,
+		SnapshotBefore: true,
+		Random:         defaultRandom,
+		WrapMode:       defaultWrapMode,
+		BoundaryMode:   defaultBoundaryMode,
+		CellFG:         defaultFg,
+		CellBG:         defaultBg,
+		Rule:           defaultRule,
+		Rules:          make(map[string]string),
 	}
 }
 
@@ -161,12 +165,18 @@ func (p *prefs) loadPatterns() {
 }
 
 func (p *prefs) addPattern(filename string) {
+	if ap, err := filepath.Abs(filename); err == nil {
+		filename = ap
+	}
 	if !slices.Contains(p.Patterns, filename) {
 		p.Patterns = append(p.Patterns, filename)
 	}
 }
 
 func (p *prefs) addPatternLibrary(path string) {
+	if ap, err := filepath.Abs(path); err == nil {
+		path = ap
+	}
 	if !slices.Contains(p.PatternLibraries, path) {
 		p.PatternLibraries = append(p.PatternLibraries, path)
 	}
@@ -174,6 +184,15 @@ func (p *prefs) addPatternLibrary(path string) {
 
 func (p *prefs) addRule(name string, rle string) {
 	p.Rules[name] = rle
+}
+
+func (p *prefs) addRecipe(filename string) {
+	if ap, err := filepath.Abs(filename); err == nil {
+		filename = ap
+	}
+	if !slices.Contains(p.Recipes, filename) {
+		p.Recipes = append(p.Recipes, filename)
+	}
 }
 
 func (p *prefs) clearPatterns() {
