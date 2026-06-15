@@ -2,7 +2,7 @@
 
 ## General
 
-The terminal title shows the simulation state - with step count and current life rule.
+The terminal title shows the simulation state (with step count and current life rule) or the current mode.
 
 When in simulation, use the following keys:
 
@@ -13,11 +13,13 @@ When in simulation, use the following keys:
 | `tab`       | step ahead the simulation  |
 | `home`      | randomize the grid         |
 | `ctrl+s`    | settings                   |
+| `ctrl+p`    | patterns                   |
 | `ctrl+k`    | capture mode               |
 | `ctrl+g`    | grid recipes               |
 | `ctrl+o`    | snapshot current grid      |
 | `backspace` | restore to last snapshot   |
 | `ctrl+x`    | export current grid as RLE |
+| `ctrl+e`    | grid edit mode             |
 | `esc`       | quit (with save)           |
 | `ctrl+c`    | quit (no save)             |
 
@@ -65,6 +67,23 @@ When an unknown rule or permutation is entered, further entries will appear - to
 * **As name** enter the name you wish to save the rule as
 * **Save** press to save the new named rule, 
 
+### Export/Import tab
+
+Export the current grid to RLE file or import current grid from RLE file...
+
+* **Export Grid** to save the current grid to RLE file.
+
+
+* **Import from**  enter the filename of an RLE to load the grid from.
+* **Resize** determines whether to resize the current grid to match the RLE dimensions.
+* **Import Grid** press to import the selected RLE file.
+
+---
+
+## Patterns dialog
+
+Press `ctrl+p` to open the Patterns dialog.
+
 ### Patterns tab
 
 Select a pattern from the current pattern library and place it on the grid...
@@ -86,16 +105,7 @@ Load individual RLE file or an entire library (from a directory)...
 
 * **Clear** to clear all loaded patterns from the current pattern library.
 
-### Export/Import tab
 
-Export the current grid to RLE file or import current grid from RLE file...
-
-* **Export Grid** to save the current grid to RLE file.
-
-
-* **Import from**  enter the filename of an RLE to load the grid from.
-* **Resize** determines whether to resize the current grid to match the RLE dimensions.
-* **Import Grid** press to import the selected RLE file.
 ---
 
 ## Grid Recipes dialog
@@ -151,3 +161,23 @@ Make final adjustments to the captured pattern...
   * `ctrl+space` to set a cell
 * **Crop** use the **Top**, **Left**, **Bottom** and **Right** values to crop the pattern.<br>
   As these values are adjusted the preview is updated (but the crop isn't applied until save).
+
+---
+
+## Grid edit mode
+
+Note that GoGoL uses quadrant block characters to display cells - effectively doubling the available grid with & height.
+
+Use the following keys:
+* `esc` to end edit mode
+* `space` / `backspace` to clear a quadrant with dead cells
+* `ctrl+space` to fill a quadrant with live cells
+* to invert a single quadrant
+  * `1` top-left
+  * `2` top-right
+  * `3` bottom-left
+  * `4` bottom-right
+* `ctrl+p` draws the pattern last selected in the Patterns dialog
+* `ctrl+a` clears the entire grid
+* `up`, `down`, `left`, `right`, `home` & `end` keys to navigate (or use mouse)
+* many other character keys will print that character to the grid!

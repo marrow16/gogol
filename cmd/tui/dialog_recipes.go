@@ -15,6 +15,16 @@ import (
 	"strings"
 )
 
+const (
+	recipesTabSelect = iota
+	recipesTabLoad
+)
+
+var recipesTabs = tabs{
+	{"Select", 0, recipesTabSelect},
+	{"Load", 1, recipesTabLoad},
+}
+
 type recipesDialog struct {
 	m            *model
 	tab          int
@@ -25,6 +35,10 @@ type recipesDialog struct {
 	selected     string
 	jsonYOffset  int
 	recipeErrors map[string]error
+}
+
+func (d *recipesDialog) title() string {
+	return "[recipes]"
 }
 
 func (r *recipesDialog) render(rgn layout.Surface) *tea.Cursor {
@@ -40,7 +54,9 @@ func (r *recipesDialog) render(rgn layout.Surface) *tea.Cursor {
 	if r.tab == recipesTabSelect && len(r.m.prefs.Recipes) == 0 {
 		r.tab = recipesTabLoad
 	}
-	r.renderTabs(rgn)
+	renderTabs(rgn, r.clickPts, recipesTabs, r.tab, func(t int) {
+		r.tab = t
+	})
 	r.currentForm = nil
 	switch r.tab {
 	case recipesTabSelect:
@@ -58,6 +74,22 @@ func (r *recipesDialog) render(rgn layout.Surface) *tea.Cursor {
 		csr = r.currentForm.Render(r, r.clickPts, rgn)
 	}
 	return csr
+}
+
+func (r *recipesDialog) runSelected() (err error) {
+	if r.recipeErrors == nil {
+		r.recipeErrors = make(map[string]error)
+	}
+	if r.selected != "" {
+		var recipe *recipes.Recipe
+		if recipe, err = recipes.Load(r.selected); err == nil {
+			_, _, err = recipe.Run(r.m.grid, false)
+		}
+		if err != nil {
+			r.recipeErrors[r.selected] = err
+		}
+	}
+	return err
 }
 
 var recipeSelectForm = &layout.Form[*recipesDialog]{
@@ -327,7 +359,7 @@ func (r *recipesDialog) update(msg tea.Msg) tea.Cmd {
 			}
 		} else {
 			return func() tea.Msg {
-				ng, resized, err := mt.recipe.Run(r.m.grid)
+				ng, resized, err := mt.recipe.Run(r.m.grid, true)
 				return recipeRunResult{
 					filename: mt.filename,
 					resized:  resized,
@@ -374,36 +406,4 @@ func (r *recipesDialog) update(msg tea.Msg) tea.Cmd {
 		}
 	}
 	return nil
-}
-
-const (
-	recipesTabSelect = iota
-	recipesTabLoad
-)
-
-var recipesTabs = []struct {
-	title string
-	ul    int
-	tabNo int
-}{
-	{"Select", 0, recipesTabSelect},
-	{"Load", 1, recipesTabLoad},
-}
-
-func (r *recipesDialog) renderTabs(rgn layout.Surface) {
-	x := 3
-	for _, tab := range recipesTabs {
-		if tab.tabNo == r.tab {
-			rgn.Text(1, x-1, " "+tab.title+" ", dialogTabStyle)
-		} else {
-			r.clickPts.Add(rgn.Text(1, x, tab.title, dialogTextStyle), func(s *recipesDialog) tea.Cmd {
-				s.tab = tab.tabNo
-				return nil
-			})
-			if tab.ul != -1 {
-				rgn.Text(1, x+tab.ul, tab.title[tab.ul:tab.ul+1], dialogTextUlStyle)
-			}
-		}
-		x += len(tab.title) + 3
-	}
 }

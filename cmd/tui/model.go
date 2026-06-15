@@ -42,9 +42,18 @@ func newModel() *model {
 		snapshotBefore: prfs.SnapshotBefore,
 	}
 	grid.Render = m.renderCell
-	m.settings = &settings{m: m}
-	m.capture = &capture{m: m}
+	m.settings = &settingsDialog{m: m}
+	m.patterns = &patternsDialog{m: m}
+	m.capture = &captureDialog{m: m}
 	m.recipes = &recipesDialog{m: m}
+	m.editor = &editor{m: m}
+	m.dialogs = map[displayMode]dialog{
+		modeSettings: m.settings,
+		modePatterns: m.patterns,
+		modeCapture:  m.capture,
+		modeRecipes:  m.recipes,
+		modeEditing:  m.editor,
+	}
 	if len(prfs.Grid) > 0 {
 		if p, err := patterns.NewPatternFromRle(strings.NewReader(prfs.Grid)); err == nil {
 			p.Draw(grid, 0, 0, patterns.Rotate0)
@@ -57,13 +66,35 @@ func newModel() *model {
 				}
 			}
 		} else {
-			grid.Randomize(m.random)
+			m.drawWelcome()
 		}
 		prfs.Grid = ""
 	} else {
-		grid.Randomize(m.random)
+		m.drawWelcome()
 	}
 	return m
+}
+
+func (m *model) drawWelcome() {
+	const msg = "Welcome to GoGoL"
+	patts := make([]patterns.Pattern, 0, len(msg))
+	totalWd := 0
+	for _, ch := range msg {
+		_ = ch
+		if p, ok := alphabet[string(ch)]; ok {
+			patts = append(patts, p)
+			totalWd += p.Width + 1
+		} else {
+			patts = append(patts, patterns.Pattern{Height: 1, Width: 4, Cells: []bool{false, false, false, false}})
+			totalWd += 5
+		}
+	}
+	y := (m.grid.Height - 9) / 2
+	x := (m.grid.Width - totalWd) / 2
+	for _, patt := range patts {
+		patt.Draw(m.grid, y, x, patterns.Rotate0)
+		x += patt.Width + 1
+	}
 }
 
 func (m *model) renderCell(row int, col int, alive bool, changed bool) {
@@ -93,8 +124,11 @@ const (
 	modeStopped
 	modeRunning
 	modeSettings
+	modePatterns
 	modeCapture
 	modeRecipes
+	modeEditing
+	modeShortcut
 )
 
 type model struct {
@@ -105,9 +139,12 @@ type model struct {
 	grid        *logic.Grid
 	gridSurface layout.Surface
 	cellStyle   lipgloss.Style
-	settings    *settings
-	capture     *capture
+	settings    *settingsDialog
+	patterns    *patternsDialog
+	capture     *captureDialog
 	recipes     *recipesDialog
+	editor      *editor
+	dialogs     map[displayMode]dialog
 	// settings...
 	stepDelay      int
 	stepAheadBy    int
@@ -158,20 +195,30 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.prefs.WrapMode, m.prefs.BoundaryMode, m.prefs.Rule = m.grid.WrapMode.String(), m.grid.BoundaryMode.String(), m.grid.Rule.Rle()
 		return m, m.savePrefs()
 	case tea.KeyPressMsg:
-		switch m.mode {
-		case modeSettings:
-			return m, m.settings.update(msg)
-		case modeCapture:
-			return m, m.capture.update(msg)
-		case modeRecipes:
-			return m, m.recipes.update(msg)
-		default:
+		if dlg, ok := m.dialogs[m.mode]; ok {
+			return m, dlg.update(msg)
+		} else {
 			return m, m.key(mt)
 		}
 	case steppedAhead:
 		m.stepAheadActive = false
 		m.stepAheadQueued = false
 		m.grid.Draw()
+	case shortcutResult:
+		if mt.redraw {
+			m.grid.Draw()
+		}
+		if mt.displayMode != -1 {
+			m.mode = mt.displayMode
+		} else {
+			m.mode = modeStopped
+		}
+		if mt.savePrefs {
+			m.prefs.save()
+		}
+		if m.mode == modeRunning {
+			return m, m.tick()
+		}
 	case tickMsg:
 		if m.mode == modeRunning {
 			if m.grid.Step() {
@@ -181,13 +228,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	default:
-		switch m.mode {
-		case modeSettings:
-			return m, m.settings.update(msg)
-		case modeCapture:
-			return m, m.capture.update(msg)
-		case modeRecipes:
-			return m, m.recipes.update(msg)
+		if dlg, ok := m.dialogs[m.mode]; ok {
+			return m, dlg.update(msg)
 		}
 	}
 	return m, nil
@@ -210,11 +252,15 @@ func (m *model) key(msg tea.KeyPressMsg) tea.Cmd {
 		}
 	case "ctrl+s":
 		m.mode = modeSettings
+	case "ctrl+p":
+		m.mode = modePatterns
 	case "ctrl+k":
 		m.capture.start()
 		m.mode = modeCapture
 	case "ctrl+g":
 		m.mode = modeRecipes
+	case "ctrl+e":
+		m.mode = modeEditing
 	case "tab":
 		m.mode = modeStopped
 		m.stepAheadActive = true
@@ -225,6 +271,9 @@ func (m *model) key(msg tea.KeyPressMsg) tea.Cmd {
 	case "home":
 		m.mode = modeStopped
 		m.grid.Randomize(m.random)
+	case "end":
+		m.mode = modeStopped
+		m.grid.RandomChanges(m.random)
 	case "backspace":
 		m.mode = modeStopped
 		if m.snapshot != nil {
@@ -253,6 +302,10 @@ func (m *model) key(msg tea.KeyPressMsg) tea.Cmd {
 			return m.tick()
 		} else {
 			m.mode = modeStopped
+		}
+	default:
+		if shortcut, ok := m.prefs.Shortcuts[msg.String()]; ok {
+			return m.runShortcut(shortcut)
 		}
 	}
 	return nil
@@ -308,13 +361,6 @@ func (m *model) stopped() {
 	m.mode = modeStopped
 }
 
-var bgColor = lipgloss.Color("#eeeeee")
-
-const (
-	dialogHeight = 20
-	dialogWidth  = 60
-)
-
 func (m *model) dialogPosition(height, width int) (top, left int) {
 	top = (m.height - height) / 2
 	if top < 0 {
@@ -362,28 +408,26 @@ func (m *model) View() tea.View {
 		sf2.Draw(0, 0, sf)
 		renderSplash(m, sf2)
 		sf = sf2
-	case modeSettings:
-		title = "[settings]"
-		sf2 := layout.NewSurface(m.height, m.width)
-		sf2.Draw(0, 0, sf)
-		t, l := m.dialogPosition(dialogHeight, dialogWidth)
-		rgn := sf2.Region(t, l, dialogHeight, dialogWidth)
-		csr = m.settings.render(rgn)
-		sf = sf2
 	case modeCapture:
-		title = "[" + m.capture.stage.String() + "]"
+		title = m.capture.title()
 		sf2 := layout.NewSurface(m.height, m.width)
 		sf2.Draw(0, 0, sf)
 		csr = m.capture.render(sf2)
 		sf = sf2
-	case modeRecipes:
-		title = "[recipes]"
+	case modeEditing:
+		title = m.editor.title()
+		csr = m.editor.render(sf)
+	case modeSettings, modePatterns, modeRecipes:
+		dlg := m.dialogs[m.mode]
+		title = dlg.title()
 		sf2 := layout.NewSurface(m.height, m.width)
 		sf2.Draw(0, 0, sf)
 		t, l := m.dialogPosition(dialogHeight, dialogWidth)
 		rgn := sf2.Region(t, l, dialogHeight, dialogWidth)
-		csr = m.recipes.render(rgn)
+		csr = dlg.render(rgn)
 		sf = sf2
+	case modeShortcut:
+		title = "[running shortcut]"
 	}
 	return tea.View{
 		WindowTitle:     title,
@@ -408,14 +452,18 @@ type steppedAhead struct{}
 func (m *model) stepAhead() tea.Cmd {
 	return func() tea.Msg {
 		if m.snapshotBefore {
-			m.snapshotSteps = m.grid.StepCount.Load()
-			if p, err := m.patternFromGrid(); err == nil {
-				m.snapshot = &p
-			} else {
-				m.snapshot = nil
-			}
+			m.takeSnapshot()
 		}
 		m.grid.StepAhead(m.stepAheadBy)
 		return steppedAhead{}
+	}
+}
+
+func (m *model) takeSnapshot() {
+	m.snapshotSteps = m.grid.StepCount.Load()
+	if p, err := m.patternFromGrid(); err == nil {
+		m.snapshot = &p
+	} else {
+		m.snapshot = nil
 	}
 }
