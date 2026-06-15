@@ -79,7 +79,12 @@ func (f *Form[T]) Render(parent T, clickPts ClickPoints[T], sf Surface) *tea.Cur
 						}
 						pl = sf.TextCenter(r, c, width, el.text(parent), styles...)
 					default:
-						pl = sf.Text(r, c, el.text(parent), styles...)
+						width := el.Width
+						if width > 0 {
+							pl = sf.TextFixed(r, c, width, el.text(parent), styles...)
+						} else {
+							pl = sf.Text(r, c, el.text(parent), styles...)
+						}
 					}
 					if el.OnClick != nil {
 						clickPts.Add(pl, el.OnClick)

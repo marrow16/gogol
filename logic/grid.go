@@ -132,13 +132,34 @@ var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 func (g *Grid) Randomize(rf int) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
+	render := g.Render
+	if render == nil {
+		render = nullRender
+	}
 	g.StepCount.Store(0)
 	for row := 0; row < g.Height; row++ {
 		for col := 0; col < g.Width; col++ {
 			cell := g.Rows[row][col]
 			cell.Alive = rng.Intn(100) < rf
-			if g.Render != nil {
-				g.Render(row, col, cell.Alive, true)
+			render(row, col, cell.Alive, true)
+		}
+	}
+}
+
+func (g *Grid) RandomChanges(rf int) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	render := g.Render
+	if render == nil {
+		render = nullRender
+	}
+	g.StepCount.Store(0)
+	for row := 0; row < g.Height; row++ {
+		for col := 0; col < g.Width; col++ {
+			if rng.Intn(100) < rf {
+				cell := g.Rows[row][col]
+				cell.Alive = !cell.Alive
+				render(row, col, cell.Alive, true)
 			}
 		}
 	}
@@ -147,25 +168,29 @@ func (g *Grid) Randomize(rf int) {
 func (g *Grid) Clear() {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
+	render := g.Render
+	if render == nil {
+		render = nullRender
+	}
 	g.StepCount.Store(0)
 	for row := 0; row < g.Height; row++ {
 		for col := 0; col < g.Width; col++ {
 			cell := g.Rows[row][col]
 			cell.Alive = false
-			if g.Render != nil {
-				g.Render(row, col, cell.Alive, true)
-			}
+			render(row, col, cell.Alive, true)
 		}
 	}
 }
 
 func (g *Grid) Draw() {
+	render := g.Render
+	if render == nil {
+		render = nullRender
+	}
 	for row := 0; row < g.Height; row++ {
 		for col := 0; col < g.Width; col++ {
 			cell := g.Rows[row][col]
-			if g.Render != nil {
-				g.Render(row, col, cell.Alive, true)
-			}
+			render(row, col, cell.Alive, true)
 		}
 	}
 }

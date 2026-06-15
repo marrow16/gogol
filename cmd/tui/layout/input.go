@@ -265,7 +265,7 @@ func (t *textInput[T]) key(parent T, msg tea.KeyPressMsg) tea.Cmd {
 func (t *textInput[T]) paste(parent T, msg tea.PasteMsg) tea.Cmd {
 	var sb strings.Builder
 	if t.validChars == "" {
-		sb.WriteString(msg.Content)
+		sb.WriteString(strings.ReplaceAll(strings.ReplaceAll(msg.Content, "\r", ""), "\n", ""))
 	} else {
 		for _, r := range msg.Content {
 			if strings.ContainsRune(t.validChars, r) {

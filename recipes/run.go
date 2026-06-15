@@ -13,7 +13,7 @@ func (r *Recipe) SaveAsRle(origGrid *logic.Grid, filename string, originator str
 	var grid *logic.Grid
 	if grid, err = logic.NewGrid(origGrid.Height, origGrid.Width, origGrid.WrapMode, origGrid.BoundaryMode); err == nil {
 		grid.Rule = origGrid.Rule
-		if grid, _, err = r.Run(grid); err == nil {
+		if grid, _, err = r.Run(grid, true); err == nil {
 			var pattern patterns.Pattern
 			if pattern, err = patterns.NewPatternFromGrid(grid); err == nil {
 				pattern.Comments = []string{
@@ -39,7 +39,7 @@ func (r *Recipe) SaveAsRle(origGrid *logic.Grid, filename string, originator str
 	return err
 }
 
-func (r *Recipe) Run(origGrid *logic.Grid) (newGrid *logic.Grid, resized bool, err error) {
+func (r *Recipe) Run(origGrid *logic.Grid, allowResize bool) (newGrid *logic.Grid, resized bool, err error) {
 	newGrid = origGrid
 	if r.GridSettings != nil {
 		ht, wd, wm, bm, rule := origGrid.Height, origGrid.Width, origGrid.WrapMode, origGrid.BoundaryMode, origGrid.Rule
@@ -62,7 +62,7 @@ func (r *Recipe) Run(origGrid *logic.Grid) (newGrid *logic.Grid, resized bool, e
 				rule = nr
 			}
 		}
-		if resized {
+		if allowResize && resized {
 			var ng *logic.Grid
 			if ng, err = logic.NewGrid(ht, wd, wm, bm); err == nil {
 				newGrid = ng

@@ -7,7 +7,7 @@ import (
 
 func renderSplash(m *model, sf layout.Surface) {
 	const (
-		height = 18
+		height = 20
 		width  = 40
 	)
 	t, l := m.dialogPosition(height, width)
@@ -32,19 +32,23 @@ func renderSplash(m *model, sf layout.Surface) {
 	rgn.Text(9, 7, "home", dialogTextUlStyle)
 	rgn.Text(9, 16, "- randomize", dialogTextStyle)
 	rgn.Text(10, 7, "ctrl+s", dialogTextUlStyle)
-	rgn.Text(10, 16, "- settings", dialogTextStyle)
-	rgn.Text(11, 7, "ctrl+k", dialogTextUlStyle)
-	rgn.Text(11, 16, "- capture mode", dialogTextStyle)
-	rgn.Text(12, 7, "ctrl+g", dialogTextUlStyle)
-	rgn.Text(12, 16, "- grid recipes", dialogTextStyle)
-	rgn.Text(13, 7, "ctrl+o", dialogTextUlStyle)
-	rgn.Text(13, 16, "- snapshot", dialogTextStyle)
-	rgn.Text(14, 6, "backspace", dialogTextUlStyle)
-	rgn.Text(14, 16, "- restore to snapshot", dialogTextStyle)
-	rgn.Text(15, 7, "ctrl+x", dialogTextUlStyle)
-	rgn.Text(15, 16, "- export grid", dialogTextStyle)
-	rgn.Text(16, 9, "esc", dialogTextUlStyle)
-	rgn.Text(16, 13, "/", dialogTextStyle)
-	rgn.Text(16, 15, "ctrl+c", dialogTextUlStyle)
-	rgn.Text(16, 22, "- to quit", dialogTextStyle)
+	rgn.Text(10, 16, "- grid settings", dialogTextStyle)
+	rgn.Text(11, 7, "ctrl+p", dialogTextUlStyle)
+	rgn.Text(11, 16, "- patterns", dialogTextStyle)
+	rgn.Text(12, 7, "ctrl+k", dialogTextUlStyle)
+	rgn.Text(12, 16, "- capture mode", dialogTextStyle)
+	rgn.Text(13, 7, "ctrl+g", dialogTextUlStyle)
+	rgn.Text(13, 16, "- grid recipes", dialogTextStyle)
+	rgn.Text(14, 7, "ctrl+o", dialogTextUlStyle)
+	rgn.Text(14, 16, "- snapshot", dialogTextStyle)
+	rgn.Text(15, 6, "backspace", dialogTextUlStyle)
+	rgn.Text(15, 16, "- restore to snapshot", dialogTextStyle)
+	rgn.Text(16, 7, "ctrl+x", dialogTextUlStyle)
+	rgn.Text(16, 16, "- export grid", dialogTextStyle)
+	rgn.Text(17, 7, "ctrl+e", dialogTextUlStyle)
+	rgn.Text(17, 16, "- grid edit mode", dialogTextStyle)
+	rgn.Text(18, 9, "esc", dialogTextUlStyle)
+	rgn.Text(18, 13, "/", dialogTextStyle)
+	rgn.Text(18, 15, "ctrl+c", dialogTextUlStyle)
+	rgn.Text(18, 22, "- to quit", dialogTextStyle)
 }

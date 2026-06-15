@@ -12,24 +12,26 @@ import (
 )
 
 type prefs struct {
-	Height           int               `json:"height"`
-	Width            int               `json:"width"`
-	StepDelay        int               `json:"step_delay"`
-	StepAheadBy      int               `json:"step_ahead_by"`
-	SnapshotBefore   bool              `json:"snapshot_before_step_ahead"`
-	Random           int               `json:"random"`
-	WrapMode         string            `json:"wrap_mode"`
-	BoundaryMode     string            `json:"boundary_mode"`
-	CellFG           string            `json:"cell_foreground_color"`
-	CellBG           string            `json:"cell_background_color"`
-	Rule             string            `json:"rule"`
-	Rules            map[string]string `json:"rules,omitempty"`
-	Patterns         []string          `json:"patterns,omitempty"`
-	PatternLibraries []string          `json:"pattern_libraries,omitempty"`
-	Originator       string            `json:"originator,omitempty"`
-	SavePath         string            `json:"save_path,omitempty"`
-	Grid             string            `json:"grid,omitempty"`
-	Recipes          []string          `json:"recipes,omitempty"`
+	Height           int                 `json:"height"`
+	Width            int                 `json:"width"`
+	StepDelay        int                 `json:"step_delay"`
+	StepAheadBy      int                 `json:"step_ahead_by"`
+	SnapshotBefore   bool                `json:"snapshot_before_step_ahead"`
+	Random           int                 `json:"random"`
+	RandomChanges    int                 `json:"random_changes"`
+	WrapMode         string              `json:"wrap_mode"`
+	BoundaryMode     string              `json:"boundary_mode"`
+	CellFG           string              `json:"cell_foreground_color"`
+	CellBG           string              `json:"cell_background_color"`
+	Rule             string              `json:"rule"`
+	Rules            map[string]string   `json:"rules,omitempty"`
+	Patterns         []string            `json:"patterns,omitempty"`
+	PatternLibraries []string            `json:"pattern_libraries,omitempty"`
+	Originator       string              `json:"originator,omitempty"`
+	SavePath         string              `json:"save_path,omitempty"`
+	Grid             string              `json:"grid,omitempty"`
+	Recipes          []string            `json:"recipes,omitempty"`
+	Shortcuts        map[string][]string `json:"shortcuts"`
 }
 
 const (
@@ -69,6 +71,7 @@ func loadPrefs() *prefs {
 		CellBG:         defaultBg,
 		Rule:           defaultRule,
 		Rules:          make(map[string]string),
+		Shortcuts:      make(map[string][]string),
 	}
 }
 
@@ -151,16 +154,13 @@ func (p *prefs) setCellStyle(s lipgloss.Style) *prefs {
 func (p *prefs) loadPatterns() {
 	count := 0
 	for _, pl := range p.PatternLibraries {
-		lr := loadPatternsLibrary(pl, true)
+		lr := loadPatternsLibrary(pl)
 		count += lr.loaded
 	}
 	for _, pt := range p.Patterns {
 		if err := loadPattern(pt); err == nil {
 			count++
 		}
-	}
-	if count > 0 {
-		sortedPatterns = sortPatterns()
 	}
 }
 
