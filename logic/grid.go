@@ -86,6 +86,7 @@ type Grid struct {
 	BoundaryMode     BoundaryMode
 	boundarySentinel *Cell
 	changesBuffer    []*Cell
+	locationsBuffer  [][2]int
 	Render           RenderCell
 	StepCount        atomic.Uint64
 	mutex            sync.Mutex
@@ -97,6 +98,7 @@ func NewGrid(height int, width int, wrapMode WrapMode, boundaryMode BoundaryMode
 	if height < 2 || width < 2 {
 		return nil, ErrInvalidGridDimension
 	}
+	cells := height * width
 	result := &Grid{
 		Rule:             StandardRule,
 		Rows:             makeRows(height, width),
@@ -105,7 +107,8 @@ func NewGrid(height int, width int, wrapMode WrapMode, boundaryMode BoundaryMode
 		WrapMode:         wrapMode,
 		BoundaryMode:     boundaryMode,
 		boundarySentinel: &Cell{Alive: boundaryMode == AliveBoundary},
-		changesBuffer:    make([]*Cell, 0, height*width),
+		changesBuffer:    make([]*Cell, 0, cells),
+		locationsBuffer:  make([][2]int, 0, cells),
 	}
 	result.joinAdjacents()
 	return result, nil
@@ -235,15 +238,25 @@ func (g *Grid) cellAt(r, c int) *Cell {
 }
 
 func (g *Grid) SetBoundaryMode(m BoundaryMode) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
 	g.BoundaryMode = m
 	g.boundarySentinel.Alive = m == AliveBoundary
 }
 
 func (g *Grid) SetWrapMode(m WrapMode) {
 	if g.WrapMode != m {
+		g.mutex.Lock()
+		defer g.mutex.Unlock()
 		g.WrapMode = m
 		g.joinAdjacents()
 	}
+}
+
+func (g *Grid) SetRule(r Rule) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.Rule = r
 }
 
 func (g *Grid) SetCell(row, col int, alive bool) (changed bool) {
@@ -291,14 +304,14 @@ func (g *Grid) Step() (gridChanged bool) {
 			}
 		}
 	}
-	gridChanged = len(g.changesBuffer) > 0
+	if len(g.changesBuffer) == 0 {
+		return false
+	}
 	for _, cell := range g.changesBuffer {
 		cell.flip()
 	}
-	if gridChanged {
-		g.StepCount.Add(1)
-	}
-	return gridChanged
+	g.StepCount.Add(1)
+	return true
 }
 
 func (g *Grid) StepAhead(by int) {

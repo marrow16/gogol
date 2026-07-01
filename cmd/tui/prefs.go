@@ -21,8 +21,8 @@ type prefs struct {
 	RandomChanges    int                 `json:"random_changes"`
 	WrapMode         string              `json:"wrap_mode"`
 	BoundaryMode     string              `json:"boundary_mode"`
-	CellFG           string              `json:"cell_foreground_color"`
-	CellBG           string              `json:"cell_background_color"`
+	CellAliveColor   string              `json:"cell_alive_color"`
+	CellDeadColor    string              `json:"cell_dead_color"`
 	Rule             string              `json:"rule"`
 	Rules            map[string]string   `json:"rules,omitempty"`
 	Patterns         []string            `json:"patterns,omitempty"`
@@ -67,8 +67,8 @@ func loadPrefs() *prefs {
 		Random:         defaultRandom,
 		WrapMode:       defaultWrapMode,
 		BoundaryMode:   defaultBoundaryMode,
-		CellFG:         defaultFg,
-		CellBG:         defaultBg,
+		CellAliveColor: defaultFg,
+		CellDeadColor:  defaultBg,
 		Rule:           defaultRule,
 		Rules:          make(map[string]string),
 		Shortcuts:      make(map[string][]string),
@@ -98,11 +98,11 @@ func (p *prefs) validate() {
 		p.Random = defaultRandom
 	}
 	colorRegex := regexp.MustCompile("^#[0-9a-fA-F]{6}$")
-	if !colorRegex.MatchString(p.CellFG) {
-		p.CellFG = defaultFg
+	if !colorRegex.MatchString(p.CellAliveColor) {
+		p.CellAliveColor = defaultFg
 	}
-	if !colorRegex.MatchString(p.CellBG) {
-		p.CellBG = defaultBg
+	if !colorRegex.MatchString(p.CellDeadColor) {
+		p.CellDeadColor = defaultBg
 	}
 	if p.Rules == nil {
 		p.Rules = make(map[string]string)
@@ -140,14 +140,14 @@ func (p *prefs) setRule(r logic.Rule) *prefs {
 }
 
 func (p *prefs) cellStyle() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(p.CellFG)).Background(lipgloss.Color(p.CellBG))
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(p.CellAliveColor)).Background(lipgloss.Color(p.CellDeadColor))
 }
 
 func (p *prefs) setCellStyle(s lipgloss.Style) *prefs {
 	fgR, fgG, fgB := rgb(s.GetForeground())
 	bgR, bgG, bgB := rgb(s.GetBackground())
-	p.CellFG = fmt.Sprintf("#%02X%02X%02X", fgR, fgG, fgB)
-	p.CellBG = fmt.Sprintf("#%02X%02X%02X", bgR, bgG, bgB)
+	p.CellAliveColor = fmt.Sprintf("#%02X%02X%02X", fgR, fgG, fgB)
+	p.CellDeadColor = fmt.Sprintf("#%02X%02X%02X", bgR, bgG, bgB)
 	return p
 }
 
