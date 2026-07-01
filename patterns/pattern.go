@@ -18,6 +18,13 @@ type Pattern struct {
 	Filename    string
 }
 
+func (p Pattern) String() string {
+	if len(p.Name) > 0 {
+		return p.Name
+	}
+	return p.Filename
+}
+
 func NewPattern(name string, width int, cells []bool) (Pattern, error) {
 	if len(cells)%width != 0 {
 		return Pattern{}, errors.New("pattern cells must be a multiple of width")
@@ -70,6 +77,32 @@ func NewPatternFromGrid(grid *logic.Grid) (result Pattern, err error) {
 	return result, nil
 }
 
+func NewPatternFromGridPortion(grid *logic.Grid, startRow, startCol, height, width int) Pattern {
+	startRow = max(0, min(startRow, grid.Height-1))
+	startCol = max(0, min(startCol, grid.Width-1))
+	height = max(1, height)
+	width = max(1, width)
+	if startRow+height > grid.Height {
+		height = grid.Height - startRow
+	}
+	if startCol+width > grid.Width {
+		width = grid.Width - startCol
+	}
+	result := Pattern{
+		Width:  width,
+		Height: height,
+		Rule:   grid.Rule,
+		Cells:  make([]bool, width*height),
+	}
+	for r := 0; r < height; r++ {
+		for c := 0; c < width; c++ {
+			result.Cells[r*width+c] =
+				grid.GetCell(startRow+r, startCol+c).Alive
+		}
+	}
+	return result
+}
+
 type Rotation int
 
 const (
@@ -79,9 +112,12 @@ const (
 	Rotate270
 )
 
-func (p Pattern) Draw(grid *logic.Grid, row, col int, rot Rotation) {
+func (p Pattern) Draw(grid *logic.Grid, row, col int, rot Rotation, flags ...bool) {
+	interlaced := len(flags) > 0 && flags[0]
 	p.DrawTo(rot, func(y, x int, alive bool) {
-		grid.SetCell(row+y, col+x, alive)
+		if !interlaced || (interlaced && alive) {
+			grid.SetCell(row+y, col+x, alive)
+		}
 	})
 }
 
