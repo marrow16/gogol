@@ -25,6 +25,13 @@ func NewCore(s *settings.Settings) (*Core, error) {
 	var err error
 	c.gridHolder, err = newGridHolder(c)
 	c.statusBar = newStatusBar(c)
+	if s.Recording {
+		c.instrumentRecord = &logic.RecordInstrument{Grid: c.gridHolder.grid}
+	}
+	if s.RepeatDetection {
+		c.instrumentRepeat = logic.NewRepeatInstrument(c.gridHolder.grid)
+	}
+	c.updateInstrumentation()
 	return c, err
 }
 
@@ -85,6 +92,8 @@ func (c *Core) Run(window *app.Window) error {
 		switch e := window.Event().(type) {
 		case app.DestroyEvent:
 			c.stop()
+			c.settings.Recording = c.instrumentRecord != nil
+			c.settings.RepeatDetection = c.instrumentRepeat != nil
 			c.settings.Save(c.gridHolder.grid, c.gridHolder.zoom)
 			return e.Err
 		case app.FrameEvent:

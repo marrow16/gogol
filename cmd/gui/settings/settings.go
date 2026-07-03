@@ -16,18 +16,14 @@ import (
 	"strings"
 )
 
-const (
-	prefsFilename = "prefs.gui.json"
-)
-
 func NewSettings() *Settings {
 	s := &Settings{
 		ScreenHeight:    600,
 		ScreenWidth:     900,
-		StepDelay:       2,
+		StepDelay:       25,
 		StepAheadBy:     2000,
 		SkipBackBy:      100,
-		Randomization:   12,
+		Randomization:   15,
 		Height:          100,
 		Width:           100,
 		Zoom:            1.0,
@@ -40,16 +36,33 @@ func NewSettings() *Settings {
 		CellDeadColor:   color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff},
 		CellBorderColor: color.NRGBA{R: 240, G: 240, B: 239, A: 255},
 	}
-	if f, err := os.Open(prefsFilename); err == nil {
-		defer func() {
-			_ = f.Close()
-		}()
-		p := prefs{}
-		if err = json.NewDecoder(f).Decode(&p); err == nil {
-			s.fromPrefs(p)
+	if path, err := settingsPath(false); err == nil {
+		if f, err := os.Open(path); err == nil {
+			defer func() {
+				_ = f.Close()
+			}()
+			p := prefs{}
+			if err = json.NewDecoder(f).Decode(&p); err == nil {
+				s.fromPrefs(p)
+			}
 		}
 	}
 	return s
+}
+
+func settingsPath(create bool) (string, error) {
+	const prefsFilename = "prefs.gui.json"
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	dir = filepath.Join(dir, "GoGoL")
+	if create {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(dir, prefsFilename), nil
 }
 
 type Settings struct {
@@ -77,47 +90,53 @@ type Settings struct {
 	PatternLibraries  []string
 	Recipes           []string
 	SavedGrid         *logic.Grid
+	Recording         bool
+	RepeatDetection   bool
 }
 
 func (s *Settings) Save(grid *logic.Grid, zoom float32) {
-	if f, err := os.Create(prefsFilename); err == nil {
-		defer func() {
-			_ = f.Close()
-		}()
-		p := prefs{
-			ScreenHeight:      s.ScreenHeight,
-			ScreenWidth:       s.ScreenWidth,
-			Height:            s.Height,
-			Width:             s.Width,
-			Zoom:              zoom,
-			StepDelay:         s.StepDelay,
-			StepAheadBy:       s.StepAheadBy,
-			StepAheadSnapshot: s.StepAheadSnapshot,
-			SkipBackBy:        s.SkipBackBy,
-			Randomization:     s.Randomization,
-			WrapMode:          grid.WrapMode.String(),
-			BoundaryMode:      grid.BoundaryMode.String(),
-			CellAliveColor:    fmt.Sprintf("#%02X%02X%02X", s.CellAliveColor.R, s.CellAliveColor.G, s.CellAliveColor.B),
-			CellDeadColor:     fmt.Sprintf("#%02X%02X%02X", s.CellDeadColor.R, s.CellDeadColor.G, s.CellDeadColor.B),
-			CellBorderColor:   fmt.Sprintf("#%02X%02X%02X", s.CellBorderColor.R, s.CellBorderColor.G, s.CellBorderColor.B),
-			CellBorders:       s.CellBorders,
-			CellSize:          s.CellSize,
-			Rule:              grid.Rule.Rle(),
-			Rules:             s.Rules,
-			Patterns:          s.Patterns,
-			PatternLibraries:  s.PatternLibraries,
-			Originator:        s.Originator,
-			Recipes:           s.Recipes,
-		}
-		if pattern, err := s.PatternFromGrid(grid); err == nil {
-			var buf bytes.Buffer
-			if err = patterns.PatternRleEncode(pattern, &buf); err == nil {
-				p.Grid = buf.String()
+	if path, err := settingsPath(true); err == nil {
+		if f, err := os.Create(path); err == nil {
+			defer func() {
+				_ = f.Close()
+			}()
+			p := prefs{
+				ScreenHeight:      s.ScreenHeight,
+				ScreenWidth:       s.ScreenWidth,
+				Height:            s.Height,
+				Width:             s.Width,
+				Zoom:              zoom,
+				StepDelay:         s.StepDelay,
+				StepAheadBy:       s.StepAheadBy,
+				StepAheadSnapshot: s.StepAheadSnapshot,
+				SkipBackBy:        s.SkipBackBy,
+				Randomization:     s.Randomization,
+				WrapMode:          grid.WrapMode.String(),
+				BoundaryMode:      grid.BoundaryMode.String(),
+				CellAliveColor:    fmt.Sprintf("#%02X%02X%02X", s.CellAliveColor.R, s.CellAliveColor.G, s.CellAliveColor.B),
+				CellDeadColor:     fmt.Sprintf("#%02X%02X%02X", s.CellDeadColor.R, s.CellDeadColor.G, s.CellDeadColor.B),
+				CellBorderColor:   fmt.Sprintf("#%02X%02X%02X", s.CellBorderColor.R, s.CellBorderColor.G, s.CellBorderColor.B),
+				CellBorders:       s.CellBorders,
+				CellSize:          s.CellSize,
+				Rule:              grid.Rule.Rle(),
+				Rules:             s.Rules,
+				Patterns:          s.Patterns,
+				PatternLibraries:  s.PatternLibraries,
+				Originator:        s.Originator,
+				Recipes:           s.Recipes,
+				Recording:         s.Recording,
+				RepeatDetection:   s.RepeatDetection,
 			}
+			if pattern, err := s.PatternFromGrid(grid); err == nil {
+				var buf bytes.Buffer
+				if err = patterns.PatternRleEncode(pattern, &buf); err == nil {
+					p.Grid = buf.String()
+				}
+			}
+			enc := json.NewEncoder(f)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(p)
 		}
-		enc := json.NewEncoder(f)
-		enc.SetIndent("", "  ")
-		_ = enc.Encode(p)
 	}
 }
 
@@ -251,6 +270,8 @@ func (s *Settings) fromPrefs(p prefs) {
 	s.PatternLibraries = p.PatternLibraries
 	s.Originator = p.Originator
 	s.Recipes = p.Recipes
+	s.Recording = p.Recording
+	s.RepeatDetection = p.RepeatDetection
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			if g, err := logic.NewGrid(pattern.Height, pattern.Width, s.WrapMode, s.BoundaryMode); err == nil {
@@ -300,6 +321,8 @@ type prefs struct {
 	Originator        string            `json:"originator,omitempty"`
 	Grid              string            `json:"grid,omitempty"`
 	Recipes           []string          `json:"recipes,omitempty"`
+	Recording         bool              `json:"recording"`
+	RepeatDetection   bool              `json:"repeat_detection"`
 }
 
 var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")
