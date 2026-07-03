@@ -129,13 +129,15 @@ func (p *capturedPatternsPopout) patternSelected(pattern **patterns.Pattern) {
 	}
 }
 
-func (p *capturedPatternsPopout) layoutNoPatterns(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *capturedPatternsPopout) layoutNoPatterns(gtx layout.Context, theme *material.Theme, minX int) layout.Dimensions {
 	return layout.Inset{
 		Left: unit.Dp(8), Right: unit.Dp(8),
 		Top: unit.Dp(8), Bottom: unit.Dp(4),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: 30, Spacing: layout.SpaceSides}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = minX
+				gtx.Constraints.Max.X = minX
 				lbl := material.Body1(theme, "No patterns captured yet.")
 				lbl.MaxLines = 1
 				lbl.Alignment = text.Middle
@@ -145,18 +147,29 @@ func (p *capturedPatternsPopout) layoutNoPatterns(gtx layout.Context, theme *mat
 				return layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = minX
+							gtx.Constraints.Max.X = minX
 							lbl := material.Body1(theme, "To capture patterns:")
 							lbl.Alignment = text.Middle
 							return lbl.Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = minX
 							return material.Body1(theme, "1. Start edit mode ("+modKeyName+"E)").Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = minX
 							return material.Body1(theme, "2. Mark the pattern area\n\u2007  Hold down shift+arrow keys and then hit Return").Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = minX
 							return material.Body1(theme, "3. Come back here to edit/save patterns").Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								gtx.Constraints.Min.X = minX
+								return material.Body1(theme, "Note: Multiple patterns can be captured in one edit session").Layout(gtx)
+							})
 						}),
 					)
 				})
@@ -191,7 +204,7 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context, theme *material.Them
 		// no patterns captured yet
 		gtx.Constraints.Min.Y = chd.Size.Y * 10
 		gtx.Constraints.Min.X = chd.Size.X * 30
-		return p.layoutNoPatterns(gtx, theme)
+		return p.layoutNoPatterns(gtx, theme, gtx.Constraints.Min.X)
 	}
 	if p.btnSave.Clicked(gtx) {
 		if sp := p.chooser.currentItem(); sp != nil {

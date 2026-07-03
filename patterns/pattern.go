@@ -112,6 +112,19 @@ const (
 	Rotate270
 )
 
+func (r Rotation) String() string {
+	switch r {
+	case Rotate90:
+		return "90°"
+	case Rotate180:
+		return "180°"
+	case Rotate270:
+		return "270°"
+	default:
+		return "0°"
+	}
+}
+
 func (p Pattern) Draw(grid *logic.Grid, row, col int, rot Rotation, flags ...bool) {
 	interlaced := len(flags) > 0 && flags[0]
 	p.DrawTo(rot, func(y, x int, alive bool) {

@@ -1,9 +1,14 @@
 package widgets
 
 import (
+	"bytes"
+	"gioui.org/io/clipboard"
 	"gioui.org/io/key"
+	"gioui.org/io/transfer"
 	"gioui.org/layout"
 	"github.com/marrow16/gogol/patterns"
+	"io"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -11,7 +16,7 @@ import (
 
 type editor struct {
 	g                *gridHolder
-	visible          bool
+	active           bool
 	blink            bool
 	dirty            bool // blink state changed since last render
 	stop             chan struct{}
@@ -27,6 +32,8 @@ type editor struct {
 	markingDirty     bool
 	markStartRow     int
 	markStartCol     int
+
+	clipboardTag struct{}
 }
 
 type undoKind int
@@ -48,60 +55,191 @@ type undo struct {
 }
 
 func (e *editor) handleKeys(gtx layout.Context, kev key.Event) (handled bool) {
-	if !e.visible {
+	if !e.active {
 		return false
 	}
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
-	if e.marking && (kev.Modifiers != key.ModShift || (kev.Modifiers == key.ModShift && kev.Name != key.NameLeftArrow && kev.Name != key.NameRightArrow && kev.Name != key.NameUpArrow && kev.Name != key.NameDownArrow)) {
-		e.endMarking(kev.Name == key.NameEnter || kev.Name == key.NameReturn)
+	if kev.Name == key.NameCtrl || kev.Name == key.NameCommand {
+		return false
 	}
+	if kev.Modifiers == key.ModShortcut {
+		if e.handleShortcutKeys(gtx, kev) {
+			return true
+		}
+	}
+	/*
+		if e.marking && (kev.Modifiers != key.ModShift || (kev.Modifiers == key.ModShift && kev.Name != key.NameLeftArrow && kev.Name != key.NameRightArrow && kev.Name != key.NameUpArrow && kev.Name != key.NameDownArrow)) {
+			e.endMarking(kev.Name == key.NameEnter || kev.Name == key.NameReturn)
+		}
+	*/
 	handled = true
 	switch kev.Name {
+	case key.NameCtrl, key.NameAlt, key.NameShift, key.NameCommand:
+		//do nothing
+	case key.NameEnter, key.NameReturn:
+		e.endMarking(true)
 	case key.NameSpace:
-		e.setCell(kev.Modifiers != key.ModShift, kev.Name, kev.Modifiers)
+		e.endMarking(false)
+		e.setCell(kev.Modifiers&key.ModShift != 0, kev.Name, kev.Modifiers)
 		e.adjustColumn(1)
 	case key.NameDeleteBackward:
+		e.endMarking(false)
 		e.setCell(kev.Modifiers == key.ModShift, kev.Name, kev.Modifiers)
 		e.adjustColumn(-1)
 	case key.NameLeftArrow:
-		if kev.Modifiers == key.ModShift {
+		if kev.Modifiers&key.ModAlt == key.ModAlt {
+			e.endMarking(false)
+			e.setCell(kev.Modifiers&key.ModShift == 0, kev.Name, kev.Modifiers)
+			e.adjustColumn(-1)
+		} else if kev.Modifiers == key.ModShift {
 			e.markingAdjust(0, -1)
 		} else {
+			e.endMarking(false)
 			e.adjustColumn(-1)
 		}
 	case key.NameRightArrow:
-		if kev.Modifiers == key.ModShift {
+		if kev.Modifiers&key.ModAlt == key.ModAlt {
+			e.endMarking(false)
+			e.setCell(kev.Modifiers&key.ModShift == 0, kev.Name, kev.Modifiers)
+			e.adjustColumn(1)
+		} else if kev.Modifiers == key.ModShift {
 			e.markingAdjust(0, 1)
 		} else {
+			e.endMarking(false)
 			e.adjustColumn(1)
 		}
 	case key.NameUpArrow:
-		if kev.Modifiers == key.ModShift {
+		if kev.Modifiers&key.ModAlt == key.ModAlt {
+			e.endMarking(false)
+			e.setCell(kev.Modifiers&key.ModShift == 0, kev.Name, kev.Modifiers)
+			e.adjustRow(-1)
+		} else if kev.Modifiers == key.ModShift {
 			e.markingAdjust(-1, 0)
 		} else {
+			e.endMarking(false)
 			e.adjustRow(-1)
 		}
 	case key.NameDownArrow:
-		if kev.Modifiers == key.ModShift {
+		if kev.Modifiers&key.ModAlt == key.ModAlt {
+			e.endMarking(false)
+			e.setCell(kev.Modifiers&key.ModShift == 0, kev.Name, kev.Modifiers)
+			e.adjustRow(1)
+		} else if kev.Modifiers == key.ModShift {
 			e.markingAdjust(1, 0)
 		} else {
+			e.endMarking(false)
 			e.adjustRow(1)
 		}
 	case key.NameHome:
+		e.endMarking(false)
 		e.adjustColumn(-e.col)
 	case key.NameEnd:
+		e.endMarking(false)
 		e.adjustColumn(e.g.grid.Width - e.col - 1)
 	case key.NamePageUp:
+		e.endMarking(false)
 		e.adjustRow(-e.row)
 	case key.NamePageDown:
+		e.endMarking(false)
 		e.adjustRow(e.g.grid.Height - e.row - 1)
 	default:
-		if kev.Modifiers == key.ModAlt {
+		if kev.Modifiers&key.ModAlt == key.ModAlt {
 			e.handleSpecialKeys(gtx, kev)
 		} else {
+			e.endMarking(false)
 			e.drawLetter(gtx, kev)
 		}
+	}
+	return handled
+}
+
+const (
+	clipboardWriteType = "text/plain"
+	clipboardReadType  = "application/text" // Gio paste DataEvent type
+)
+
+func (e *editor) handlePaste(evt transfer.DataEvent) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+	if e.active {
+		r := evt.Open()
+		defer func() {
+			_ = r.Close()
+		}()
+		if pattern, err := patterns.NewPatternFromRle(r); err == nil {
+			e.endMarking(false)
+			e.addPatternUndo(pattern, e.row, e.col, e.patternRotation)
+			pattern.Draw(e.g.grid, e.row, e.col, e.patternRotation, e.patternInterlace)
+		}
+	}
+}
+
+func (e *editor) handleShortcutKeys(gtx layout.Context, kev key.Event) (handled bool) {
+	switch kev.Name {
+	case "V":
+		//paste
+		handled = true
+		gtx.Execute(clipboard.ReadCmd{Tag: &e.clipboardTag})
+	case "C":
+		//copy
+		handled = true
+		if pattern := e.markedPattern(); pattern != nil {
+			pattern.Name = time.Now().Format("2006-01-02 15:04:05")
+			pattern.Origination = e.g.core.settings.Originator
+			pattern.Comments = []string{"Copied from GoGoL"}
+			var buf bytes.Buffer
+			if err := patterns.PatternRleEncode(*pattern, &buf); err == nil {
+				gtx.Execute(clipboard.WriteCmd{
+					Type: clipboardWriteType,
+					Data: io.NopCloser(&buf),
+				})
+			}
+		}
+	case "X":
+		//cut
+		handled = true
+		if pattern := e.markedPattern(); pattern != nil {
+			e.endMarking(false)
+			pattern.Name = time.Now().Format("2006-01-02 15:04:05")
+			pattern.Origination = e.g.core.settings.Originator
+			pattern.Comments = []string{"Copied from GoGoL"}
+			var buf bytes.Buffer
+			if err := patterns.PatternRleEncode(*pattern, &buf); err == nil {
+				gtx.Execute(clipboard.WriteCmd{
+					Type: clipboardWriteType,
+					Data: io.NopCloser(&buf),
+				})
+				sr := min(e.row, e.markStartRow)
+				sc := min(e.col, e.markStartCol)
+				e.addPatternUndo(*pattern, sr, sc, patterns.Rotate0)
+				cp := patterns.Pattern{
+					Width:  pattern.Width,
+					Height: pattern.Height,
+					Cells:  slices.Clone(pattern.Cells),
+				}
+				for i := 0; i < len(cp.Cells); i++ {
+					cp.Cells[i] = false
+				}
+				e.clearMarking()
+				cp.Draw(e.g.grid, sr, sc, patterns.Rotate0)
+			}
+		}
+	case "Z":
+		//undo
+		handled = true
+		e.endMarking(false)
+		e.doUndo()
+	case "A":
+		//all
+		handled = true
+		e.markStartRow = e.g.grid.Height - 1
+		e.markStartCol = e.g.grid.Width - 1
+		e.markArea(0, 0)
+		e.blink = true
+		e.wasUnder = append(e.wasUnder, [2]int{e.row, e.col})
+		e.row, e.col = e.markStartRow, e.markStartCol
+		e.dirty = true
 	}
 	return handled
 }
@@ -185,6 +323,7 @@ func (e *editor) addPatternUndo(pattern patterns.Pattern, row, col int, rotation
 func (e *editor) handleSpecialKeys(gtx layout.Context, kev key.Event) {
 	switch kev.Name {
 	case "C":
+		e.endMarking(false)
 		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
 			e.undos = append(e.undos, undo{
 				kind:       undoPattern,
@@ -204,11 +343,32 @@ func (e *editor) handleSpecialKeys(gtx layout.Context, kev key.Event) {
 			e.patternRotation = patterns.Rotate0
 		}
 	case "P":
+		e.endMarking(false)
 		if pattern, _ := e.g.core.statusBar.menuPopup.patternsPopout.currentPattern(); pattern != nil {
 			e.addPatternUndo(*pattern, e.row, e.col, e.patternRotation)
 			pattern.Draw(e.g.grid, e.row, e.col, e.patternRotation)
 		}
+	case "F":
+		//fill
+		if pattern := e.markedPattern(); pattern != nil {
+			e.endMarking(false)
+			sr := min(e.row, e.markStartRow)
+			sc := min(e.col, e.markStartCol)
+			e.addPatternUndo(*pattern, sr, sc, patterns.Rotate0)
+			np := patterns.Pattern{
+				Width:  pattern.Width,
+				Height: pattern.Height,
+				Cells:  slices.Clone(pattern.Cells),
+			}
+			fill := kev.Modifiers&key.ModShift == 0
+			for i := 0; i < len(np.Cells); i++ {
+				np.Cells[i] = fill
+			}
+			e.clearMarking()
+			np.Draw(e.g.grid, sr, sc, patterns.Rotate0)
+		}
 	case "Z":
+		e.endMarking(false)
 		e.doUndo()
 	}
 }
@@ -273,12 +433,19 @@ func (e *editor) adjustRow(adj int) {
 	}
 }
 
+func (e *editor) markedPattern() (pattern *patterns.Pattern) {
+	if e.marking && len(e.markingUnderlays) > 0 {
+		pattern = &e.markingUnderlays[len(e.markingUnderlays)-1].pattern
+	}
+	return pattern
+}
+
 func (e *editor) endMarking(capture bool) {
 	if e.marking {
 		e.markingDirty = true
-	}
-	if capture && len(e.markingUnderlays) > 0 {
-		e.g.core.statusBar.menuPopup.capturedPatternsPopout.addCapturedPattern(e.markingUnderlays[len(e.markingUnderlays)-1].pattern)
+		if pattern := e.markedPattern(); pattern != nil && capture {
+			e.g.core.statusBar.menuPopup.capturedPatternsPopout.addCapturedPattern(*pattern)
+		}
 	}
 	e.marking = false
 }
@@ -303,8 +470,6 @@ func (e *editor) markArea(toRow, toCol int) {
 		pattern: patterns.NewPatternFromGridPortion(e.g.grid, sr, sc, ht, wd),
 	})
 	e.markingDirty = true
-	//e.wasUnder = append(e.wasUnder, [2]int{e.row, e.col})
-	//e.dirty = true
 }
 
 func (e *editor) markingAdjust(rowAdj, colAdj int) {
@@ -330,8 +495,6 @@ func (e *editor) markingAdjust(rowAdj, colAdj int) {
 		pattern: patterns.NewPatternFromGridPortion(e.g.grid, sr, sc, ht, wd),
 	})
 	e.markingDirty = true
-	//e.wasUnder = append(e.wasUnder, [2]int{e.row, e.col})
-	//e.dirty = true
 	e.row = nr
 	e.col = nc
 }
@@ -370,9 +533,10 @@ func (e *editor) imageOps() {
 				// now draw the last overlay as highlighted...
 				e.markingUnderlays = e.markingUnderlays[l-1:]
 				ul := e.markingUnderlays[0]
-				deadColor := placementAliveColor(e.g.core.settings.CellDeadColor)
+				aliveColor := placementAliveColor(e.g.core.settings.CellAliveColor)
+				deadColor := placementDeadColor(e.g.core.settings.CellDeadColor)
 				ul.pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
-					e.g.renderCellWithColors(row+ul.row, col+ul.col, alive, e.g.core.settings.CellAliveColor, deadColor)
+					e.g.renderCellWithColors(row+ul.row, col+ul.col, alive, deadColor, aliveColor)
 				})
 			}
 		}
@@ -380,7 +544,7 @@ func (e *editor) imageOps() {
 	}
 	if e.dirty {
 		e.drain()
-		if e.visible {
+		if e.active {
 			aliveColor := placementAliveColor(e.g.core.settings.CellAliveColor)
 			deadColor := e.g.core.settings.CellDeadColor
 			if cell := e.g.grid.GetCell(e.row, e.col); cell != nil && cell.Alive {
@@ -425,7 +589,7 @@ func (e *editor) start() {
 	if e.col >= e.g.grid.Width-1 {
 		e.col = e.g.grid.Width - 1
 	}
-	e.visible = true
+	e.active = true
 	e.blink = true
 	e.dirty = true
 	e.patternRotation = patterns.Rotate0
@@ -455,11 +619,14 @@ func (e *editor) end() {
 	if e.stop == nil {
 		return
 	}
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	close(e.stop)
 	e.stop = nil
 	e.blink = false
 	e.dirty = true
-	e.visible = false
+	e.wasUnder = append(e.wasUnder, [2]int{e.row, e.col})
+	e.active = false
 	if e.marking {
 		e.marking = false
 		e.clearMarking()

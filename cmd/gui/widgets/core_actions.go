@@ -93,8 +93,8 @@ func (g *Core) step() {
 
 func (g *Core) stepAhead() {
 	g.mutex.Lock()
-	g.clearMode()
 	defer g.mutex.Unlock()
+	g.clearMode()
 	g.stopRunning()
 	if g.stepAheadQueued {
 		return
@@ -114,6 +114,39 @@ func (g *Core) stepAhead() {
 		g.stepAheadQueued = false
 		g.status = ""
 	}()
+}
+
+func (g *Core) stepBack() {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.clearMode()
+	g.stopRunning()
+	if g.instrumentRecord != nil {
+		g.instrumentRecord.Undo()
+		g.gridHolder.grid.Draw()
+		g.window.Invalidate()
+	}
+}
+
+func (g *Core) skipBack() {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.clearMode()
+	g.stopRunning()
+	if g.skipBackQueued {
+		return
+	}
+	if g.instrumentRecord != nil {
+		g.skipBackQueued = true
+		g.status = "Skipping back " + strconv.Itoa(g.settings.SkipBackBy)
+		go func() {
+			g.instrumentRecord.Undos(g.settings.SkipBackBy)
+			g.gridHolder.grid.Draw()
+			g.window.Invalidate()
+			g.skipBackQueued = false
+			g.status = ""
+		}()
+	}
 }
 
 func (g *Core) clear() {
@@ -359,6 +392,13 @@ func (g *Core) setInstrumentationRecord(on bool) {
 		g.instrumentRecord = nil
 	}
 	g.updateInstrumentation()
+}
+
+func (g *Core) isRecording() bool {
+	if g.instrumentRecord != nil {
+		return len(g.instrumentRecord.Frames) > 0
+	}
+	return false
 }
 
 func (g *Core) updateInstrumentation() {

@@ -5,6 +5,8 @@ import (
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
+	"gioui.org/io/transfer"
+	_ "gioui.org/io/transfer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -105,10 +107,20 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 			ScrollY: pointer.ScrollRange{Min: -canvasSize.Y, Max: canvasSize.Y},
 		},
 	}
-	if g.editor.visible || g.overlay != nil {
+	if g.overlay != nil {
 		gtx.Execute(key.FocusCmd{Tag: &g.clickable})
 		eventFilters = append(eventFilters,
-			key.Filter{Focus: &g.clickable, Optional: key.ModShift | key.ModCtrl | key.ModAlt},
+			key.Filter{Focus: &g.clickable, Optional: key.ModShift | key.ModCtrl | key.ModAlt | key.ModShortcut},
+		)
+
+	} else if g.editor.active {
+		gtx.Execute(key.FocusCmd{Tag: &g.clickable})
+		eventFilters = append(eventFilters,
+			key.Filter{Focus: &g.clickable, Optional: key.ModShift | key.ModCtrl | key.ModAlt | key.ModShortcut},
+			transfer.TargetFilter{
+				Target: &g.editor.clipboardTag,
+				Type:   clipboardReadType,
+			},
 		)
 	}
 	for {
@@ -117,6 +129,8 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 			break
 		}
 		switch evt := ev.(type) {
+		case transfer.DataEvent:
+			g.editor.handlePaste(evt)
 		case key.Event:
 			g.handleKeys(gtx, evt)
 		case pointer.Event:
@@ -138,13 +152,13 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 						g.overlay.moved = true
 					}
 				}
-				if g.editor.visible && evt.Buttons == pointer.ButtonPrimary {
+				if g.editor.active && evt.Buttons == pointer.ButtonPrimary {
 					if r, c, ok := g.mouseToGrid(evt.Position); ok {
 						g.editor.setPosition(r, c)
 					}
 				}
 			case pointer.Drag:
-				if g.editor.visible {
+				if g.editor.active {
 					if r, c, ok := g.mouseToGrid(evt.Position); ok {
 						g.editor.markArea(r, c)
 					}
@@ -407,6 +421,25 @@ func placementAliveColor(c color.NRGBA) color.NRGBA {
 	if s < 0.01 {
 		// Greys have no useful hue, so force green.
 		h = 120
+		s = 1
+		v = maxFloat(v, 0.85)
+	} else {
+		h += 180
+		if h >= 360 {
+			h -= 360
+		}
+		s = maxFloat(s, 0.75)
+		v = maxFloat(v, 0.75)
+	}
+	r, g, b := hsvToRGB(h, s, v)
+	return color.NRGBA{R: r, G: g, B: b, A: 255}
+}
+
+func placementDeadColor(c color.NRGBA) color.NRGBA {
+	h, s, v := rgbToHSV(c.R, c.G, c.B)
+	if s < 0.01 {
+		// Greys have no useful hue, so force green.
+		h = 0
 		s = 1
 		v = maxFloat(v, 0.85)
 	} else {

@@ -26,6 +26,7 @@ func NewSettings() *Settings {
 		ScreenWidth:     900,
 		StepDelay:       2,
 		StepAheadBy:     2000,
+		SkipBackBy:      100,
 		Randomization:   12,
 		Height:          100,
 		Width:           100,
@@ -57,6 +58,7 @@ type Settings struct {
 	StepDelay         int
 	StepAheadBy       int
 	StepAheadSnapshot bool
+	SkipBackBy        int
 	Randomization     int
 	Height            int
 	Width             int
@@ -91,6 +93,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 			StepDelay:         s.StepDelay,
 			StepAheadBy:       s.StepAheadBy,
 			StepAheadSnapshot: s.StepAheadSnapshot,
+			SkipBackBy:        s.SkipBackBy,
 			Randomization:     s.Randomization,
 			WrapMode:          grid.WrapMode.String(),
 			BoundaryMode:      grid.BoundaryMode.String(),
@@ -216,6 +219,9 @@ func (s *Settings) fromPrefs(p prefs) {
 		s.StepAheadBy = p.StepAheadBy
 	}
 	s.StepAheadSnapshot = p.StepAheadSnapshot
+	if p.SkipBackBy > 0 {
+		s.SkipBackBy = p.SkipBackBy
+	}
 	if p.Randomization >= 0 && p.Randomization <= 100 {
 		s.Randomization = p.Randomization
 	}
@@ -278,6 +284,7 @@ type prefs struct {
 	StepDelay         int               `json:"step_delay"`
 	StepAheadBy       int               `json:"step_ahead_by"`
 	StepAheadSnapshot bool              `json:"snapshot_before_step_ahead"`
+	SkipBackBy        int               `json:"skip_back_by"`
 	Randomization     int               `json:"randomization"`
 	WrapMode          string            `json:"wrap_mode"`
 	BoundaryMode      string            `json:"boundary_mode"`

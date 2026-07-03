@@ -13,6 +13,7 @@ import (
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
 	"image/color"
+	"strconv"
 	"sync"
 )
 
@@ -59,6 +60,7 @@ type Core struct {
 	stopRun         chan struct{}
 	status          string
 	stepAheadQueued bool
+	skipBackQueued  bool
 	mutex           sync.Mutex
 
 	snapshots     []patterns.Pattern
@@ -107,11 +109,25 @@ func (c *Core) Run(window *app.Window) error {
 	}
 }
 
+func (c *Core) modeDisplay() string {
+	if c.mode != noMode {
+		s := c.mode.String()
+		if c.mode == editMode {
+			if c.gridHolder.editor.patternRotation != patterns.Rotate0 {
+				s = strconv.Itoa(c.gridHolder.editor.row) + "x" + strconv.Itoa(c.gridHolder.editor.col) + " " + c.gridHolder.editor.patternRotation.String() + " " + s
+			} else {
+				s = strconv.Itoa(c.gridHolder.editor.row) + "x" + strconv.Itoa(c.gridHolder.editor.col) + " " + s
+			}
+		}
+		return s
+	}
+	return ""
+}
+
 func (c *Core) clearMode() {
 	c.mode = noMode
 	c.gridHolder.overlay = nil
 	c.gridHolder.stopEditing()
-	//todo any resets of grid for place mode, capture mode or edit mode!!!
 }
 
 // B0135/S1 snow flakes in coal mine
@@ -120,14 +136,6 @@ func (c *Core) clearMode() {
 // B023/S1234 mazes with flashing patches
 
 var keyFilters = []event.Filter{
-	key.Filter{
-		Required: key.ModShortcut,
-		Name:     "",
-	},
-	key.Filter{
-		Required: key.ModCtrl,
-		Name:     "",
-	},
 	key.Filter{
 		Required: key.ModAlt,
 		Name:     "",
@@ -161,7 +169,7 @@ func (c *Core) handleKeys(gtx layout.Context) {
 						c.survivesChange(string(evt.Name))
 					}
 				default:
-					if gtx.Focused(&c.gridHolder.clickable) && (c.gridHolder.editor.visible || c.gridHolder.overlay != nil) {
+					if gtx.Focused(&c.gridHolder.clickable) && (c.gridHolder.editor.active || c.gridHolder.overlay != nil) {
 						// in edit mode or place pattern but we swallowed the key - pass it to grid...
 						c.gridHolder.handleKeys(gtx, evt)
 					}
@@ -213,8 +221,17 @@ var altCommands = map[key.Name]func(gtx layout.Context, c *Core){
 	key.NameSpace: func(gtx layout.Context, c *Core) {
 		c.step()
 	},
+	key.NameRightArrow: func(gtx layout.Context, c *Core) {
+		c.step()
+	},
 	key.NameTab: func(gtx layout.Context, c *Core) {
 		c.stepAhead()
+	},
+	key.NameDeleteBackward: func(gtx layout.Context, c *Core) {
+		c.skipBack()
+	},
+	key.NameLeftArrow: func(gtx layout.Context, c *Core) {
+		c.stepBack()
 	},
 	"=": func(gtx layout.Context, c *Core) {
 		c.zoomIn()
@@ -278,6 +295,7 @@ var altCommands = map[key.Name]func(gtx layout.Context, c *Core){
 	},
 	"G": func(gtx layout.Context, c *Core) {
 		if c.gridRecipes != nil {
+			c.stop()
 			c.gridRecipes.runRecipe()
 		}
 	},
