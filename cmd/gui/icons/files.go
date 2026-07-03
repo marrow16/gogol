@@ -28,6 +28,15 @@ var record []byte
 //go:embed rewind.png
 var rewind []byte
 
+//go:embed reverse.png
+var reverse []byte
+
+//go:embed skip-backward.png
+var skipBackward []byte
+
+//go:embed skip-forward.png
+var skipForward []byte
+
 //go:embed step.png
 var step []byte
 
@@ -44,18 +53,21 @@ var zoomIn []byte
 var zoomOut []byte
 
 var (
-	Backward = mustImage(backward)
-	Burger   = mustImage(burger)
-	Forward  = mustImage(forward)
-	Pause    = mustImage(pause)
-	Play     = mustImage(play)
-	Record   = mustImage(record)
-	Rewind   = mustImage(rewind)
-	Step     = mustImage(step)
-	Stop     = mustImage(stop)
-	Zoom     = mustImage(zoom)
-	ZoomIn   = mustImage(zoomIn)
-	ZoomOut  = mustImage(zoomOut)
+	Backward     = mustImage(backward)
+	Burger       = mustImage(burger)
+	Forward      = mustImage(forward)
+	Pause        = mustImage(pause)
+	Play         = mustImage(play)
+	Record       = mustImage(record)
+	Reverse      = mustImage(reverse)
+	Rewind       = mustImage(rewind)
+	SkipBackward = mustImage(skipBackward)
+	SkipForward  = mustImage(skipForward)
+	Step         = mustImage(step)
+	Stop         = mustImage(stop)
+	Zoom         = mustImage(zoom)
+	ZoomIn       = mustImage(zoomIn)
+	ZoomOut      = mustImage(zoomOut)
 )
 
 func mustImage(data []byte) image.Image {

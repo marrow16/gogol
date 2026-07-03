@@ -20,13 +20,31 @@ func newStatusBar(c *Core) *statusBar {
 		core:   c,
 		height: 30,
 	}
-	sb.flexButtons = []layout.FlexChild{
+	sb.buttons = []layout.FlexChild{
 		layout.Rigid(newStatusBarButton(sb.play, icons.Play).alt(
 			func() bool {
 				return sb.core.running
 			}, sb.pause, icons.Pause).layout),
 		layout.Rigid(newStatusBarButton(sb.step, icons.Step).layout),
-		layout.Rigid(newStatusBarButton(sb.stepAhead, icons.Forward).layout),
+		layout.Rigid(newStatusBarButton(sb.stepAhead, icons.SkipForward).layout),
+		layout.Rigid(newStatusBarButton(sb.zoomIn, icons.ZoomIn).layout),
+		layout.Rigid(newStatusBarButton(sb.zoomOut, icons.ZoomOut).layout),
+		layout.Rigid(newStatusBarButton(sb.menu, icons.Burger).highlightWhen(
+			func() bool {
+				return sb.showingPopup == popupMenu
+			}).layout),
+	}
+	sb.buttonsRecord = []layout.FlexChild{
+		layout.Rigid(newStatusBarButton(sb.play, icons.Play).alt(
+			func() bool {
+				return sb.core.running
+			}, sb.pause, icons.Pause).layout),
+		layout.Rigid(newStatusBarButton(sb.step, icons.Step).layout),
+		layout.Rigid(newStatusBarButton(sb.stepAhead, icons.SkipForward).layout),
+
+		layout.Rigid(newStatusBarButton(sb.stepBack, icons.Reverse).layout),
+		layout.Rigid(newStatusBarButton(sb.skipBack, icons.SkipBackward).layout),
+
 		layout.Rigid(newStatusBarButton(sb.zoomIn, icons.ZoomIn).layout),
 		layout.Rigid(newStatusBarButton(sb.zoomOut, icons.ZoomOut).layout),
 		layout.Rigid(newStatusBarButton(sb.menu, icons.Burger).highlightWhen(
@@ -58,7 +76,8 @@ type statusBar struct {
 	ruleClickable widget.Clickable
 	ruleDims      layout.Dimensions
 	stepDims      layout.Dimensions
-	flexButtons   []layout.FlexChild
+	buttons       []layout.FlexChild
+	buttonsRecord []layout.FlexChild
 }
 
 func (sb *statusBar) play() {
@@ -83,6 +102,16 @@ func (sb *statusBar) step() {
 func (sb *statusBar) stepAhead() {
 	sb.showingPopup = popupNone
 	sb.core.stepAhead()
+}
+
+func (sb *statusBar) stepBack() {
+	sb.showingPopup = popupNone
+	sb.core.stepBack()
+}
+
+func (sb *statusBar) skipBack() {
+	sb.showingPopup = popupNone
+	sb.core.skipBack()
 }
 
 func (sb *statusBar) zoomIn() {
@@ -167,7 +196,7 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 			case sb.core.status != "":
 				sb.stepDims = sb.label(gtx, theme, sb.core.status, text.Start)
 			case sb.core.mode != noMode:
-				sb.stepDims = sb.label(gtx, theme, sb.core.mode.String(), text.Start)
+				sb.stepDims = sb.label(gtx, theme, sb.core.modeDisplay(), text.Start)
 			case sb.core.instrumentRepeat != nil && sb.core.instrumentRepeat.Found:
 				sb.stepDims = sb.label(gtx, theme, "Repeat Found!", text.Start)
 			default:
@@ -185,13 +214,23 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{
-					Axis:      layout.Horizontal,
-					Alignment: layout.End,
-					Gap:       3,
-				}.Layout(gtx, sb.flexButtons...)
-			})
+			if sb.core.isRecording() {
+				return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{
+						Axis:      layout.Horizontal,
+						Alignment: layout.End,
+						Gap:       3,
+					}.Layout(gtx, sb.buttonsRecord...)
+				})
+			} else {
+				return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{
+						Axis:      layout.Horizontal,
+						Alignment: layout.End,
+						Gap:       3,
+					}.Layout(gtx, sb.buttons...)
+				})
+			}
 		}),
 	)
 	return layout.Dimensions{Size: size}

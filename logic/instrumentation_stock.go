@@ -79,58 +79,6 @@ func (r *RecordInstrument) Instrument(step uint64, _ []*Cell, locations [][2]int
 	})
 }
 
-/*
-func (r *RecordInstrument) Undo() {
-	if len(r.Frames) > 0 {
-		r.Grid.mutex.Lock()
-		defer r.Grid.mutex.Unlock()
-		frame := r.Frames[len(r.Frames)-1]
-		r.Frames = r.Frames[:len(r.Frames)-1]
-		for _, loc := range frame.Locations {
-			r.Grid.Rows[loc[0]][loc[1]].flip()
-		}
-		r.Grid.StepCount.Store(frame.Step - 1)
-	}
-}
-
-func (r *RecordInstrument) Undos(n int) {
-	r.Grid.mutex.Lock()
-	defer r.Grid.mutex.Unlock()
-	var step *uint64
-	for u := 0; u < n && len(r.Frames) > 0; u++ {
-		frame := r.Frames[len(r.Frames)-1]
-		step = &frame.Step
-		r.Frames = r.Frames[:len(r.Frames)-1]
-		for _, loc := range frame.Locations {
-			r.Grid.Rows[loc[0]][loc[1]].flip()
-		}
-	}
-	if step != nil {
-		r.Grid.StepCount.Store(*step)
-	}
-}
-
-func (r *RecordInstrument) UndoTo(step uint64) bool {
-	r.Grid.mutex.Lock()
-	defer r.Grid.mutex.Unlock()
-	idx, ok := slices.BinarySearchFunc(r.Frames, Frame{Step: step}, func(a Frame, b Frame) int {
-		return cmp.Compare(a.Step, b.Step)
-	})
-	if !ok {
-		return false
-	}
-	for u := len(r.Frames) - 1; u > idx; u-- {
-		frame := r.Frames[u]
-		for _, loc := range frame.Locations {
-			r.Grid.Rows[loc[0]][loc[1]].flip()
-		}
-	}
-	r.Frames = r.Frames[:idx]
-	r.Grid.StepCount.Store(step)
-	return true
-}
-*/
-
 func (r *RecordInstrument) Undo() bool {
 	r.Grid.mutex.Lock()
 	defer r.Grid.mutex.Unlock()
