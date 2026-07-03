@@ -37,6 +37,8 @@ func (p *instrumentationPopout) skipBackByChanged(n int) {
 }
 
 func (p *instrumentationPopout) reset() {
+	p.repeatDetect.Value = p.core.instrumentRepeat != nil
+	p.record.Value = p.core.instrumentRecord != nil
 	p.skipBackBy.setValue(p.core.settings.SkipBackBy)
 }
 
