@@ -1,5 +1,10 @@
 package logic
 
+import (
+	"iter"
+	"slices"
+)
+
 type RepeatInstrument struct {
 	hash       uint64
 	zobrist    [][]uint64
@@ -57,14 +62,58 @@ func (r *RepeatInstrument) Instrument(step uint64, _ []*Cell, locations [][2]int
 	r.InstrumentStop(step, nil, locations)
 }
 
-type Frame struct {
-	Step      uint64
-	Locations [][2]int
+type frame struct {
+	step      uint64
+	locations [][2]int
+}
+
+func NewRecordInstrument(g *Grid) *RecordInstrument {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	return &RecordInstrument{
+		grid:    g,
+		frames:  make([]frame, 0),
+		initial: initialGridState(g),
+	}
+}
+
+func initialGridState(g *Grid) [][]bool {
+	result := make([][]bool, g.Height)
+	for r, row := range g.Rows {
+		result[r] = make([]bool, g.Width)
+		for c, cell := range row {
+			result[r][c] = cell.Alive
+		}
+	}
+	return result
 }
 
 type RecordInstrument struct {
-	Grid   *Grid
-	Frames []Frame
+	grid    *Grid
+	frames  []frame
+	initial [][]bool
+}
+
+func (r *RecordInstrument) StepsCount() int {
+	return len(r.frames)
+}
+
+func (r *RecordInstrument) InitialGrid() [][]bool {
+	result := make([][]bool, len(r.initial))
+	for rn, row := range r.initial {
+		result[rn] = slices.Clone(row)
+	}
+	return result
+}
+
+func (r *RecordInstrument) StepChangeLocations() iter.Seq[[][2]int] {
+	return func(yield func([][2]int) bool) {
+		for _, f := range r.frames {
+			if !yield(f.locations) {
+				return
+			}
+		}
+	}
 }
 
 func (r *RecordInstrument) InstrumentStop(step uint64, _ []*Cell, locations [][2]int) bool {
@@ -73,60 +122,60 @@ func (r *RecordInstrument) InstrumentStop(step uint64, _ []*Cell, locations [][2
 }
 
 func (r *RecordInstrument) Instrument(step uint64, _ []*Cell, locations [][2]int) {
-	r.Frames = append(r.Frames, Frame{
-		Step:      step,
-		Locations: append([][2]int(nil), locations...),
+	r.frames = append(r.frames, frame{
+		step:      step,
+		locations: append([][2]int(nil), locations...),
 	})
 }
 
 func (r *RecordInstrument) Undo() bool {
-	r.Grid.mutex.Lock()
-	defer r.Grid.mutex.Unlock()
-	if len(r.Frames) == 0 {
+	r.grid.mutex.Lock()
+	defer r.grid.mutex.Unlock()
+	if len(r.frames) == 0 {
 		return false
 	}
-	frame := r.Frames[len(r.Frames)-1]
-	r.Frames = r.Frames[:len(r.Frames)-1]
-	for _, loc := range frame.Locations {
-		r.Grid.Rows[loc[0]][loc[1]].flip()
+	f := r.frames[len(r.frames)-1]
+	r.frames = r.frames[:len(r.frames)-1]
+	for _, loc := range f.locations {
+		r.grid.Rows[loc[0]][loc[1]].flip()
 	}
-	r.Grid.StepCount.Store(frame.Step - 1)
+	r.grid.StepCount.Store(f.step - 1)
 	return true
 }
 
 func (r *RecordInstrument) Undos(n int) int {
-	r.Grid.mutex.Lock()
-	defer r.Grid.mutex.Unlock()
+	r.grid.mutex.Lock()
+	defer r.grid.mutex.Unlock()
 	undone := 0
-	for undone < n && len(r.Frames) > 0 {
-		frame := r.Frames[len(r.Frames)-1]
-		r.Frames = r.Frames[:len(r.Frames)-1]
-		for _, loc := range frame.Locations {
-			r.Grid.Rows[loc[0]][loc[1]].flip()
+	for undone < n && len(r.frames) > 0 {
+		f := r.frames[len(r.frames)-1]
+		r.frames = r.frames[:len(r.frames)-1]
+		for _, loc := range f.locations {
+			r.grid.Rows[loc[0]][loc[1]].flip()
 		}
-		r.Grid.StepCount.Store(frame.Step - 1)
+		r.grid.StepCount.Store(f.step - 1)
 		undone++
 	}
 	return undone
 }
 
 func (r *RecordInstrument) UndoTo(step uint64) bool {
-	r.Grid.mutex.Lock()
-	defer r.Grid.mutex.Unlock()
+	r.grid.mutex.Lock()
+	defer r.grid.mutex.Unlock()
 	changed := false
-	for len(r.Frames) > 0 {
-		frame := r.Frames[len(r.Frames)-1]
-		if frame.Step <= step {
+	for len(r.frames) > 0 {
+		f := r.frames[len(r.frames)-1]
+		if f.step <= step {
 			break
 		}
-		r.Frames = r.Frames[:len(r.Frames)-1]
-		for _, loc := range frame.Locations {
-			r.Grid.Rows[loc[0]][loc[1]].flip()
+		r.frames = r.frames[:len(r.frames)-1]
+		for _, loc := range f.locations {
+			r.grid.Rows[loc[0]][loc[1]].flip()
 		}
 		changed = true
 	}
 	if changed {
-		r.Grid.StepCount.Store(step)
+		r.grid.StepCount.Store(step)
 	}
 	return changed
 }

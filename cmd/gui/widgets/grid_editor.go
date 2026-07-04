@@ -68,11 +68,6 @@ func (e *editor) handleKeys(gtx layout.Context, kev key.Event) (handled bool) {
 			return true
 		}
 	}
-	/*
-		if e.marking && (kev.Modifiers != key.ModShift || (kev.Modifiers == key.ModShift && kev.Name != key.NameLeftArrow && kev.Name != key.NameRightArrow && kev.Name != key.NameUpArrow && kev.Name != key.NameDownArrow)) {
-			e.endMarking(kev.Name == key.NameEnter || kev.Name == key.NameReturn)
-		}
-	*/
 	handled = true
 	switch kev.Name {
 	case key.NameCtrl, key.NameAlt, key.NameShift, key.NameCommand:
