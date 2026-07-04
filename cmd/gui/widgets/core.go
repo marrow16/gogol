@@ -26,7 +26,7 @@ func NewCore(s *settings.Settings) (*Core, error) {
 	c.gridHolder, err = newGridHolder(c)
 	c.statusBar = newStatusBar(c)
 	if s.Recording {
-		c.instrumentRecord = &logic.RecordInstrument{Grid: c.gridHolder.grid}
+		c.instrumentRecord = logic.NewRecordInstrument(c.gridHolder.grid)
 	}
 	if s.RepeatDetection {
 		c.instrumentRepeat = logic.NewRepeatInstrument(c.gridHolder.grid)

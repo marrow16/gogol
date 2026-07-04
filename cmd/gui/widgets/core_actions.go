@@ -1,12 +1,10 @@
 package widgets
 
 import (
-	"errors"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
-	"io/fs"
 	"os"
 	"strconv"
 	"strings"
@@ -352,16 +350,12 @@ func (g *Core) export() (err error) {
 		p.Name = "Grid " + now.Format("2006-01-02 15:04:05")
 		filename := "Grid " + now.Format("2006-01-02T150405") + ".rle"
 		var f *os.File
-		if f, err = os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644); err != nil {
-			if errors.Is(err, fs.ErrExist) {
-				err = errors.New("File already exists")
-			}
-			return
+		if f, err = saveFile(filename, false); err == nil {
+			defer func() {
+				_ = f.Close()
+			}()
+			err = patterns.PatternRleEncode(p, f)
 		}
-		defer func() {
-			_ = f.Close()
-		}()
-		err = patterns.PatternRleEncode(p, f)
 	}
 	return err
 }
@@ -387,7 +381,7 @@ func (g *Core) setInstrumentationRepeat(on bool) {
 func (g *Core) setInstrumentationRecord(on bool) {
 	g.stop()
 	if on {
-		g.instrumentRecord = &logic.RecordInstrument{Grid: g.gridHolder.grid}
+		g.instrumentRecord = logic.NewRecordInstrument(g.gridHolder.grid)
 	} else {
 		g.instrumentRecord = nil
 	}
@@ -396,7 +390,7 @@ func (g *Core) setInstrumentationRecord(on bool) {
 
 func (g *Core) isRecording() bool {
 	if g.instrumentRecord != nil {
-		return len(g.instrumentRecord.Frames) > 0
+		return g.instrumentRecord.StepsCount() > 0
 	}
 	return false
 }
@@ -416,7 +410,7 @@ func (g *Core) resetInstrumentation() {
 		g.instrumentRepeat = logic.NewRepeatInstrument(g.gridHolder.grid)
 	}
 	if g.instrumentRecord != nil {
-		g.instrumentRecord = &logic.RecordInstrument{Grid: g.gridHolder.grid}
+		g.instrumentRecord = logic.NewRecordInstrument(g.gridHolder.grid)
 	}
 	g.updateInstrumentation()
 }

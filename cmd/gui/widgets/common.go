@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"errors"
 	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -11,6 +12,11 @@ import (
 	"gioui.org/widget/material"
 	"image"
 	"image/color"
+	"io/fs"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 )
 
@@ -48,13 +54,58 @@ func commas(s string) string {
 	return s
 }
 
-func handleEscape(gtx layout.Context) bool {
-	if ev, ok := gtx.Event(key.Filter{Name: key.NameEscape}); ok {
-		if kev, ok := ev.(key.Event); ok && kev.State == key.Press && kev.Name == key.NameEscape {
-			return true
+func saveFile(path string, allowOverwrite bool) (result *os.File, err error) {
+	if path, err = resolveSavePath(path); err != nil {
+		return
+	}
+	if allowOverwrite {
+		if result, err = os.Create(path); err != nil {
+			err = errors.New("Unable to create file")
+		}
+	} else if result, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			err = errors.New("File already exists")
+		} else {
+			err = errors.New("Unable to create file")
 		}
 	}
-	return false
+	return result, err
+}
+
+func resolveSavePath(path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return path, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", errors.New("Invalid user home directory")
+	}
+	dir := filepath.Join(home, "Documents", "GoGoL")
+	if err = os.MkdirAll(dir, 0o755); err != nil {
+		return "", errors.New("Invalid user home directory")
+	}
+	return filepath.Join(dir, filepath.Base(path)), nil
+}
+
+func openInBrowser(filename string) {
+	fp, err := filepath.Abs(filename)
+	if err != nil {
+		return
+	}
+	u := (&url.URL{
+		Scheme: "file",
+		Path:   fp,
+	}).String()
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", "-a", "Google Chrome", u)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", u)
+	default:
+		cmd = exec.Command("xdg-open", u)
+	}
+	_ = cmd.Start()
 }
 
 func border(gtx layout.Context, dims layout.Dimensions, top, left, bottom, right bool) {

@@ -13,7 +13,6 @@ import (
 	"github.com/marrow16/gogol/patterns"
 	"image"
 	"image/draw"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -184,7 +183,7 @@ func (p *capturedPatternsPopout) savePattern(pattern *patterns.Pattern) {
 		return
 	}
 	p.error = nil
-	if f, err := os.Create(pattern.Filename); err == nil {
+	if f, err := saveFile(pattern.Filename, false); err == nil {
 		defer func() {
 			_ = f.Close()
 		}()
