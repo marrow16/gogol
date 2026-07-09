@@ -369,4 +369,7 @@ var altCommands = map[key.Name]func(gtx layout.Context, c *Core){
 			c.gridRecipes.runRecipe()
 		}
 	},
+	"H": func(gtx layout.Context, c *Core) {
+		c.showHeatMap()
+	},
 }
