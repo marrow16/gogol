@@ -626,6 +626,8 @@ func (e *editor) end() {
 		e.marking = false
 		e.clearMarking()
 	}
+	e.g.grid.StepCount.Store(0)
+	e.g.core.resetInstrumentation()
 	e.g.core.window.Invalidate()
 }
 

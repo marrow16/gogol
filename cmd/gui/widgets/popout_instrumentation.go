@@ -4,27 +4,39 @@ import (
 	"errors"
 	"gioui.org/font"
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/animator"
 	"image"
+	"image/png"
 	"path/filepath"
 	"strconv"
 	"time"
 )
 
 type instrumentationPopout struct {
-	parent           *menuPopup
-	core             *Core
-	repeatDetect     *widget.Bool
-	btnRepeatReset   widget.Clickable
+	parent *menuPopup
+	core   *Core
+	// repeat...
+	repeatDetect   *widget.Bool
+	btnRepeatReset widget.Clickable
+	// record...
 	record           *widget.Bool
 	skipBackBy       *numberInput[int]
+	btnRecordReset   widget.Clickable
 	btnSaveAnimation widget.Clickable
 	animationSaving  bool
 	animationResult  *animationResult
 	linkAnimation    widget.Clickable
+	// heat map...
+	heatMap          *widget.Bool
+	heatMapType      *widget.Enum
+	btnHeatMapReset  widget.Clickable
+	btnHeatMapReveal widget.Clickable
+	btnHeatMapSave   widget.Clickable
 }
 
 type animationResult struct {
@@ -38,6 +50,8 @@ func newInstrumentationPopout(p *menuPopup, c *Core) *instrumentationPopout {
 		core:         c,
 		repeatDetect: &widget.Bool{Value: c.instrumentRepeat != nil},
 		record:       &widget.Bool{Value: c.instrumentRecord != nil},
+		heatMap:      &widget.Bool{Value: c.instrumentHeatMap != nil},
+		heatMapType:  &widget.Enum{Value: activityHeatMapper.String()},
 	}
 	result.skipBackBy = newNumberInput[int](c.theme, 4, 1, 9999, 100, result.skipBackByChanged)
 	return result
@@ -56,32 +70,7 @@ func (p *instrumentationPopout) reset() {
 }
 
 func (p *instrumentationPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	if p.repeatDetect.Update(gtx) {
-		p.core.setInstrumentationRepeat(p.repeatDetect.Value)
-	}
-	if p.record.Update(gtx) {
-		p.core.setInstrumentationRecord(p.record.Value)
-	}
-	if p.btnRepeatReset.Clicked(gtx) {
-		p.core.setInstrumentationRepeat(true)
-	}
-	if p.btnSaveAnimation.Clicked(gtx) {
-		if !p.animationSaving && p.core.instrumentRecord != nil {
-			p.animationSaving = true
-			p.animationResult = nil
-			if p.core.instrumentRecord.StepsCount() > 0 {
-				p.saveAnimation()
-			} else {
-				p.animationSaving = false
-				p.animationResult = &animationResult{
-					err: errors.New("No steps to animate"),
-				}
-			}
-		}
-	}
-	if p.linkAnimation.Clicked(gtx) && !p.animationSaving && p.animationResult != nil && p.animationResult.err == nil {
-		openInBrowser(p.animationResult.filename)
-	}
+	p.update(gtx)
 	width := measureText(gtx, theme, "When enabled, will stop stepping (and step ahead)").Size.X
 	return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8), Top: unit.Dp(8), Bottom: unit.Dp(4)}.
 		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -106,6 +95,13 @@ func (p *instrumentationPopout) layout(gtx layout.Context, theme *material.Theme
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
+					paint.FillShape(gtx.Ops, popupBorder,
+						clip.Rect(image.Rect(0, 0, width, 1)).Op(),
+					)
+					return layout.Dimensions{Size: image.Point{X: width, Y: 1}}
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
 					chkBox := material.CheckBox(p.core.theme, p.record, "Record")
 					chkBox.TextSize = unit.Sp(16)
 					chkBox.Size = 18
@@ -124,8 +120,117 @@ func (p *instrumentationPopout) layout(gtx layout.Context, theme *material.Theme
 						return layout.Dimensions{}
 					}
 				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
+					paint.FillShape(gtx.Ops, popupBorder,
+						clip.Rect(image.Rect(0, 0, width, 1)).Op(),
+					)
+					return layout.Dimensions{Size: image.Point{X: width, Y: 1}}
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
+					chkBox := material.CheckBox(p.core.theme, p.heatMap, "Heat Mapping")
+					chkBox.TextSize = unit.Sp(16)
+					chkBox.Size = 18
+					return chkBox.Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !p.heatMap.Value {
+						gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
+						desc := material.Body1(theme, "Accumulates various types of grid activity for later display as a visual heat map.")
+						desc.TextSize = desc.TextSize - 2
+						desc.Font.Style = font.Italic
+						return desc.Layout(gtx)
+					} else if p.core.instrumentHeatMap != nil {
+						return p.layoutHeatMap(gtx, theme)
+					} else {
+						return layout.Dimensions{}
+					}
+				}),
 			)
 		})
+}
+
+func (p *instrumentationPopout) update(gtx layout.Context) {
+	if p.repeatDetect.Update(gtx) {
+		p.core.setInstrumentationRepeat(p.repeatDetect.Value)
+	}
+	if p.record.Update(gtx) {
+		p.core.setInstrumentationRecord(p.record.Value)
+		if !p.record.Value {
+			p.animationResult = nil
+		}
+	}
+	if p.btnRepeatReset.Clicked(gtx) {
+		p.core.setInstrumentationRepeat(true)
+	}
+	if p.btnRecordReset.Clicked(gtx) {
+		if !p.animationSaving {
+			p.animationResult = nil
+		}
+		p.core.setInstrumentationRecord(true)
+	}
+	if p.btnSaveAnimation.Clicked(gtx) {
+		if !p.animationSaving && p.core.instrumentRecord != nil {
+			p.animationSaving = true
+			p.animationResult = nil
+			if p.core.instrumentRecord.StepsCount() > 0 {
+				p.saveAnimation()
+			} else {
+				p.animationSaving = false
+				p.animationResult = &animationResult{
+					err: errors.New("No steps to animate"),
+				}
+			}
+		}
+	}
+	if p.linkAnimation.Clicked(gtx) && !p.animationSaving && p.animationResult != nil && p.animationResult.err == nil {
+		openInBrowser(p.animationResult.filename)
+	}
+	if p.heatMap.Update(gtx) {
+		if p.heatMap.Value {
+			p.core.setInstrumentationHeatMapper(p.selectedHeatMapType())
+		} else {
+			p.core.setInstrumentationHeatMapper(noHeatMapper)
+		}
+	}
+	if p.heatMapType.Update(gtx) {
+		nt := p.selectedHeatMapType()
+		if nt != p.core.heatMapperType {
+			p.core.setInstrumentationHeatMapper(nt)
+		}
+	}
+	if p.btnHeatMapReset.Clicked(gtx) {
+		p.core.setInstrumentationHeatMapper(p.selectedHeatMapType())
+	}
+	if p.btnHeatMapReveal.Clicked(gtx) {
+		p.core.showHeatMap()
+	}
+	if p.btnHeatMapSave.Clicked(gtx) {
+		p.saveHeatMapImage()
+	}
+}
+
+func (p *instrumentationPopout) saveHeatMapImage() {
+	if p.core.instrumentHeatMap != nil {
+		filename := "Heat Map " + p.core.heatMapperType.String() + " " + time.Now().Format("2006-01-02T150405") + ".png"
+		if f, err := saveFile(filename, false); err == nil {
+			defer func() {
+				_ = f.Close()
+			}()
+			img := image.NewNRGBA(image.Rect(0, 0, p.core.settings.Width*p.core.settings.CellSize, p.core.settings.Height*p.core.settings.CellSize))
+			p.core.gridHolder.drawHeatMap(img, p.core.instrumentHeatMap)
+			png.Encode(f, img)
+		}
+	}
+}
+
+func (p *instrumentationPopout) selectedHeatMapType() heatMapperType {
+	hmt := heatMapperTypeFrom(p.heatMapType.Value)
+	if hmt == noHeatMapper {
+		hmt = activityHeatMapper
+	}
+	return hmt
 }
 
 func (p *instrumentationPopout) layoutRepeat(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -142,11 +247,10 @@ func (p *instrumentationPopout) layoutRepeat(gtx layout.Context, theme *material
 							return lbl.Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Body1(theme, "No")
 							if p.core.instrumentRepeat.Found {
-								lbl.Text = "Yes"
+								return material.Body1(theme, "Yes").Layout(gtx)
 							}
-							return lbl.Layout(gtx)
+							return material.Body1(theme, "No").Layout(gtx)
 						}),
 					)
 				}),
@@ -202,18 +306,12 @@ func (p *instrumentationPopout) layoutRepeat(gtx layout.Context, theme *material
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							gtx.Constraints.Min.X = labelMax
-							return layout.Dimensions{Size: image.Point{X: gtx.Constraints.Min.X}}
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							btn := material.Button(p.core.theme, &p.btnRepeatReset, "Reset")
-							btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
-							btn.TextSize = unit.Sp(16)
-							return btn.Layout(gtx)
-						}),
-					)
+					return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						btn := material.Button(p.core.theme, &p.btnRepeatReset, "Reset")
+						btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
+						btn.TextSize = unit.Sp(16)
+						return btn.Layout(gtx)
+					})
 				}),
 			)
 		})
@@ -252,16 +350,28 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context, theme *material
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if !p.animationSaving {
-						return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							btn := material.Button(p.core.theme, &p.btnSaveAnimation, "Save Animation")
-							btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
-							btn.TextSize = unit.Sp(16)
-							return btn.Layout(gtx)
-						})
-					} else {
-						return layout.Dimensions{}
-					}
+					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								btn := material.Button(p.core.theme, &p.btnRecordReset, "Reset")
+								btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
+								btn.TextSize = unit.Sp(16)
+								return btn.Layout(gtx)
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if !p.animationSaving {
+								return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									btn := material.Button(p.core.theme, &p.btnSaveAnimation, "Save Animation")
+									btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
+									btn.TextSize = unit.Sp(16)
+									return btn.Layout(gtx)
+								})
+							} else {
+								return layout.Dimensions{}
+							}
+						}),
+					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.animationSaving {
@@ -319,6 +429,100 @@ func (p *instrumentationPopout) saveAnimation() {
 	}()
 }
 
+func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+	labelMax := measureMaxText(gtx, theme, font.Bold, "Steps: ", "Type: ", "Maximum: ").Size.X
+	return layout.Inset{Left: 28, Bottom: 4}.
+		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = labelMax
+							lbl := rightLabel(p.core.theme, "Type:")
+							lbl.Font.Weight = font.Bold
+							return lbl.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							radio := material.RadioButton(p.core.theme, p.heatMapType, activityHeatMapper.String(), "Activity")
+							radio.Size = 18
+							radio.TextSize = unit.Sp(16)
+							return radio.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							radio := material.RadioButton(p.core.theme, p.heatMapType, occupancyHeatMapper.String(), "Occupancy")
+							radio.Size = 18
+							radio.TextSize = unit.Sp(16)
+							return radio.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							radio := material.RadioButton(p.core.theme, p.heatMapType, freshnessHeatMapper.String(), "Freshness")
+							radio.Size = 18
+							radio.TextSize = unit.Sp(16)
+							return radio.Layout(gtx)
+						}),
+					)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = labelMax
+							lbl := rightLabel(p.core.theme, "Maximum:")
+							lbl.Font.Weight = font.Bold
+							return lbl.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Body1(theme, commas(strconv.FormatUint(p.core.instrumentHeatMap.Maximum(), 10)))
+							return lbl.Layout(gtx)
+						}),
+					)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = labelMax
+							lbl := rightLabel(p.core.theme, "Steps:")
+							lbl.Font.Weight = font.Bold
+							return lbl.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Body1(theme, commas(strconv.FormatUint(p.core.instrumentHeatMap.StepsCount(), 10)))
+							return lbl.Layout(gtx)
+						}),
+					)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								btn := material.Button(p.core.theme, &p.btnHeatMapReset, "Reset")
+								btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
+								btn.TextSize = unit.Sp(16)
+								return btn.Layout(gtx)
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								btn := material.Button(p.core.theme, &p.btnHeatMapReveal, "Reveal")
+								btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
+								btn.TextSize = unit.Sp(16)
+								return btn.Layout(gtx)
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								btn := material.Button(p.core.theme, &p.btnHeatMapSave, "Save Image")
+								btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
+								btn.TextSize = unit.Sp(16)
+								return btn.Layout(gtx)
+							})
+						}),
+					)
+				}),
+			)
+		})
+}
+
 func (p *instrumentationPopout) hasFocus(gtx layout.Context) bool {
-	return p.skipBackBy.isFocused(gtx) || gtx.Focused(p.record) || gtx.Focused(p.repeatDetect)
+	return p.skipBackBy.isFocused(gtx) ||
+		gtx.Focused(p.record) || gtx.Focused(p.repeatDetect) || gtx.Focused(p.heatMap)
 }

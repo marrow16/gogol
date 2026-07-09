@@ -99,6 +99,7 @@ func (p *gridRecipesPopout) getCurrentRecipe() (*recipes.Recipe, string) {
 
 func (p *gridRecipesPopout) runRecipe() {
 	if recipe, _ := p.getCurrentRecipe(); recipe != nil {
+		p.core.resetInstrumentation()
 		grid, resized, err := recipe.Run(p.core.gridHolder.grid, true)
 		if err != nil {
 			p.error = err

@@ -38,6 +38,17 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		{},
 		{
 			parent: result,
+			label:  "Instrumentation",
+			popout: popoutInstrumentation,
+		},
+		{
+			parent: result,
+			label:  "Grid Recipes",
+			popout: popoutGridRecipes,
+		},
+		{},
+		{
+			parent: result,
 			label:  "Size/Wrapping/Boundaries",
 			popout: popoutSizeWrappingBoundaries,
 		},
@@ -50,16 +61,6 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 			parent: result,
 			label:  "Colors",
 			popout: popoutColors,
-		},
-		{
-			parent: result,
-			label:  "Instrumentation",
-			popout: popoutInstrumentation,
-		},
-		{
-			parent: result,
-			label:  "Grid Recipes",
-			popout: popoutGridRecipes,
 		},
 		{},
 		{
@@ -97,7 +98,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 			label:  "Edit mode",
 			key:    "E",
 			fn: func() {
-				parent.core.editMode()
+				parent.core.startEditMode()
 			},
 		},
 		{},

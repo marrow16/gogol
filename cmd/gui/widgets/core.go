@@ -41,6 +41,7 @@ const (
 	noMode mode = iota
 	editMode
 	placePatternMode
+	heatMapMode
 )
 
 func (m mode) String() string {
@@ -49,8 +50,58 @@ func (m mode) String() string {
 		return "Edit Mode (Esc exit)"
 	case placePatternMode:
 		return "Place (Enter or Esc exit)"
+	case heatMapMode:
+		return "Heat Map"
 	}
 	return ""
+}
+
+type heatMapperType int
+
+const (
+	noHeatMapper heatMapperType = iota
+	activityHeatMapper
+	occupancyHeatMapper
+	freshnessHeatMapper
+)
+
+func (hmt heatMapperType) newHeatMapper(g *logic.Grid) logic.HeatMap {
+	switch hmt {
+	case activityHeatMapper:
+		return logic.NewActivityHeatMapInstrument(g)
+	case occupancyHeatMapper:
+		return logic.NewOccupancyHeatMapInstrument(g)
+	case freshnessHeatMapper:
+		return logic.NewFreshnessHeatMapInstrument(g, 0.996)
+	default:
+		return nil
+	}
+}
+
+func (hmt heatMapperType) String() string {
+	switch hmt {
+	case activityHeatMapper:
+		return "Activity"
+	case occupancyHeatMapper:
+		return "Occupancy"
+	case freshnessHeatMapper:
+		return "Freshness"
+	default:
+		return "None"
+	}
+}
+
+func heatMapperTypeFrom(s string) heatMapperType {
+	switch s {
+	case "Activity":
+		return activityHeatMapper
+	case "Occupancy":
+		return occupancyHeatMapper
+	case "Freshness":
+		return freshnessHeatMapper
+	default:
+		return noHeatMapper
+	}
 }
 
 type Core struct {
@@ -73,9 +124,11 @@ type Core struct {
 	snapshots     []patterns.Pattern
 	snapshotsStep []uint64
 
-	instrumentRepeat *logic.RepeatInstrument
-	instrumentRecord *logic.RecordInstrument
-	instrumentation  logic.CompositeInstrument
+	instrumentRepeat  *logic.RepeatInstrument
+	instrumentRecord  *logic.RecordInstrument
+	instrumentHeatMap logic.HeatMap
+	heatMapperType    heatMapperType
+	instrumentation   logic.CompositeInstrument
 
 	// pattern placing...
 	placePatternCol, placePatternRow int
@@ -121,12 +174,15 @@ func (c *Core) Run(window *app.Window) error {
 func (c *Core) modeDisplay() string {
 	if c.mode != noMode {
 		s := c.mode.String()
-		if c.mode == editMode {
+		switch c.mode {
+		case editMode:
 			if c.gridHolder.editor.patternRotation != patterns.Rotate0 {
 				s = strconv.Itoa(c.gridHolder.editor.row) + "x" + strconv.Itoa(c.gridHolder.editor.col) + " " + c.gridHolder.editor.patternRotation.String() + " " + s
 			} else {
 				s = strconv.Itoa(c.gridHolder.editor.row) + "x" + strconv.Itoa(c.gridHolder.editor.col) + " " + s
 			}
+		case heatMapMode:
+			s = s + " (" + c.heatMapperType.String() + ")"
 		}
 		return s
 	}
@@ -134,9 +190,14 @@ func (c *Core) modeDisplay() string {
 }
 
 func (c *Core) clearMode() {
+	makeDirty := c.mode == heatMapMode
 	c.mode = noMode
 	c.gridHolder.overlay = nil
 	c.gridHolder.stopEditing()
+	if makeDirty {
+		c.gridHolder.dirty = true
+		c.gridHolder.grid.Draw()
+	}
 }
 
 // B0135/S1 snow flakes in coal mine
@@ -299,7 +360,7 @@ var altCommands = map[key.Name]func(gtx layout.Context, c *Core){
 		_ = c.export()
 	},
 	"E": func(gtx layout.Context, c *Core) {
-		c.editMode()
+		c.startEditMode()
 		gtx.Execute(key.FocusCmd{Tag: &c.gridHolder.clickable})
 	},
 	"G": func(gtx layout.Context, c *Core) {
@@ -307,5 +368,8 @@ var altCommands = map[key.Name]func(gtx layout.Context, c *Core){
 			c.stop()
 			c.gridRecipes.runRecipe()
 		}
+	},
+	"H": func(gtx layout.Context, c *Core) {
+		c.showHeatMap()
 	},
 }
