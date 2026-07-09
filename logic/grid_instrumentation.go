@@ -8,6 +8,11 @@ type StepStopInstrumentation interface {
 	InstrumentStop(step uint64, changes []*Cell, locations [][2]int) bool
 }
 
+type DualUseInstrumentation interface {
+	StepInstrumentation
+	StepStopInstrumentation
+}
+
 type StopReason int
 
 const (

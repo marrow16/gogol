@@ -74,10 +74,13 @@ type gridHolder struct {
 	pan       f32.Point
 	lastPos   f32.Point
 
-	//underlays/overlays (for pattern placing)...
+	// underlays/overlays (for pattern placing)...
 	underlay *underlay
 	overlay  *overlay
 	editor   *editor
+	// heat mapping...
+	heatMapCanvas *image.NRGBA
+	heatMapImgOp  paint.ImageOp
 }
 
 func (g *gridHolder) replaceGrid(grid *logic.Grid) {
@@ -279,6 +282,9 @@ func (g *gridHolder) restoreUnderlay() {
 }
 
 func (g *gridHolder) imageOp() paint.ImageOp {
+	if g.core.mode == heatMapMode {
+		return g.heatMapImgOp
+	}
 	o := g.overlay
 	if g.underlay != nil && (o == nil || o.moved) {
 		g.restoreUnderlay()
@@ -340,12 +346,18 @@ func (g *gridHolder) resize() {
 
 func (g *gridHolder) rebuild() {
 	g.canvas = image.NewNRGBA(image.Rect(0, 0, g.core.settings.Width*g.core.settings.CellSize, g.core.settings.Height*g.core.settings.CellSize))
+	g.heatMapCanvas = image.NewNRGBA(image.Rect(0, 0, g.core.settings.Width*g.core.settings.CellSize, g.core.settings.Height*g.core.settings.CellSize))
 	draw.Draw(g.canvas, image.Rect(0, 0, g.core.settings.Width*g.core.settings.CellSize, g.core.settings.Height*g.core.settings.CellSize), &image.Uniform{g.core.settings.CellDeadColor}, image.Point{}, draw.Src)
+	g.drawCellBorders(g.canvas)
+	g.dirty = true
+}
+
+func (g *gridHolder) drawCellBorders(img *image.NRGBA) {
 	if g.core.settings.CellBorders {
 		for y := 0; y <= g.core.settings.Height; y++ {
 			yy := y * g.core.settings.CellSize
 			draw.Draw(
-				g.canvas,
+				img,
 				image.Rect(0, yy, g.core.settings.Width*g.core.settings.CellSize, yy+1),
 				&image.Uniform{g.core.settings.CellBorderColor},
 				image.Point{},
@@ -355,7 +367,7 @@ func (g *gridHolder) rebuild() {
 		for x := 0; x <= g.core.settings.Width; x++ {
 			xx := x * g.core.settings.CellSize
 			draw.Draw(
-				g.canvas,
+				img,
 				image.Rect(xx, 0, xx+1, g.core.settings.Height*g.core.settings.CellSize),
 				&image.Uniform{g.core.settings.CellBorderColor},
 				image.Point{},
@@ -363,7 +375,6 @@ func (g *gridHolder) rebuild() {
 			)
 		}
 	}
-	g.dirty = true
 }
 
 func (g *gridHolder) renderCell(row, col int, alive, changed bool) {

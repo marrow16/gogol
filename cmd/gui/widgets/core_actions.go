@@ -360,12 +360,22 @@ func (g *Core) export() (err error) {
 	return err
 }
 
-func (g *Core) editMode() {
+func (g *Core) startEditMode() {
 	g.stop()
 	g.clearMode()
 	g.statusBar.showHidePopup(popupNone)
 	g.gridHolder.startEditing()
 	g.mode = editMode
+}
+
+func (g *Core) showHeatMap() {
+	g.stop()
+	g.clearMode()
+	if g.heatMapperType != noHeatMapper && g.instrumentHeatMap != nil {
+		g.statusBar.showHidePopup(popupNone)
+		g.gridHolder.buildHeatMap(g.instrumentHeatMap)
+		g.mode = heatMapMode
+	}
 }
 
 func (g *Core) setInstrumentationRepeat(on bool) {
@@ -388,6 +398,13 @@ func (g *Core) setInstrumentationRecord(on bool) {
 	g.updateInstrumentation()
 }
 
+func (g *Core) setInstrumentationHeatMapper(hmt heatMapperType) {
+	g.stop()
+	g.heatMapperType = hmt
+	g.instrumentHeatMap = g.heatMapperType.newHeatMapper(g.gridHolder.grid)
+	g.updateInstrumentation()
+}
+
 func (g *Core) isRecording() bool {
 	if g.instrumentRecord != nil {
 		return g.instrumentRecord.StepsCount() > 0
@@ -403,6 +420,9 @@ func (g *Core) updateInstrumentation() {
 	if g.instrumentRecord != nil {
 		g.instrumentation = append(g.instrumentation, g.instrumentRecord)
 	}
+	if g.instrumentHeatMap != nil {
+		g.instrumentation = append(g.instrumentation, g.instrumentHeatMap.(logic.DualUseInstrumentation))
+	}
 }
 
 func (g *Core) resetInstrumentation() {
@@ -412,6 +432,7 @@ func (g *Core) resetInstrumentation() {
 	if g.instrumentRecord != nil {
 		g.instrumentRecord = logic.NewRecordInstrument(g.gridHolder.grid)
 	}
+	g.instrumentHeatMap = g.heatMapperType.newHeatMapper(g.gridHolder.grid)
 	g.updateInstrumentation()
 }
 
