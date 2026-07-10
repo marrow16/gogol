@@ -31,6 +31,10 @@ func NewCore(s *settings.Settings) (*Core, error) {
 	if s.RepeatDetection {
 		c.instrumentRepeat = logic.NewRepeatInstrument(c.gridHolder.grid)
 	}
+	if s.HeatMappingType != "" {
+		c.heatMapperType = heatMapperTypeFrom(s.HeatMappingType)
+		c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid, s.HeatMappingHalfLife)
+	}
 	c.updateInstrumentation()
 	return c, err
 }
@@ -65,14 +69,14 @@ const (
 	freshnessHeatMapper
 )
 
-func (hmt heatMapperType) newHeatMapper(g *logic.Grid) logic.HeatMap {
+func (hmt heatMapperType) newHeatMapper(g *logic.Grid, halfLife float32) logic.HeatMap {
 	switch hmt {
 	case activityHeatMapper:
 		return logic.NewActivityHeatMapInstrument(g)
 	case occupancyHeatMapper:
 		return logic.NewOccupancyHeatMapInstrument(g)
 	case freshnessHeatMapper:
-		return logic.NewFreshnessHeatMapInstrument(g, 0.996)
+		return logic.NewFreshnessHeatMapInstrument(g, halfLife)
 	default:
 		return nil
 	}
@@ -147,6 +151,7 @@ func (c *Core) Run(window *app.Window) error {
 			c.stop()
 			c.settings.Recording = c.instrumentRecord != nil
 			c.settings.RepeatDetection = c.instrumentRepeat != nil
+			c.settings.HeatMappingType = c.heatMapperType.String()
 			c.settings.Save(c.gridHolder.grid, c.gridHolder.zoom)
 			return e.Err
 		case app.FrameEvent:

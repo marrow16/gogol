@@ -187,6 +187,7 @@ func (p *capturedPatternsPopout) savePattern(pattern *patterns.Pattern) {
 		defer func() {
 			_ = f.Close()
 		}()
+		p.core.settings.Originator = pattern.Origination
 		if p.error = patterns.PatternRleEncode(*pattern, f); p.error == nil && p.addLibrary.Value {
 			patterns.PatternLibrary[pattern.Name] = *pattern
 			p.core.settings.AddPattern(pattern.Filename)
