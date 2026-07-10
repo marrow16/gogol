@@ -182,7 +182,7 @@ func (c *Core) modeDisplay() string {
 				s = strconv.Itoa(c.gridHolder.editor.row) + "x" + strconv.Itoa(c.gridHolder.editor.col) + " " + s
 			}
 		case heatMapMode:
-			s = s + " (" + c.heatMapperType.String() + ")"
+			s = s + " - " + c.heatMapperType.String() + " (Esc exit)"
 		}
 		return s
 	}
@@ -206,11 +206,17 @@ func (c *Core) clearMode() {
 // B023/S1234 mazes with flashing patches
 
 var keyFilters = []event.Filter{
-	key.Filter{
-		Required: key.ModAlt,
-		Name:     "",
-	},
+	key.Filter{Required: key.ModAlt, Name: ""},
 	key.Filter{Name: key.NameEscape},
+	key.Filter{Required: key.ModCtrl, Name: "0"},
+	key.Filter{Required: key.ModCtrl, Name: "1"},
+	key.Filter{Required: key.ModCtrl, Name: "2"},
+	key.Filter{Required: key.ModCtrl, Name: "3"},
+	key.Filter{Required: key.ModCtrl, Name: "4"},
+	key.Filter{Required: key.ModCtrl, Name: "5"},
+	key.Filter{Required: key.ModCtrl, Name: "6"},
+	key.Filter{Required: key.ModCtrl, Name: "7"},
+	key.Filter{Required: key.ModCtrl, Name: "8"},
 }
 
 func (c *Core) handleKeys(gtx layout.Context) {
@@ -233,7 +239,7 @@ func (c *Core) handleKeys(gtx layout.Context) {
 					c.statusBar.showHidePopup(popupNone)
 					c.clearMode()
 				case "0", "1", "2", "3", "4", "5", "6", "7", "8":
-					if evt.Modifiers == key.ModCtrl || evt.Modifiers == key.ModCommand {
+					if evt.Modifiers == key.ModCtrl {
 						c.bornChange(string(evt.Name))
 					} else if evt.Modifiers == key.ModAlt {
 						c.survivesChange(string(evt.Name))
