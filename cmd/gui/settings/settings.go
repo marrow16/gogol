@@ -18,23 +18,24 @@ import (
 
 func NewSettings() *Settings {
 	s := &Settings{
-		ScreenHeight:    600,
-		ScreenWidth:     900,
-		StepDelay:       25,
-		StepAheadBy:     2000,
-		SkipBackBy:      100,
-		Randomization:   15,
-		Height:          100,
-		Width:           100,
-		Zoom:            1.0,
-		WrapMode:        logic.WrapAll,
-		BoundaryMode:    logic.DeadBoundary,
-		Rule:            "B3/S23",
-		CellSize:        10,
-		CellBorders:     true,
-		CellAliveColor:  color.NRGBA{R: 0, G: 0, B: 0, A: 0xff},
-		CellDeadColor:   color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff},
-		CellBorderColor: color.NRGBA{R: 240, G: 240, B: 239, A: 255},
+		ScreenHeight:        600,
+		ScreenWidth:         900,
+		StepDelay:           25,
+		StepAheadBy:         2000,
+		SkipBackBy:          100,
+		Randomization:       15,
+		Height:              100,
+		Width:               100,
+		Zoom:                1.0,
+		WrapMode:            logic.WrapAll,
+		BoundaryMode:        logic.DeadBoundary,
+		Rule:                "B3/S23",
+		CellSize:            10,
+		CellBorders:         true,
+		CellAliveColor:      color.NRGBA{R: 0, G: 0, B: 0, A: 0xff},
+		CellDeadColor:       color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff},
+		CellBorderColor:     color.NRGBA{R: 240, G: 240, B: 239, A: 255},
+		HeatMappingHalfLife: 0.996,
 	}
 	if path, err := settingsPath(false); err == nil {
 		if f, err := os.Open(path); err == nil {
@@ -66,32 +67,34 @@ func settingsPath(create bool) (string, error) {
 }
 
 type Settings struct {
-	ScreenHeight      int
-	ScreenWidth       int
-	StepDelay         int
-	StepAheadBy       int
-	StepAheadSnapshot bool
-	SkipBackBy        int
-	Randomization     int
-	Height            int
-	Width             int
-	Zoom              float32
-	WrapMode          logic.WrapMode
-	BoundaryMode      logic.BoundaryMode
-	Rule              string
-	CellSize          int
-	CellBorders       bool
-	CellAliveColor    color.NRGBA
-	CellDeadColor     color.NRGBA
-	CellBorderColor   color.NRGBA
-	Originator        string
-	Rules             map[string]string
-	Patterns          []string
-	PatternLibraries  []string
-	Recipes           []string
-	SavedGrid         *logic.Grid
-	Recording         bool
-	RepeatDetection   bool
+	ScreenHeight        int
+	ScreenWidth         int
+	StepDelay           int
+	StepAheadBy         int
+	StepAheadSnapshot   bool
+	SkipBackBy          int
+	Randomization       int
+	Height              int
+	Width               int
+	Zoom                float32
+	WrapMode            logic.WrapMode
+	BoundaryMode        logic.BoundaryMode
+	Rule                string
+	CellSize            int
+	CellBorders         bool
+	CellAliveColor      color.NRGBA
+	CellDeadColor       color.NRGBA
+	CellBorderColor     color.NRGBA
+	Originator          string
+	Rules               map[string]string
+	Patterns            []string
+	PatternLibraries    []string
+	Recipes             []string
+	SavedGrid           *logic.Grid
+	Recording           bool
+	RepeatDetection     bool
+	HeatMappingType     string
+	HeatMappingHalfLife float32
 }
 
 func (s *Settings) Save(grid *logic.Grid, zoom float32) {
@@ -101,31 +104,33 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				_ = f.Close()
 			}()
 			p := prefs{
-				ScreenHeight:      s.ScreenHeight,
-				ScreenWidth:       s.ScreenWidth,
-				Height:            s.Height,
-				Width:             s.Width,
-				Zoom:              zoom,
-				StepDelay:         s.StepDelay,
-				StepAheadBy:       s.StepAheadBy,
-				StepAheadSnapshot: s.StepAheadSnapshot,
-				SkipBackBy:        s.SkipBackBy,
-				Randomization:     s.Randomization,
-				WrapMode:          grid.WrapMode.String(),
-				BoundaryMode:      grid.BoundaryMode.String(),
-				CellAliveColor:    fmt.Sprintf("#%02X%02X%02X", s.CellAliveColor.R, s.CellAliveColor.G, s.CellAliveColor.B),
-				CellDeadColor:     fmt.Sprintf("#%02X%02X%02X", s.CellDeadColor.R, s.CellDeadColor.G, s.CellDeadColor.B),
-				CellBorderColor:   fmt.Sprintf("#%02X%02X%02X", s.CellBorderColor.R, s.CellBorderColor.G, s.CellBorderColor.B),
-				CellBorders:       s.CellBorders,
-				CellSize:          s.CellSize,
-				Rule:              grid.Rule.Rle(),
-				Rules:             s.Rules,
-				Patterns:          s.Patterns,
-				PatternLibraries:  s.PatternLibraries,
-				Originator:        s.Originator,
-				Recipes:           s.Recipes,
-				Recording:         s.Recording,
-				RepeatDetection:   s.RepeatDetection,
+				ScreenHeight:        s.ScreenHeight,
+				ScreenWidth:         s.ScreenWidth,
+				Height:              s.Height,
+				Width:               s.Width,
+				Zoom:                zoom,
+				StepDelay:           s.StepDelay,
+				StepAheadBy:         s.StepAheadBy,
+				StepAheadSnapshot:   s.StepAheadSnapshot,
+				SkipBackBy:          s.SkipBackBy,
+				Randomization:       s.Randomization,
+				WrapMode:            grid.WrapMode.String(),
+				BoundaryMode:        grid.BoundaryMode.String(),
+				CellAliveColor:      fmt.Sprintf("#%02X%02X%02X", s.CellAliveColor.R, s.CellAliveColor.G, s.CellAliveColor.B),
+				CellDeadColor:       fmt.Sprintf("#%02X%02X%02X", s.CellDeadColor.R, s.CellDeadColor.G, s.CellDeadColor.B),
+				CellBorderColor:     fmt.Sprintf("#%02X%02X%02X", s.CellBorderColor.R, s.CellBorderColor.G, s.CellBorderColor.B),
+				CellBorders:         s.CellBorders,
+				CellSize:            s.CellSize,
+				Rule:                grid.Rule.Rle(),
+				Rules:               s.Rules,
+				Patterns:            s.Patterns,
+				PatternLibraries:    s.PatternLibraries,
+				Originator:          s.Originator,
+				Recipes:             s.Recipes,
+				Recording:           s.Recording,
+				RepeatDetection:     s.RepeatDetection,
+				HeatMappingType:     s.HeatMappingType,
+				HeatMappingHalfLife: s.HeatMappingHalfLife,
 			}
 			if pattern, err := s.PatternFromGrid(grid); err == nil {
 				var buf bytes.Buffer
@@ -231,7 +236,7 @@ func (s *Settings) fromPrefs(p prefs) {
 	if p.Width > 2 {
 		s.Width = p.Width
 	}
-	if p.StepDelay > 0 {
+	if p.StepDelay >= 0 {
 		s.StepDelay = p.StepDelay
 	}
 	if p.StepAheadBy > 0 {
@@ -272,6 +277,10 @@ func (s *Settings) fromPrefs(p prefs) {
 	s.Recipes = p.Recipes
 	s.Recording = p.Recording
 	s.RepeatDetection = p.RepeatDetection
+	s.HeatMappingType = p.HeatMappingType
+	if p.HeatMappingHalfLife > 0.5 && p.HeatMappingHalfLife < 1.0 {
+		s.HeatMappingHalfLife = p.HeatMappingHalfLife
+	}
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			if g, err := logic.NewGrid(pattern.Height, pattern.Width, s.WrapMode, s.BoundaryMode); err == nil {
@@ -297,32 +306,34 @@ func (s *Settings) fromPrefs(p prefs) {
 }
 
 type prefs struct {
-	ScreenHeight      int               `json:"screen_height"`
-	ScreenWidth       int               `json:"screen_width"`
-	Height            int               `json:"height"`
-	Width             int               `json:"width"`
-	Zoom              float32           `json:"zoom"`
-	StepDelay         int               `json:"step_delay"`
-	StepAheadBy       int               `json:"step_ahead_by"`
-	StepAheadSnapshot bool              `json:"snapshot_before_step_ahead"`
-	SkipBackBy        int               `json:"skip_back_by"`
-	Randomization     int               `json:"randomization"`
-	WrapMode          string            `json:"wrap_mode"`
-	BoundaryMode      string            `json:"boundary_mode"`
-	CellAliveColor    string            `json:"cell_alive_color"`
-	CellDeadColor     string            `json:"cell_dead_color"`
-	CellBorderColor   string            `json:"cell_border_color"`
-	CellBorders       bool              `json:"cell_borders"`
-	CellSize          int               `json:"cell_size"`
-	Rule              string            `json:"rule"`
-	Rules             map[string]string `json:"rules,omitempty"`
-	Patterns          []string          `json:"patterns,omitempty"`
-	PatternLibraries  []string          `json:"pattern_libraries,omitempty"`
-	Originator        string            `json:"originator,omitempty"`
-	Grid              string            `json:"grid,omitempty"`
-	Recipes           []string          `json:"recipes,omitempty"`
-	Recording         bool              `json:"recording"`
-	RepeatDetection   bool              `json:"repeat_detection"`
+	ScreenHeight        int               `json:"screen_height"`
+	ScreenWidth         int               `json:"screen_width"`
+	Height              int               `json:"height"`
+	Width               int               `json:"width"`
+	Zoom                float32           `json:"zoom"`
+	StepDelay           int               `json:"step_delay"`
+	StepAheadBy         int               `json:"step_ahead_by"`
+	StepAheadSnapshot   bool              `json:"snapshot_before_step_ahead"`
+	SkipBackBy          int               `json:"skip_back_by"`
+	Randomization       int               `json:"randomization"`
+	WrapMode            string            `json:"wrap_mode"`
+	BoundaryMode        string            `json:"boundary_mode"`
+	CellAliveColor      string            `json:"cell_alive_color"`
+	CellDeadColor       string            `json:"cell_dead_color"`
+	CellBorderColor     string            `json:"cell_border_color"`
+	CellBorders         bool              `json:"cell_borders"`
+	CellSize            int               `json:"cell_size"`
+	Rule                string            `json:"rule"`
+	Rules               map[string]string `json:"rules,omitempty"`
+	Patterns            []string          `json:"patterns,omitempty"`
+	PatternLibraries    []string          `json:"pattern_libraries,omitempty"`
+	Originator          string            `json:"originator,omitempty"`
+	Grid                string            `json:"grid,omitempty"`
+	Recipes             []string          `json:"recipes,omitempty"`
+	Recording           bool              `json:"recording"`
+	RepeatDetection     bool              `json:"repeat_detection"`
+	HeatMappingType     string            `json:"heat_mapping_type"`
+	HeatMappingHalfLife float32           `json:"heat_mapping_half_life"`
 }
 
 var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")

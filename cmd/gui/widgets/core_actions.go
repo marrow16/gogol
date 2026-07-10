@@ -401,7 +401,7 @@ func (c *Core) setInstrumentationRecord(on bool) {
 func (c *Core) setInstrumentationHeatMapper(hmt heatMapperType) {
 	c.stop()
 	c.heatMapperType = hmt
-	c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid)
+	c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid, c.settings.HeatMappingHalfLife)
 	c.updateInstrumentation()
 }
 
@@ -432,7 +432,7 @@ func (c *Core) resetInstrumentation() {
 	if c.instrumentRecord != nil {
 		c.instrumentRecord = logic.NewRecordInstrument(c.gridHolder.grid)
 	}
-	c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid)
+	c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid, c.settings.HeatMappingHalfLife)
 	c.updateInstrumentation()
 }
 

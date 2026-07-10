@@ -51,7 +51,7 @@ func newInstrumentationPopout(p *menuPopup, c *Core) *instrumentationPopout {
 		repeatDetect: &widget.Bool{Value: c.instrumentRepeat != nil},
 		record:       &widget.Bool{Value: c.instrumentRecord != nil},
 		heatMap:      &widget.Bool{Value: c.instrumentHeatMap != nil},
-		heatMapType:  &widget.Enum{Value: activityHeatMapper.String()},
+		heatMapType:  &widget.Enum{Value: c.heatMapperType.String()},
 	}
 	result.skipBackBy = newNumberInput[int](c.theme, 4, 1, 9999, 100, result.skipBackByChanged)
 	return result
@@ -66,6 +66,8 @@ func (p *instrumentationPopout) skipBackByChanged(n int) {
 func (p *instrumentationPopout) reset() {
 	p.repeatDetect.Value = p.core.instrumentRepeat != nil
 	p.record.Value = p.core.instrumentRecord != nil
+	p.heatMap.Value = p.core.instrumentHeatMap != nil
+	p.heatMapType.Value = p.core.heatMapperType.String()
 	p.skipBackBy.setValue(p.core.settings.SkipBackBy)
 }
 
