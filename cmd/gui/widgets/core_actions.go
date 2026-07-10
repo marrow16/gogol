@@ -11,26 +11,26 @@ import (
 	"time"
 )
 
-func (g *Core) start() {
-	g.mutex.Lock()
-	g.clearMode()
-	if g.running {
-		g.mutex.Unlock()
+func (c *Core) start() {
+	c.mutex.Lock()
+	c.clearMode()
+	if c.running {
+		c.mutex.Unlock()
 		return
 	}
-	g.running = true
-	g.stopRun = make(chan struct{})
-	stop := g.stopRun
-	delay := time.Duration(g.settings.StepDelay) * time.Millisecond
-	g.mutex.Unlock()
+	c.running = true
+	c.stopRun = make(chan struct{})
+	stop := c.stopRun
+	delay := time.Duration(c.settings.StepDelay) * time.Millisecond
+	c.mutex.Unlock()
 	go func() {
 		defer func() {
-			g.mutex.Lock()
-			if g.stopRun == stop {
-				g.running = false
-				g.stopRun = nil
+			c.mutex.Lock()
+			if c.stopRun == stop {
+				c.running = false
+				c.stopRun = nil
 			}
-			g.mutex.Unlock()
+			c.mutex.Unlock()
 		}()
 		for {
 			select {
@@ -39,13 +39,13 @@ func (g *Core) start() {
 			default:
 			}
 			start := time.Now()
-			if !g.gridHolder.grid.StepWithInstrumentation(g.instrumentation) {
+			if !c.gridHolder.grid.StepWithInstrumentation(c.instrumentation) {
 				time.Sleep(50 * time.Millisecond)
-				g.gridHolder.dirty = true
-				g.window.Invalidate()
+				c.gridHolder.dirty = true
+				c.window.Invalidate()
 				return
 			}
-			g.window.Invalidate()
+			c.window.Invalidate()
 			if sleep := delay - time.Since(start); sleep > 0 {
 				timer := time.NewTimer(sleep)
 				select {
@@ -59,293 +59,293 @@ func (g *Core) start() {
 	}()
 }
 
-func (g *Core) stop() {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-	g.clearMode()
-	if g.running && g.stopRun != nil {
-		close(g.stopRun)
-		g.stopRun = nil
+func (c *Core) stop() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.clearMode()
+	if c.running && c.stopRun != nil {
+		close(c.stopRun)
+		c.stopRun = nil
 	}
-	g.running = false
-	g.window.Invalidate()
+	c.running = false
+	c.window.Invalidate()
 }
 
-func (g *Core) stopRunning() {
-	if g.running && g.stopRun != nil {
-		close(g.stopRun)
-		g.stopRun = nil
+func (c *Core) stopRunning() {
+	if c.running && c.stopRun != nil {
+		close(c.stopRun)
+		c.stopRun = nil
 	}
-	g.running = false
-	g.window.Invalidate()
+	c.running = false
+	c.window.Invalidate()
 }
 
-func (g *Core) step() {
-	g.mutex.Lock()
-	g.clearMode()
-	defer g.mutex.Unlock()
-	g.stopRunning()
-	g.gridHolder.grid.StepWithInstrumentation(g.instrumentation)
-	g.window.Invalidate()
+func (c *Core) step() {
+	c.mutex.Lock()
+	c.clearMode()
+	defer c.mutex.Unlock()
+	c.stopRunning()
+	c.gridHolder.grid.StepWithInstrumentation(c.instrumentation)
+	c.window.Invalidate()
 }
 
-func (g *Core) stepAhead() {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-	g.clearMode()
-	g.stopRunning()
-	if g.stepAheadQueued {
+func (c *Core) stepAhead() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.clearMode()
+	c.stopRunning()
+	if c.stepAheadQueued {
 		return
 	}
-	g.stepAheadQueued = true
-	g.status = "Stepping ahead " + strconv.Itoa(g.settings.StepAheadBy)
-	if g.settings.StepAheadSnapshot {
-		if pattern, err := g.settings.PatternFromGrid(g.gridHolder.grid); err == nil {
-			g.snapshotsStep = append(g.snapshotsStep, g.gridHolder.grid.StepCount.Load())
-			g.snapshots = append(g.snapshots, pattern)
+	c.stepAheadQueued = true
+	c.status = "Stepping ahead " + strconv.Itoa(c.settings.StepAheadBy)
+	if c.settings.StepAheadSnapshot {
+		if pattern, err := c.settings.PatternFromGrid(c.gridHolder.grid); err == nil {
+			c.snapshotsStep = append(c.snapshotsStep, c.gridHolder.grid.StepCount.Load())
+			c.snapshots = append(c.snapshots, pattern)
 		}
 	}
 	go func() {
-		g.gridHolder.grid.StepAheadWithInstrumentation(g.settings.StepAheadBy, nil, g.instrumentation)
-		g.gridHolder.grid.Draw()
-		g.window.Invalidate()
-		g.stepAheadQueued = false
-		g.status = ""
+		c.gridHolder.grid.StepAheadWithInstrumentation(c.settings.StepAheadBy, nil, c.instrumentation)
+		c.gridHolder.grid.Draw()
+		c.window.Invalidate()
+		c.stepAheadQueued = false
+		c.status = ""
 	}()
 }
 
-func (g *Core) stepBack() {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-	g.clearMode()
-	g.stopRunning()
-	if g.instrumentRecord != nil {
-		g.instrumentRecord.Undo()
-		g.gridHolder.grid.Draw()
-		g.window.Invalidate()
+func (c *Core) stepBack() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.clearMode()
+	c.stopRunning()
+	if c.instrumentRecord != nil {
+		c.instrumentRecord.Undo()
+		c.gridHolder.grid.Draw()
+		c.window.Invalidate()
 	}
 }
 
-func (g *Core) skipBack() {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-	g.clearMode()
-	g.stopRunning()
-	if g.skipBackQueued {
+func (c *Core) skipBack() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.clearMode()
+	c.stopRunning()
+	if c.skipBackQueued {
 		return
 	}
-	if g.instrumentRecord != nil {
-		g.skipBackQueued = true
-		g.status = "Skipping back " + strconv.Itoa(g.settings.SkipBackBy)
+	if c.instrumentRecord != nil {
+		c.skipBackQueued = true
+		c.status = "Skipping back " + strconv.Itoa(c.settings.SkipBackBy)
 		go func() {
-			g.instrumentRecord.Undos(g.settings.SkipBackBy)
-			g.gridHolder.grid.Draw()
-			g.window.Invalidate()
-			g.skipBackQueued = false
-			g.status = ""
+			c.instrumentRecord.Undos(c.settings.SkipBackBy)
+			c.gridHolder.grid.Draw()
+			c.window.Invalidate()
+			c.skipBackQueued = false
+			c.status = ""
 		}()
 	}
 }
 
-func (g *Core) clear() {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-	g.clearMode()
-	g.stopRunning()
-	g.gridHolder.grid.Clear()
-	g.resetInstrumentation()
+func (c *Core) clear() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.clearMode()
+	c.stopRunning()
+	c.gridHolder.grid.Clear()
+	c.resetInstrumentation()
 }
 
-func (g *Core) permutationIncrement() {
-	g.stop()
-	n := g.gridHolder.grid.Rule.Permutation()
+func (c *Core) permutationIncrement() {
+	c.stop()
+	n := c.gridHolder.grid.Rule.Permutation()
 	if r, err := logic.NewRuleFromPermutation(n + 1); err == nil {
-		g.gridHolder.grid.SetRule(r)
+		c.gridHolder.grid.SetRule(r)
 	}
 }
 
-func (g *Core) permutationDecrement() {
-	g.stop()
-	if n := g.gridHolder.grid.Rule.Permutation(); n > 0 {
+func (c *Core) permutationDecrement() {
+	c.stop()
+	if n := c.gridHolder.grid.Rule.Permutation(); n > 0 {
 		if r, err := logic.NewRuleFromPermutation(n - 1); err == nil {
-			g.gridHolder.grid.SetRule(r)
+			c.gridHolder.grid.SetRule(r)
 		}
 	}
 }
 
-func (g *Core) standardRule() {
-	g.stop()
-	g.gridHolder.grid.SetRule(logic.StandardRule)
-	g.statusBar.rulesPopup.updateInputs()
+func (c *Core) standardRule() {
+	c.stop()
+	c.gridHolder.grid.SetRule(logic.StandardRule)
+	c.statusBar.rulesPopup.updateInputs()
 }
 
-func (g *Core) bornChange(w string) {
-	g.stop()
-	bw, sw := g.gridHolder.grid.Rule.BornWith(), g.gridHolder.grid.Rule.SurvivesWith()
+func (c *Core) bornChange(w string) {
+	c.stop()
+	bw, sw := c.gridHolder.grid.Rule.BornWith(), c.gridHolder.grid.Rule.SurvivesWith()
 	if strings.Contains(bw, w) {
 		bw = strings.Replace(bw, w, "", 1)
 	} else {
 		bw += w
 	}
 	if r, err := logic.NewRuleRle("", "B"+bw+"/S"+sw); err == nil {
-		g.gridHolder.grid.SetRule(r)
-		g.statusBar.rulesPopup.updateInputs()
+		c.gridHolder.grid.SetRule(r)
+		c.statusBar.rulesPopup.updateInputs()
 	}
 }
 
-func (g *Core) survivesChange(w string) {
-	g.stop()
-	bw, sw := g.gridHolder.grid.Rule.BornWith(), g.gridHolder.grid.Rule.SurvivesWith()
+func (c *Core) survivesChange(w string) {
+	c.stop()
+	bw, sw := c.gridHolder.grid.Rule.BornWith(), c.gridHolder.grid.Rule.SurvivesWith()
 	if strings.Contains(sw, w) {
 		sw = strings.Replace(sw, w, "", 1)
 	} else {
 		sw += w
 	}
 	if r, err := logic.NewRuleRle("", "B"+bw+"/S"+sw); err == nil {
-		g.gridHolder.grid.SetRule(r)
-		g.statusBar.rulesPopup.updateInputs()
+		c.gridHolder.grid.SetRule(r)
+		c.statusBar.rulesPopup.updateInputs()
 	}
 }
 
-func (g *Core) zoomIn() {
-	g.gridHolder.zoom *= 1.1
+func (c *Core) zoomIn() {
+	c.gridHolder.zoom *= 1.1
 }
 
-func (g *Core) zoomOut() {
-	newZoom := g.gridHolder.zoom / 1.1
-	if float32(g.settings.CellSize)*newZoom >= 1.0 {
-		g.gridHolder.zoom = newZoom
+func (c *Core) zoomOut() {
+	newZoom := c.gridHolder.zoom / 1.1
+	if float32(c.settings.CellSize)*newZoom >= 1.0 {
+		c.gridHolder.zoom = newZoom
 	}
 }
 
-func (g *Core) gridResize(height, width int) {
-	g.stop()
-	if g.settings.Height != height || g.settings.Width != width {
-		g.settings.Width = width
-		g.settings.Height = height
-		g.gridHolder.resize()
-		g.resetInstrumentation()
+func (c *Core) gridResize(height, width int) {
+	c.stop()
+	if c.settings.Height != height || c.settings.Width != width {
+		c.settings.Width = width
+		c.settings.Height = height
+		c.gridHolder.resize()
+		c.resetInstrumentation()
 	}
 }
 
-func (g *Core) decreaseGridWidth() {
-	g.stop()
-	if g.settings.Width > 2 {
-		g.settings.Width--
-		g.gridHolder.resize()
-		g.resetInstrumentation()
+func (c *Core) decreaseGridWidth() {
+	c.stop()
+	if c.settings.Width > 2 {
+		c.settings.Width--
+		c.gridHolder.resize()
+		c.resetInstrumentation()
 	}
 }
 
-func (g *Core) increaseGridWidth() {
-	g.stop()
-	g.settings.Width++
-	g.gridHolder.resize()
-	g.resetInstrumentation()
+func (c *Core) increaseGridWidth() {
+	c.stop()
+	c.settings.Width++
+	c.gridHolder.resize()
+	c.resetInstrumentation()
 }
 
-func (g *Core) decreaseGridHeight() {
-	g.stop()
-	if g.settings.Height > 2 {
-		g.settings.Height--
-		g.gridHolder.resize()
-		g.resetInstrumentation()
+func (c *Core) decreaseGridHeight() {
+	c.stop()
+	if c.settings.Height > 2 {
+		c.settings.Height--
+		c.gridHolder.resize()
+		c.resetInstrumentation()
 	}
 }
 
-func (g *Core) increaseGridHeight() {
-	g.stop()
-	g.settings.Height++
-	g.gridHolder.resize()
-	g.resetInstrumentation()
+func (c *Core) increaseGridHeight() {
+	c.stop()
+	c.settings.Height++
+	c.gridHolder.resize()
+	c.resetInstrumentation()
 }
 
-func (g *Core) randomize() {
-	g.stop()
-	g.gridHolder.grid.Randomize(g.settings.Randomization)
-	g.resetInstrumentation()
+func (c *Core) randomize() {
+	c.stop()
+	c.gridHolder.grid.Randomize(c.settings.Randomization)
+	c.resetInstrumentation()
 }
 
-func (g *Core) randomChanges() {
-	g.stop()
-	g.gridHolder.grid.RandomChanges(g.settings.Randomization)
-	g.resetInstrumentation()
+func (c *Core) randomChanges() {
+	c.stop()
+	c.gridHolder.grid.RandomChanges(c.settings.Randomization)
+	c.resetInstrumentation()
 }
 
-func (g *Core) setWrapMode(m logic.WrapMode) {
-	g.stop()
-	g.gridHolder.grid.SetWrapMode(m)
+func (c *Core) setWrapMode(m logic.WrapMode) {
+	c.stop()
+	c.gridHolder.grid.SetWrapMode(m)
 }
 
-func (g *Core) setBoundaryMode(m logic.BoundaryMode) {
-	g.stop()
-	g.gridHolder.grid.SetBoundaryMode(m)
+func (c *Core) setBoundaryMode(m logic.BoundaryMode) {
+	c.stop()
+	c.gridHolder.grid.SetBoundaryMode(m)
 }
 
-func (g *Core) setRandomization(v int) {
-	g.settings.Randomization = v
+func (c *Core) setRandomization(v int) {
+	c.settings.Randomization = v
 }
 
-func (g *Core) setCellSize(size int) {
-	g.stop()
-	if size != g.settings.CellSize && size >= 3 {
-		g.settings.CellSize = size
-		g.gridHolder.rebuild()
-		g.gridHolder.grid.Draw()
+func (c *Core) setCellSize(size int) {
+	c.stop()
+	if size != c.settings.CellSize && size >= 3 {
+		c.settings.CellSize = size
+		c.gridHolder.rebuild()
+		c.gridHolder.grid.Draw()
 	}
 }
 
-func (g *Core) setCellBorders(on bool) {
-	g.stop()
-	if on != g.settings.CellBorders {
-		g.settings.CellBorders = on
-		g.gridHolder.rebuild()
-		g.gridHolder.grid.Draw()
-		g.window.Invalidate()
+func (c *Core) setCellBorders(on bool) {
+	c.stop()
+	if on != c.settings.CellBorders {
+		c.settings.CellBorders = on
+		c.gridHolder.rebuild()
+		c.gridHolder.grid.Draw()
+		c.window.Invalidate()
 	}
 }
 
-func (g *Core) toggleCellBorders() {
-	g.stop()
-	g.settings.CellBorders = !g.settings.CellBorders
-	g.gridHolder.rebuild()
-	g.gridHolder.grid.Draw()
-	g.window.Invalidate()
+func (c *Core) toggleCellBorders() {
+	c.stop()
+	c.settings.CellBorders = !c.settings.CellBorders
+	c.gridHolder.rebuild()
+	c.gridHolder.grid.Draw()
+	c.window.Invalidate()
 }
 
-func (g *Core) showMenu() {
-	g.statusBar.showHidePopup(popupMenu)
+func (c *Core) showMenu() {
+	c.statusBar.showHidePopup(popupMenu)
 }
 
-func (g *Core) showLifeRules() {
-	g.statusBar.showHidePopup(popupRule)
+func (c *Core) showLifeRules() {
+	c.statusBar.showHidePopup(popupRule)
 }
 
-func (g *Core) snapshot() {
-	g.stop()
-	if pattern, err := g.settings.PatternFromGrid(g.gridHolder.grid); err == nil {
-		g.snapshotsStep = append(g.snapshotsStep, g.gridHolder.grid.StepCount.Load())
-		g.snapshots = append(g.snapshots, pattern)
+func (c *Core) snapshot() {
+	c.stop()
+	if pattern, err := c.settings.PatternFromGrid(c.gridHolder.grid); err == nil {
+		c.snapshotsStep = append(c.snapshotsStep, c.gridHolder.grid.StepCount.Load())
+		c.snapshots = append(c.snapshots, pattern)
 	}
 }
 
-func (g *Core) undoToSnapshot() {
-	g.stop()
-	if len(g.snapshots) > 0 {
-		pattern := g.snapshots[len(g.snapshots)-1]
-		step := g.snapshotsStep[len(g.snapshotsStep)-1]
-		g.snapshots = g.snapshots[:len(g.snapshots)-1]
-		g.snapshotsStep = g.snapshotsStep[:len(g.snapshotsStep)-1]
-		g.gridHolder.grid.StepCount.Store(step)
-		pattern.Draw(g.gridHolder.grid, 0, 0, patterns.Rotate0)
-		g.resetInstrumentation()
+func (c *Core) undoToSnapshot() {
+	c.stop()
+	if len(c.snapshots) > 0 {
+		pattern := c.snapshots[len(c.snapshots)-1]
+		step := c.snapshotsStep[len(c.snapshotsStep)-1]
+		c.snapshots = c.snapshots[:len(c.snapshots)-1]
+		c.snapshotsStep = c.snapshotsStep[:len(c.snapshotsStep)-1]
+		c.gridHolder.grid.StepCount.Store(step)
+		pattern.Draw(c.gridHolder.grid, 0, 0, patterns.Rotate0)
+		c.resetInstrumentation()
 	}
 }
 
-func (g *Core) export() (err error) {
-	g.stop()
+func (c *Core) export() (err error) {
+	c.stop()
 	var p patterns.Pattern
-	if p, err = g.settings.PatternFromGrid(g.gridHolder.grid); err == nil {
+	if p, err = c.settings.PatternFromGrid(c.gridHolder.grid); err == nil {
 		now := time.Now()
 		p.Name = "Grid " + now.Format("2006-01-02 15:04:05")
 		filename := "Grid " + now.Format("2006-01-02T150405") + ".rle"
@@ -360,87 +360,87 @@ func (g *Core) export() (err error) {
 	return err
 }
 
-func (g *Core) startEditMode() {
-	g.stop()
-	g.clearMode()
-	g.statusBar.showHidePopup(popupNone)
-	g.gridHolder.startEditing()
-	g.mode = editMode
+func (c *Core) startEditMode() {
+	c.stop()
+	c.clearMode()
+	c.statusBar.showHidePopup(popupNone)
+	c.gridHolder.startEditing()
+	c.mode = editMode
 }
 
-func (g *Core) showHeatMap() {
-	g.stop()
-	g.clearMode()
-	if g.heatMapperType != noHeatMapper && g.instrumentHeatMap != nil {
-		g.statusBar.showHidePopup(popupNone)
-		g.gridHolder.buildHeatMap(g.instrumentHeatMap)
-		g.mode = heatMapMode
+func (c *Core) showHeatMap() {
+	c.stop()
+	c.clearMode()
+	if c.heatMapperType != noHeatMapper && c.instrumentHeatMap != nil {
+		c.statusBar.showHidePopup(popupNone)
+		c.gridHolder.buildHeatMap(c.instrumentHeatMap)
+		c.mode = heatMapMode
 	}
 }
 
-func (g *Core) setInstrumentationRepeat(on bool) {
-	g.stop()
+func (c *Core) setInstrumentationRepeat(on bool) {
+	c.stop()
 	if on {
-		g.instrumentRepeat = logic.NewRepeatInstrument(g.gridHolder.grid)
+		c.instrumentRepeat = logic.NewRepeatInstrument(c.gridHolder.grid)
 	} else {
-		g.instrumentRepeat = nil
+		c.instrumentRepeat = nil
 	}
-	g.updateInstrumentation()
+	c.updateInstrumentation()
 }
 
-func (g *Core) setInstrumentationRecord(on bool) {
-	g.stop()
+func (c *Core) setInstrumentationRecord(on bool) {
+	c.stop()
 	if on {
-		g.instrumentRecord = logic.NewRecordInstrument(g.gridHolder.grid)
+		c.instrumentRecord = logic.NewRecordInstrument(c.gridHolder.grid)
 	} else {
-		g.instrumentRecord = nil
+		c.instrumentRecord = nil
 	}
-	g.updateInstrumentation()
+	c.updateInstrumentation()
 }
 
-func (g *Core) setInstrumentationHeatMapper(hmt heatMapperType) {
-	g.stop()
-	g.heatMapperType = hmt
-	g.instrumentHeatMap = g.heatMapperType.newHeatMapper(g.gridHolder.grid)
-	g.updateInstrumentation()
+func (c *Core) setInstrumentationHeatMapper(hmt heatMapperType) {
+	c.stop()
+	c.heatMapperType = hmt
+	c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid)
+	c.updateInstrumentation()
 }
 
-func (g *Core) isRecording() bool {
-	if g.instrumentRecord != nil {
-		return g.instrumentRecord.StepsCount() > 0
+func (c *Core) isRecording() bool {
+	if c.instrumentRecord != nil {
+		return c.instrumentRecord.StepsCount() > 0
 	}
 	return false
 }
 
-func (g *Core) updateInstrumentation() {
-	g.instrumentation = nil
-	if g.instrumentRepeat != nil {
-		g.instrumentation = append(g.instrumentation, g.instrumentRepeat)
+func (c *Core) updateInstrumentation() {
+	c.instrumentation = nil
+	if c.instrumentRepeat != nil {
+		c.instrumentation = append(c.instrumentation, c.instrumentRepeat)
 	}
-	if g.instrumentRecord != nil {
-		g.instrumentation = append(g.instrumentation, g.instrumentRecord)
+	if c.instrumentRecord != nil {
+		c.instrumentation = append(c.instrumentation, c.instrumentRecord)
 	}
-	if g.instrumentHeatMap != nil {
-		g.instrumentation = append(g.instrumentation, g.instrumentHeatMap.(logic.DualUseInstrumentation))
+	if c.instrumentHeatMap != nil {
+		c.instrumentation = append(c.instrumentation, c.instrumentHeatMap.(logic.DualUseInstrumentation))
 	}
 }
 
-func (g *Core) resetInstrumentation() {
-	if g.instrumentRepeat != nil {
-		g.instrumentRepeat = logic.NewRepeatInstrument(g.gridHolder.grid)
+func (c *Core) resetInstrumentation() {
+	if c.instrumentRepeat != nil {
+		c.instrumentRepeat = logic.NewRepeatInstrument(c.gridHolder.grid)
 	}
-	if g.instrumentRecord != nil {
-		g.instrumentRecord = logic.NewRecordInstrument(g.gridHolder.grid)
+	if c.instrumentRecord != nil {
+		c.instrumentRecord = logic.NewRecordInstrument(c.gridHolder.grid)
 	}
-	g.instrumentHeatMap = g.heatMapperType.newHeatMapper(g.gridHolder.grid)
-	g.updateInstrumentation()
+	c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid)
+	c.updateInstrumentation()
 }
 
-func (g *Core) placePattern(gtx layout.Context) {
-	if g.gridHolder.overlay != nil {
-		g.placePatternRow, g.placePatternCol, g.placePatternRotation = g.gridHolder.overlay.row, g.gridHolder.overlay.col, g.gridHolder.overlay.rotation
+func (c *Core) placePattern(gtx layout.Context) {
+	if c.gridHolder.overlay != nil {
+		c.placePatternRow, c.placePatternCol, c.placePatternRotation = c.gridHolder.overlay.row, c.gridHolder.overlay.col, c.gridHolder.overlay.rotation
 	}
-	g.gridHolder.placeOverlay()
-	g.clearMode()
+	c.gridHolder.placeOverlay()
+	c.clearMode()
 	gtx.Execute(op.InvalidateCmd{})
 }
