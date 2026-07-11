@@ -99,7 +99,6 @@ func (p *gridRecipesPopout) getCurrentRecipe() (*recipes.Recipe, string) {
 
 func (p *gridRecipesPopout) runRecipe() {
 	if recipe, _ := p.getCurrentRecipe(); recipe != nil {
-		p.core.resetInstrumentation()
 		grid, resized, err := recipe.Run(p.core.gridHolder.grid, true)
 		if err != nil {
 			p.error = err
@@ -108,7 +107,10 @@ func (p *gridRecipesPopout) runRecipe() {
 		if resized {
 			p.core.settings.Height, p.core.settings.Width, p.core.settings.WrapMode, p.core.settings.BoundaryMode = grid.Height, grid.Width, grid.WrapMode, grid.BoundaryMode
 			p.core.gridHolder.replaceGrid(grid)
+			p.core.resetInstrumentation()
 			p.core.window.Invalidate()
+		} else {
+			p.core.resetInstrumentation()
 		}
 	}
 }

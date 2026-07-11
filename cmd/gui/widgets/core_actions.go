@@ -389,7 +389,10 @@ func (c *Core) runRecipe(filename string) {
 		if resized {
 			c.settings.Height, c.settings.Width, c.settings.WrapMode, c.settings.BoundaryMode = grid.Height, grid.Width, grid.WrapMode, grid.BoundaryMode
 			c.gridHolder.replaceGrid(grid)
+			c.resetInstrumentation()
 			c.window.Invalidate()
+		} else {
+			c.resetInstrumentation()
 		}
 	}
 }
