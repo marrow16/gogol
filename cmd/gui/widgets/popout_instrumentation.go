@@ -11,7 +11,6 @@ import (
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/animator"
 	"image"
-	"image/png"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -209,21 +208,7 @@ func (p *instrumentationPopout) update(gtx layout.Context) {
 		p.core.showHeatMap()
 	}
 	if p.btnHeatMapSave.Clicked(gtx) {
-		p.saveHeatMapImage()
-	}
-}
-
-func (p *instrumentationPopout) saveHeatMapImage() {
-	if p.core.instrumentHeatMap != nil {
-		filename := "Heat Map " + p.core.heatMapperType.String() + " " + time.Now().Format("2006-01-02T150405") + ".png"
-		if f, err := saveFile(filename, false); err == nil {
-			defer func() {
-				_ = f.Close()
-			}()
-			img := image.NewNRGBA(image.Rect(0, 0, p.core.settings.Width*p.core.settings.CellSize, p.core.settings.Height*p.core.settings.CellSize))
-			p.core.gridHolder.drawHeatMap(img, p.core.instrumentHeatMap)
-			png.Encode(f, img)
-		}
+		p.core.saveHeatMapImage()
 	}
 }
 
