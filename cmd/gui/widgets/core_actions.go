@@ -5,6 +5,9 @@ import (
 	"gioui.org/op"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
+	"github.com/marrow16/gogol/recipes"
+	"image"
+	"image/png"
 	"os"
 	"strconv"
 	"strings"
@@ -114,6 +117,16 @@ func (c *Core) stepAhead() {
 	}()
 }
 
+func (c *Core) stepAheadBy(n int) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.clearMode()
+	c.stopRunning()
+	c.gridHolder.grid.StepAheadWithInstrumentation(n, nil, c.instrumentation)
+	c.gridHolder.grid.Draw()
+	c.window.Invalidate()
+}
+
 func (c *Core) stepBack() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -154,6 +167,11 @@ func (c *Core) clear() {
 	c.stopRunning()
 	c.gridHolder.grid.Clear()
 	c.resetInstrumentation()
+}
+
+func (c *Core) setRule(r logic.Rule) {
+	c.stop()
+	c.gridHolder.grid.SetRule(r)
 }
 
 func (c *Core) permutationIncrement() {
@@ -360,6 +378,22 @@ func (c *Core) export() (err error) {
 	return err
 }
 
+func (c *Core) runRecipe(filename string) {
+	c.stop()
+	if recipe, err := recipes.Load(filename); err == nil {
+		c.resetInstrumentation()
+		grid, resized, err := recipe.Run(c.gridHolder.grid, true)
+		if err != nil {
+			return
+		}
+		if resized {
+			c.settings.Height, c.settings.Width, c.settings.WrapMode, c.settings.BoundaryMode = grid.Height, grid.Width, grid.WrapMode, grid.BoundaryMode
+			c.gridHolder.replaceGrid(grid)
+			c.window.Invalidate()
+		}
+	}
+}
+
 func (c *Core) startEditMode() {
 	c.stop()
 	c.clearMode()
@@ -403,6 +437,20 @@ func (c *Core) setInstrumentationHeatMapper(hmt heatMapperType) {
 	c.heatMapperType = hmt
 	c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid, c.settings.HeatMappingHalfLife)
 	c.updateInstrumentation()
+}
+
+func (c *Core) saveHeatMapImage() {
+	if c.instrumentHeatMap != nil {
+		filename := "Heat Map " + c.heatMapperType.String() + " " + time.Now().Format("2006-01-02T15-04-05.999") + ".png"
+		if f, err := saveFile(filename, false); err == nil {
+			defer func() {
+				_ = f.Close()
+			}()
+			img := image.NewNRGBA(image.Rect(0, 0, c.settings.Width*c.settings.CellSize, c.settings.Height*c.settings.CellSize))
+			c.gridHolder.drawHeatMap(img, c.instrumentHeatMap)
+			_ = png.Encode(f, img)
+		}
+	}
 }
 
 func (c *Core) isRecording() bool {

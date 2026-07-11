@@ -36,6 +36,7 @@ func NewSettings() *Settings {
 		CellDeadColor:       color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff},
 		CellBorderColor:     color.NRGBA{R: 240, G: 240, B: 239, A: 255},
 		HeatMappingHalfLife: 0.996,
+		Shortcuts:           make(map[string][]string),
 	}
 	if path, err := settingsPath(false); err == nil {
 		if f, err := os.Open(path); err == nil {
@@ -95,6 +96,7 @@ type Settings struct {
 	RepeatDetection     bool
 	HeatMappingType     string
 	HeatMappingHalfLife float32
+	Shortcuts           map[string][]string
 }
 
 func (s *Settings) Save(grid *logic.Grid, zoom float32) {
@@ -131,6 +133,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				RepeatDetection:     s.RepeatDetection,
 				HeatMappingType:     s.HeatMappingType,
 				HeatMappingHalfLife: s.HeatMappingHalfLife,
+				Shortcuts:           s.Shortcuts,
 			}
 			if pattern, err := s.PatternFromGrid(grid); err == nil {
 				var buf bytes.Buffer
@@ -281,6 +284,9 @@ func (s *Settings) fromPrefs(p prefs) {
 	if p.HeatMappingHalfLife > 0.5 && p.HeatMappingHalfLife < 1.0 {
 		s.HeatMappingHalfLife = p.HeatMappingHalfLife
 	}
+	if p.Shortcuts != nil {
+		s.Shortcuts = p.Shortcuts
+	}
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			if g, err := logic.NewGrid(pattern.Height, pattern.Width, s.WrapMode, s.BoundaryMode); err == nil {
@@ -306,34 +312,35 @@ func (s *Settings) fromPrefs(p prefs) {
 }
 
 type prefs struct {
-	ScreenHeight        int               `json:"screen_height"`
-	ScreenWidth         int               `json:"screen_width"`
-	Height              int               `json:"height"`
-	Width               int               `json:"width"`
-	Zoom                float32           `json:"zoom"`
-	StepDelay           int               `json:"step_delay"`
-	StepAheadBy         int               `json:"step_ahead_by"`
-	StepAheadSnapshot   bool              `json:"snapshot_before_step_ahead"`
-	SkipBackBy          int               `json:"skip_back_by"`
-	Randomization       int               `json:"randomization"`
-	WrapMode            string            `json:"wrap_mode"`
-	BoundaryMode        string            `json:"boundary_mode"`
-	CellAliveColor      string            `json:"cell_alive_color"`
-	CellDeadColor       string            `json:"cell_dead_color"`
-	CellBorderColor     string            `json:"cell_border_color"`
-	CellBorders         bool              `json:"cell_borders"`
-	CellSize            int               `json:"cell_size"`
-	Rule                string            `json:"rule"`
-	Rules               map[string]string `json:"rules,omitempty"`
-	Patterns            []string          `json:"patterns,omitempty"`
-	PatternLibraries    []string          `json:"pattern_libraries,omitempty"`
-	Originator          string            `json:"originator,omitempty"`
-	Grid                string            `json:"grid,omitempty"`
-	Recipes             []string          `json:"recipes,omitempty"`
-	Recording           bool              `json:"recording"`
-	RepeatDetection     bool              `json:"repeat_detection"`
-	HeatMappingType     string            `json:"heat_mapping_type"`
-	HeatMappingHalfLife float32           `json:"heat_mapping_half_life"`
+	ScreenHeight        int                 `json:"screen_height"`
+	ScreenWidth         int                 `json:"screen_width"`
+	Height              int                 `json:"height"`
+	Width               int                 `json:"width"`
+	Zoom                float32             `json:"zoom"`
+	StepDelay           int                 `json:"step_delay"`
+	StepAheadBy         int                 `json:"step_ahead_by"`
+	StepAheadSnapshot   bool                `json:"snapshot_before_step_ahead"`
+	SkipBackBy          int                 `json:"skip_back_by"`
+	Randomization       int                 `json:"randomization"`
+	WrapMode            string              `json:"wrap_mode"`
+	BoundaryMode        string              `json:"boundary_mode"`
+	CellAliveColor      string              `json:"cell_alive_color"`
+	CellDeadColor       string              `json:"cell_dead_color"`
+	CellBorderColor     string              `json:"cell_border_color"`
+	CellBorders         bool                `json:"cell_borders"`
+	CellSize            int                 `json:"cell_size"`
+	Rule                string              `json:"rule"`
+	Rules               map[string]string   `json:"rules,omitempty"`
+	Patterns            []string            `json:"patterns,omitempty"`
+	PatternLibraries    []string            `json:"pattern_libraries,omitempty"`
+	Originator          string              `json:"originator,omitempty"`
+	Grid                string              `json:"grid,omitempty"`
+	Recipes             []string            `json:"recipes,omitempty"`
+	Recording           bool                `json:"recording"`
+	RepeatDetection     bool                `json:"repeat_detection"`
+	HeatMappingType     string              `json:"heat_mapping_type"`
+	HeatMappingHalfLife float32             `json:"heat_mapping_half_life"`
+	Shortcuts           map[string][]string `json:"shortcuts"`
 }
 
 var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")

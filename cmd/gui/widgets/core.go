@@ -148,6 +148,7 @@ type Core struct {
 	heatMapperType    heatMapperType
 	instrumentation   logic.CompositeInstrument
 
+	runningShortcut bool
 	// pattern placing...
 	placePatternCol, placePatternRow int
 	placePatternRotation             patterns.Rotation
@@ -247,8 +248,10 @@ func (c *Core) handleKeys(gtx layout.Context) {
 		switch evt := ev.(type) {
 		case key.Event:
 			if evt.State == key.Press {
-				if c.mode == noMode {
-					if fn, ok := altCommands[evt.Name]; ok && evt.Modifiers == key.ModAlt {
+				if c.mode == noMode && evt.Modifiers == key.ModAlt {
+					if c.userShortcutKeys(evt.Name) {
+						return
+					} else if fn, ok := altCommands[evt.Name]; ok {
 						fn(gtx, c)
 						return
 					}

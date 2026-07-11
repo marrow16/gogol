@@ -193,6 +193,8 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 	}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			switch {
+			case sb.core.runningShortcut:
+				sb.stepDims = sb.label(gtx, theme, "Running Shortcut", text.Start)
 			case sb.core.status != "":
 				sb.stepDims = sb.label(gtx, theme, sb.core.status, text.Start)
 			case sb.core.mode != noMode:
