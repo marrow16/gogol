@@ -237,7 +237,7 @@ func (p *instrumentationPopout) selectedHeatMapType() heatMapperType {
 
 func (p *instrumentationPopout) layoutRepeat(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	labelMax := measureMaxText(gtx, theme, font.Bold, "Found: ", "First: ", "Repeat: ", "Period: ").Size.X
-	return layout.Inset{Left: 28, Bottom: 4}.
+	return layout.Inset{Left: 16, Bottom: 4}.
 		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -321,7 +321,7 @@ func (p *instrumentationPopout) layoutRepeat(gtx layout.Context, theme *material
 
 func (p *instrumentationPopout) layoutRecord(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	labelMax := measureMaxText(gtx, theme, font.Bold, "Steps recorded: ", "Skip back by: ").Size.X
-	return layout.Inset{Left: 28, Bottom: 4}.
+	return layout.Inset{Left: 16, Bottom: 4}.
 		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -433,7 +433,7 @@ func (p *instrumentationPopout) saveAnimation() {
 
 func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	labelMax := measureMaxText(gtx, theme, font.Bold, "Steps: ", "Type: ", "Maximum: ").Size.X
-	return layout.Inset{Left: 28, Bottom: 4}.
+	return layout.Inset{Left: 16, Bottom: 4}.
 		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -457,7 +457,27 @@ func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context, theme *materia
 							return radio.Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							radio := material.RadioButton(p.core.theme, p.heatMapType, birthsHeatMapper.String(), "Births")
+							radio.Size = 18
+							radio.TextSize = unit.Sp(16)
+							return radio.Layout(gtx)
+						}),
+					)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = labelMax
+							return layout.Dimensions{Size: image.Point{X: labelMax}}
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							radio := material.RadioButton(p.core.theme, p.heatMapType, freshnessHeatMapper.String(), "Freshness")
+							radio.Size = 18
+							radio.TextSize = unit.Sp(16)
+							return radio.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							radio := material.RadioButton(p.core.theme, p.heatMapType, phaseParityHeatMapper.String(), "Phase Parity")
 							radio.Size = 18
 							radio.TextSize = unit.Sp(16)
 							return radio.Layout(gtx)

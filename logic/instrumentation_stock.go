@@ -450,6 +450,159 @@ func (h *FreshnessHeatMapInstrument) StepsCount() uint64 {
 	return h.steps
 }
 
+func NewPhaseHeatMapInstrument(g *Grid) *PhaseHeatMapInstrument {
+	return &PhaseHeatMapInstrument{
+		grid:      g,
+		counts:    make([]uint64, g.Height*g.Width),
+		step:      g.StepCount.Load(),
+		startStep: g.StepCount.Load(),
+	}
+}
+
+type PhaseHeatMapInstrument struct {
+	grid      *Grid
+	counts    []uint64
+	max       uint64
+	steps     uint64
+	step      uint64
+	startStep uint64
+}
+
+var _ HeatMap = (*PhaseHeatMapInstrument)(nil)
+var _ StepInstrumentation = (*PhaseHeatMapInstrument)(nil)
+var _ StepStopInstrumentation = (*PhaseHeatMapInstrument)(nil)
+var _ DualUseInstrumentation = (*PhaseHeatMapInstrument)(nil)
+
+func (h *PhaseHeatMapInstrument) InstrumentStop(step uint64, changes []*Cell, locations [][2]int) bool {
+	h.Instrument(step, changes, locations)
+	return false
+}
+
+func (h *PhaseHeatMapInstrument) Instrument(step uint64, changes []*Cell, locations [][2]int) {
+	if step > h.step {
+		h.step = step
+		h.steps++
+		width := h.grid.Width
+		expectedAlive := (h.startStep-step)&1 == 1
+		for r, row := range h.grid.Rows {
+			for c, cell := range row {
+				if cell.Alive != expectedAlive {
+					cp := r*width + c
+					h.counts[cp]++
+					if h.counts[cp] > h.max {
+						h.max = h.counts[cp]
+					}
+				}
+			}
+		}
+	}
+}
+
+func (h *PhaseHeatMapInstrument) HeatMap() iter.Seq[HeatLocation] {
+	return func(yield func(HeatLocation) bool) {
+		width := h.grid.Width
+		for i, v := range h.counts {
+			value := 0.0
+			if h.max > 0 {
+				value = float64(v) / float64(h.max)
+			}
+			if !yield(HeatLocation{
+				Row:   i / width,
+				Col:   i % width,
+				Value: value,
+			}) {
+				return
+			}
+		}
+	}
+}
+
+func (h *PhaseHeatMapInstrument) Maximum() uint64 {
+	return h.max
+}
+
+func (h *PhaseHeatMapInstrument) StepsCount() uint64 {
+	return h.steps
+}
+
+func NewBirthsHeatMapInstrument(g *Grid, decay float32) *BirthsHeatMapInstrument {
+	if decay < 0 {
+		decay = 0
+	}
+	if decay > 1 {
+		decay = 1
+	}
+	return &BirthsHeatMapInstrument{
+		grid:   g,
+		values: make([]float32, g.Height*g.Width),
+		step:   g.StepCount.Load(),
+		steps:  0,
+		decay:  decay,
+	}
+}
+
+type BirthsHeatMapInstrument struct {
+	grid   *Grid
+	values []float32
+	step   uint64
+	steps  uint64
+	decay  float32
+}
+
+var _ HeatMap = (*BirthsHeatMapInstrument)(nil)
+var _ StepInstrumentation = (*BirthsHeatMapInstrument)(nil)
+var _ StepStopInstrumentation = (*BirthsHeatMapInstrument)(nil)
+var _ DualUseInstrumentation = (*BirthsHeatMapInstrument)(nil)
+
+func (h *BirthsHeatMapInstrument) InstrumentStop(step uint64, changes []*Cell, locations [][2]int) bool {
+	h.Instrument(step, changes, locations)
+	return false
+}
+
+func (h *BirthsHeatMapInstrument) Instrument(step uint64, changes []*Cell, locations [][2]int) {
+	if step > h.step {
+		h.step = step
+		h.steps++
+		// fade existing heat
+		for i := range h.values {
+			h.values[i] *= h.decay
+		}
+		width := h.grid.Width
+		// only births become "hot"
+		for i, cell := range changes {
+			if !cell.Alive {
+				// dead -> alive
+				loc := locations[i]
+				cp := loc[0]*width + loc[1]
+				h.values[cp] = 1.0
+			}
+		}
+	}
+}
+
+func (h *BirthsHeatMapInstrument) HeatMap() iter.Seq[HeatLocation] {
+	return func(yield func(HeatLocation) bool) {
+		width := h.grid.Width
+		for i, v := range h.values {
+			if !yield(HeatLocation{
+				Row:   i / width,
+				Col:   i % width,
+				Value: float64(v),
+			}) {
+				return
+			}
+		}
+	}
+}
+
+func (h *BirthsHeatMapInstrument) Maximum() uint64 {
+	return 1
+}
+
+func (h *BirthsHeatMapInstrument) StepsCount() uint64 {
+	return h.steps
+}
+
 type CompositeInstrument []DualUseInstrumentation
 
 var _ StepInstrumentation = (CompositeInstrument)(nil)

@@ -67,6 +67,8 @@ const (
 	activityHeatMapper
 	occupancyHeatMapper
 	freshnessHeatMapper
+	phaseParityHeatMapper
+	birthsHeatMapper
 )
 
 func (hmt heatMapperType) newHeatMapper(g *logic.Grid, halfLife float32) logic.HeatMap {
@@ -77,6 +79,10 @@ func (hmt heatMapperType) newHeatMapper(g *logic.Grid, halfLife float32) logic.H
 		return logic.NewOccupancyHeatMapInstrument(g)
 	case freshnessHeatMapper:
 		return logic.NewFreshnessHeatMapInstrument(g, halfLife)
+	case phaseParityHeatMapper:
+		return logic.NewPhaseHeatMapInstrument(g)
+	case birthsHeatMapper:
+		return logic.NewBirthsHeatMapInstrument(g, halfLife)
 	default:
 		return nil
 	}
@@ -90,6 +96,10 @@ func (hmt heatMapperType) String() string {
 		return "Occupancy"
 	case freshnessHeatMapper:
 		return "Freshness"
+	case phaseParityHeatMapper:
+		return "Phase Parity"
+	case birthsHeatMapper:
+		return "Births"
 	default:
 		return "None"
 	}
@@ -103,6 +113,10 @@ func heatMapperTypeFrom(s string) heatMapperType {
 		return occupancyHeatMapper
 	case "Freshness":
 		return freshnessHeatMapper
+	case "Phase Parity":
+		return phaseParityHeatMapper
+	case "Births":
+		return birthsHeatMapper
 	default:
 		return noHeatMapper
 	}
