@@ -20,27 +20,32 @@ import (
 )
 
 type capturedPatternsPopout struct {
-	parent      *menuPopup
-	core        *Core
-	chooser     *chooser[*patterns.Pattern]
-	previewMode *widget.Enum
-	btnSave     widget.Clickable
-	addLibrary  *widget.Bool
-	error       error
-	patterns    []*patterns.Pattern
-	name        *input
-	filename    *input
-	origin      *input
-	comment     *input
+	parent        *menuPopup
+	core          *Core
+	chooser       *chooser[*patterns.Pattern]
+	previewMode   *widget.Enum
+	radioPreview  *radioButton
+	radioMetadata *radioButton
+	btnSave       *button
+	chkAddLibrary *checkbox
+	error         error
+	patterns      []*patterns.Pattern
+	name          *input
+	filename      *input
+	origin        *input
+	comment       *input
 }
 
 func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
 	result := &capturedPatternsPopout{
-		parent:      p,
-		core:        c,
-		previewMode: &widget.Enum{Value: previewMetadata},
-		addLibrary:  &widget.Bool{Value: true},
+		parent:        p,
+		core:          c,
+		previewMode:   &widget.Enum{Value: previewMetadata},
+		btnSave:       newButton(c.theme, "Save"),
+		chkAddLibrary: newCheckBox(c.theme, "Add to library", true),
 	}
+	result.radioPreview = newRadioButton(c.theme, result.previewMode, previewImage, "Preview")
+	result.radioMetadata = newRadioButton(c.theme, result.previewMode, previewMetadata, "Metadata")
 	result.name = newInput(c.theme, "", 0, result.updateName)
 	result.filename = newInput(c.theme, "", 0, result.updateFilename)
 	result.origin = newInput(c.theme, "", 0, result.updateOrigin)
@@ -137,7 +142,7 @@ func (p *capturedPatternsPopout) layoutNoPatterns(gtx layout.Context, theme *mat
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = minX
 				gtx.Constraints.Max.X = minX
-				lbl := material.Body1(theme, "No patterns captured yet.")
+				lbl := material.Label(theme, theme.TextSize, "No patterns captured yet.")
 				lbl.MaxLines = 1
 				lbl.Alignment = text.Middle
 				return lbl.Layout(gtx)
@@ -148,26 +153,26 @@ func (p *capturedPatternsPopout) layoutNoPatterns(gtx layout.Context, theme *mat
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.X = minX
 							gtx.Constraints.Max.X = minX
-							lbl := material.Body1(theme, "To capture patterns:")
+							lbl := material.Label(theme, theme.TextSize, "To capture patterns:")
 							lbl.Alignment = text.Middle
 							return lbl.Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.X = minX
-							return material.Body1(theme, "1. Start edit mode ("+modKeyName+"E)").Layout(gtx)
+							return material.Label(theme, theme.TextSize, "1. Start edit mode ("+modKeyName+"E)").Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.X = minX
-							return material.Body1(theme, "2. Mark the pattern area\n\u2007  Hold down shift+arrow keys and then hit Return").Layout(gtx)
+							return material.Label(theme, theme.TextSize, "2. Mark the pattern area\n\u2007  Hold down shift+arrow keys and then hit Return").Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.X = minX
-							return material.Body1(theme, "3. Come back here to edit/save patterns").Layout(gtx)
+							return material.Label(theme, theme.TextSize, "3. Come back here to edit/save patterns").Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 								gtx.Constraints.Min.X = minX
-								return material.Body1(theme, "Note: Multiple patterns can be captured in one edit session").Layout(gtx)
+								return material.Label(theme, theme.TextSize, "Note: Multiple patterns can be captured in one edit session").Layout(gtx)
 							})
 						}),
 					)
@@ -188,7 +193,7 @@ func (p *capturedPatternsPopout) savePattern(pattern *patterns.Pattern) {
 			_ = f.Close()
 		}()
 		p.core.settings.Originator = pattern.Origination
-		if p.error = patterns.PatternRleEncode(*pattern, f); p.error == nil && p.addLibrary.Value {
+		if p.error = patterns.PatternRleEncode(*pattern, f); p.error == nil && p.chkAddLibrary.Checked() {
 			patterns.PatternLibrary[pattern.Name] = *pattern
 			p.core.settings.AddPattern(pattern.Filename)
 		}
@@ -223,18 +228,8 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context, theme *material.Them
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Gap: 10}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						radio := material.RadioButton(p.core.theme, p.previewMode, previewMetadata, "Metadata")
-						radio.Size = 18
-						radio.TextSize = unit.Sp(16)
-						return radio.Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						radio := material.RadioButton(p.core.theme, p.previewMode, previewImage, "Preview")
-						radio.Size = 18
-						radio.TextSize = unit.Sp(16)
-						return radio.Layout(gtx)
-					}),
+					layout.Rigid(p.radioMetadata.Layout),
+					layout.Rigid(p.radioPreview.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Dimensions{
 							Size:     image.Point{X: gtx.Dp(100)},
@@ -251,30 +246,17 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context, theme *material.Them
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if p.chooser.currentItem() != nil {
 					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							btn := material.Button(p.core.theme, &p.btnSave, "Save")
-							btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
-							btn.TextSize = unit.Sp(16)
-							return btn.Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							bordersChkBox := material.CheckBox(p.core.theme, p.addLibrary, "Add to library")
-							bordersChkBox.TextSize = unit.Sp(16)
-							bordersChkBox.Size = 18
-							return bordersChkBox.Layout(gtx)
-						}),
+						layout.Rigid(p.btnSave.Layout),
+						layout.Rigid(p.chkAddLibrary.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if p.error != nil {
-								lbl := material.Body1(theme, p.error.Error())
-								lbl.MaxLines = 1
-								lbl.Color = errorColor
-								return lbl.Layout(gtx)
+								return errorLabel(theme, p.error)(gtx)
 							}
 							return layout.Dimensions{}
 						}),
 					)
 				} else {
-					return material.Body1(theme, "").Layout(gtx)
+					return layout.Dimensions{}
 				}
 			}),
 		)
@@ -290,7 +272,7 @@ func (p *capturedPatternsPopout) layoutPreview(gtx layout.Context, theme *materi
 		return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceAround}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Constraints.Max.X
-				lbl := material.Body1(theme, "(select a pattern)")
+				lbl := material.Label(theme, theme.TextSize, "(select a pattern)")
 				lbl.MaxLines = 1
 				lbl.Alignment = text.Middle
 				return lbl.Layout(gtx)
@@ -305,55 +287,29 @@ func (p *capturedPatternsPopout) layoutPreview(gtx layout.Context, theme *materi
 
 func (p *capturedPatternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern, gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	txtDim := measureText(gtx, theme, "My")
-	labelMax := measureMaxText(gtx, theme, font.Bold, "Size: ", "Filename: ", "Origin: ", "Comment: ")
+	labelMax := measureMaxText(gtx, theme, font.Bold, "Size: ", "Filename: ", "Origin: ", "Comment: ").Size.X
 	return layout.Flex{Axis: layout.Vertical, Gap: 10, Spacing: layout.SpaceEnd}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = labelMax.Size.X
-					lbl := rightLabel(p.core.theme, "Name:")
-					lbl.Font.Weight = font.Bold
-					return lbl.Layout(gtx)
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return p.name.layout(gtx)
-				}),
+				layout.Rigid(rightAlignedBoldLabel(theme, "Name:", labelMax)),
+				layout.Flexed(1, p.name.layout),
 			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = labelMax.Size.X
-					lbl := rightLabel(p.core.theme, "Filename:")
-					lbl.Font.Weight = font.Bold
-					return lbl.Layout(gtx)
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return p.filename.layout(gtx)
-				}),
+				layout.Rigid(rightAlignedBoldLabel(theme, "Filename:", labelMax)),
+				layout.Flexed(1, p.filename.layout),
 			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = labelMax.Size.X
-					lbl := rightLabel(p.core.theme, "Origin:")
-					lbl.Font.Weight = font.Bold
-					return lbl.Layout(gtx)
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return p.origin.layout(gtx)
-				}),
+				layout.Rigid(rightAlignedBoldLabel(theme, "Origin:", labelMax)),
+				layout.Flexed(1, p.origin.layout),
 			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = labelMax.Size.X
-					lbl := rightLabel(p.core.theme, "Comment:")
-					lbl.Font.Weight = font.Bold
-					return lbl.Layout(gtx)
-				}),
+				layout.Rigid(rightAlignedBoldLabel(theme, "Comment:", labelMax)),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.Y = txtDim.Size.Y * 7
 					gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
@@ -363,28 +319,14 @@ func (p *capturedPatternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = labelMax.Size.X
-					lbl := rightLabel(p.core.theme, "Size:")
-					lbl.Font.Weight = font.Bold
-					return lbl.Layout(gtx)
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return material.Body1(theme, strconv.Itoa(pattern.Width)+"w X "+strconv.Itoa(pattern.Height)+"h").Layout(gtx)
-				}),
+				layout.Rigid(rightAlignedBoldLabel(theme, "Size:", labelMax)),
+				layout.Flexed(1, label(theme, strconv.Itoa(pattern.Width)+"w X "+strconv.Itoa(pattern.Height)+"h")),
 			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = labelMax.Size.X
-					lbl := rightLabel(p.core.theme, "Rule:")
-					lbl.Font.Weight = font.Bold
-					return lbl.Layout(gtx)
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return material.Body1(theme, pattern.Rule.Name()).Layout(gtx)
-				}),
+				layout.Rigid(rightAlignedBoldLabel(theme, "Rule:", labelMax)),
+				layout.Flexed(1, label(theme, pattern.Rule.Name())),
 			)
 		}),
 	)
@@ -448,5 +390,5 @@ func (p *capturedPatternsPopout) hasFocus(gtx layout.Context) bool {
 }
 
 func (p *capturedPatternsPopout) reset() {
-	//TODO implement me
+	// nothing to reset
 }

@@ -4,11 +4,8 @@ import (
 	"errors"
 	"gioui.org/layout"
 	"gioui.org/unit"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/recipes"
-	"os/exec"
-	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -18,16 +15,19 @@ type gridRecipesPopout struct {
 	parent     *menuPopup
 	core       *Core
 	chooser    *chooser[string]
-	btnPath    widget.Clickable
-	btnRun     widget.Clickable
-	btnSaveRle widget.Clickable
+	btnPath    *pathButton
+	btnRun     *button
+	btnSaveRle *button
 	error      error
 }
 
 func newGridRecipesPopout(p *menuPopup, c *Core) *gridRecipesPopout {
 	result := &gridRecipesPopout{
-		parent: p,
-		core:   c,
+		parent:     p,
+		core:       c,
+		btnPath:    newPathButton(c.theme),
+		btnRun:     newButton(c.theme, "Run"),
+		btnSaveRle: newButton(c.theme, "Save as RLE"),
 	}
 	result.chooser = newChooser[string](c.theme, 38,
 		result.sortedRecipes(),
@@ -65,22 +65,6 @@ func (p *gridRecipesPopout) submitFilename(recipe string) {
 }
 
 func (p *gridRecipesPopout) reset() {
-}
-
-func (p *gridRecipesPopout) filePicker() {
-	if runtime.GOOS == "darwin" {
-		out, err := exec.Command(
-			"osascript",
-			"-e",
-			`POSIX path of (choose file)`,
-		).Output()
-		if err == nil {
-			path := strings.TrimSpace(string(out))
-			p.core.settings.AddRecipe(path)
-			p.chooser.resetItems(p.sortedRecipes())
-			p.chooser.setText(path)
-		}
-	}
 }
 
 func (p *gridRecipesPopout) getCurrentRecipe() (*recipes.Recipe, string) {
@@ -123,7 +107,12 @@ func (p *gridRecipesPopout) saveRecipeRle() {
 
 func (p *gridRecipesPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if p.btnPath.Clicked(gtx) {
-		p.filePicker()
+		filePicker(func(filename string) {
+			path := strings.TrimSpace(string(filename))
+			p.core.settings.AddRecipe(path)
+			p.chooser.resetItems(p.sortedRecipes())
+			p.chooser.setText(path)
+		})
 	}
 	if p.btnRun.Clicked(gtx) {
 		p.runRecipe()
@@ -143,42 +132,20 @@ func (p *gridRecipesPopout) layout(gtx layout.Context, theme *material.Theme) la
 						chooserDims = p.chooser.layout(gtx)
 						return chooserDims
 					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if !isMac {
-							return layout.Dimensions{}
-						}
-						btn := material.Button(theme, &p.btnPath, "…")
-						btn.Inset = layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}
-						btn.Background = popupBackground
-						btn.Color = popupForeground
-						btn.TextSize = unit.Sp(16)
-						return btn.Layout(gtx)
-					}),
+					layout.Rigid(p.btnPath.Layout),
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Max.X = p.chooser.dims.Size.X
 				return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						btn := material.Button(p.core.theme, &p.btnRun, "Run")
-						btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
-						btn.TextSize = unit.Sp(16)
-						return btn.Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						btn := material.Button(p.core.theme, &p.btnSaveRle, "Save as RLE")
-						btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
-						btn.TextSize = unit.Sp(16)
-						return btn.Layout(gtx)
-					}),
+					layout.Rigid(p.btnRun.Layout),
+					layout.Rigid(p.btnSaveRle.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						switch {
 						case p.error != nil:
-							lbl := material.Body1(theme, p.error.Error())
-							lbl.Color = errorColor
-							return lbl.Layout(gtx)
+							return errorLabel(theme, p.error)(gtx)
 						case p.chooser.currentItem() != nil:
-							return material.Body1(theme, "(Press "+modKeyName+"G to run)").Layout(gtx)
+							return label(theme, "(Press "+modKeyName+"G to run)")(gtx)
 						default:
 							return layout.Dimensions{}
 						}

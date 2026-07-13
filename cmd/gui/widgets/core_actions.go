@@ -319,6 +319,7 @@ func (c *Core) setCellBorders(on bool) {
 		c.settings.CellBorders = on
 		c.gridHolder.rebuild()
 		c.gridHolder.grid.Draw()
+		c.settingsChanged()
 		c.window.Invalidate()
 	}
 }
@@ -328,6 +329,7 @@ func (c *Core) toggleCellBorders() {
 	c.settings.CellBorders = !c.settings.CellBorders
 	c.gridHolder.rebuild()
 	c.gridHolder.grid.Draw()
+	c.settingsChanged()
 	c.window.Invalidate()
 }
 
@@ -364,9 +366,8 @@ func (c *Core) export() (err error) {
 	c.stop()
 	var p patterns.Pattern
 	if p, err = c.settings.PatternFromGrid(c.gridHolder.grid); err == nil {
-		now := time.Now()
-		p.Name = "Grid " + now.Format("2006-01-02 15:04:05")
-		filename := "Grid " + now.Format("2006-01-02T150405") + ".rle"
+		filename := nowFilename("Grid Export", ".rle")
+		p.Name = filename
 		var f *os.File
 		if f, err = saveFile(filename, false); err == nil {
 			defer func() {
@@ -444,7 +445,7 @@ func (c *Core) setInstrumentationHeatMapper(hmt heatMapperType) {
 
 func (c *Core) saveHeatMapImage() {
 	if c.instrumentHeatMap != nil {
-		filename := "Heat Map " + c.heatMapperType.String() + " " + time.Now().Format("2006-01-02T15-04-05.999") + ".png"
+		filename := nowFilename("Heat Map "+c.heatMapperType.String(), ".png")
 		if f, err := saveFile(filename, false); err == nil {
 			defer func() {
 				_ = f.Close()

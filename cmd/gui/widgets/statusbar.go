@@ -200,7 +200,7 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 			case sb.core.mode != noMode:
 				sb.stepDims = sb.label(gtx, theme, sb.core.modeDisplay(), text.Start)
 			case sb.core.instrumentRepeat != nil && sb.core.instrumentRepeat.Found:
-				sb.stepDims = sb.label(gtx, theme, "Repeat Found!", text.Start)
+				sb.stepDims = sb.label(gtx, theme, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" Repeat Found!", text.Start)
 			default:
 				sb.stepDims = sb.label(gtx, theme, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10)), text.Start)
 			}
@@ -245,7 +245,7 @@ func (sb *statusBar) label(gtx layout.Context, theme *material.Theme, s string, 
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		size := gtx.Constraints.Max
 		sb.drawInsetRect(gtx, image.Rect(0, 0, size.X, size.Y))
-		lbl := material.Body1(theme, s)
+		lbl := material.Label(theme, theme.TextSize, s)
 		lbl.Color = popupForeground
 		lbl.Alignment = align
 		lbl.MaxLines = 1

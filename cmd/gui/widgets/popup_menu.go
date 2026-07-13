@@ -402,18 +402,14 @@ func (i *menuItem) layout(gtx layout.Context, theme *material.Theme, width int) 
 						if i.popout == popoutNone {
 							return layout.Dimensions{}
 						}
-						return material.Body1(theme, "< ").Layout(gtx)
+						return material.Label(theme, theme.TextSize, "< ").Layout(gtx)
 					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Body1(theme, i.label)
-						lbl.MaxLines = 1
-						return lbl.Layout(gtx)
-					}),
+					layout.Flexed(1, label(theme, i.label)),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if i.key == "" {
 							return layout.Dimensions{}
 						}
-						return material.Body1(theme, modKeyName+i.key).Layout(gtx)
+						return material.Label(theme, theme.TextSize, modKeyName+i.key).Layout(gtx)
 					}),
 				)
 			})

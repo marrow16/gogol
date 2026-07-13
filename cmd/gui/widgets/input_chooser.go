@@ -381,13 +381,9 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context, dims layout.Dimensions) 
 						gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 						return layout.Inset{Left: 3, Right: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							if i.middleEllipsis {
-								lblStyle := material.Body1(i.theme, middleEllipsis(gtx, i.theme, lbl, gtx.Constraints.Max.X))
-								lblStyle.MaxLines = 1
-								return lblStyle.Layout(gtx)
+								return label(i.theme, middleEllipsis(gtx, i.theme, lbl, gtx.Constraints.Max.X))(gtx)
 							} else {
-								lblStyle := material.Body1(i.theme, lbl)
-								lblStyle.MaxLines = 1
-								return lblStyle.Layout(gtx)
+								return label(i.theme, lbl)(gtx)
 							}
 						})
 					})
