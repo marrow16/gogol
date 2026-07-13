@@ -6,12 +6,9 @@ import (
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/unit"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/cmd/gui/settings"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 )
 
@@ -19,17 +16,19 @@ type loadPatternsPopout struct {
 	parent  *menuPopup
 	core    *Core
 	path    *input
-	btnLoad widget.Clickable
-	btnPath widget.Clickable
+	btnLoad *button
+	btnPath *pathButton
 	error   error
 	loaded  *int
 }
 
 func newLoadPatternsPopout(p *menuPopup, c *Core) *loadPatternsPopout {
 	result := &loadPatternsPopout{
-		parent: p,
-		core:   c,
-		path:   newInput(c.theme, "", 256, nil).maximumWidth(30),
+		parent:  p,
+		core:    c,
+		path:    newInput(c.theme, "", 256, nil).maximumWidth(30),
+		btnLoad: newButton(c.theme, "Load"),
+		btnPath: newPathButton(c.theme),
 	}
 	result.path.onChangeFn = result.clearError
 	return result
@@ -41,20 +40,6 @@ func (p *loadPatternsPopout) reset() {
 func (p *loadPatternsPopout) clearError(text string) {
 	p.error = nil
 	p.loaded = nil
-}
-
-func (p *loadPatternsPopout) filePicker(gtx layout.Context) {
-	if runtime.GOOS == "darwin" {
-		out, err := exec.Command(
-			"osascript",
-			"-e",
-			`POSIX path of (choose file)`,
-		).Output()
-		if err == nil {
-			p.path.setText(strings.TrimSpace(string(out)))
-			p.path.setFocused(gtx)
-		}
-	}
 }
 
 func (p *loadPatternsPopout) loadPatterns() {
@@ -87,43 +72,25 @@ func (p *loadPatternsPopout) layout(gtx layout.Context, theme *material.Theme) l
 		p.loadPatterns()
 	}
 	if p.btnPath.Clicked(gtx) {
-		p.filePicker(gtx)
+		filePicker(func(filename string) {
+			p.path.setText(strings.TrimSpace(string(filename)))
+			p.path.setFocused(gtx)
+
+		})
 	}
-	labelMax := measureMaxText(gtx, theme, font.Normal, "Path: ")
-	btnMax := measureMaxText(gtx, theme, font.Normal, "  Load  ")
+	labelMax := measureMaxText(gtx, theme, font.Normal, "Path: ").Size.X
 	return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8), Top: unit.Dp(8), Bottom: unit.Dp(4)}.
 		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Body1(theme, "Enter pattern filename or directory (for library)...")
-						lbl.TextSize = lbl.TextSize - 2
-						return lbl.Layout(gtx)
-					})
+					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, material.Label(theme, theme.TextSize-2, "Enter pattern filename or directory (for library)...").Layout)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									gtx.Constraints.Min.X = labelMax.Size.X
-									return rightLabel(theme, "Path:").Layout(gtx)
-								})
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.path.layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								if !isMac {
-									return layout.Dimensions{}
-								}
-								btn := material.Button(theme, &p.btnPath, "…")
-								btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
-								btn.Background = popupBackground
-								btn.Color = popupForeground
-								btn.TextSize = unit.Sp(16)
-								return btn.Layout(gtx)
-							}),
+							layout.Rigid(rightAlignedLabel(theme, "Path: ", labelMax)),
+							layout.Flexed(1, p.path.layout),
+							layout.Rigid(p.btnPath.Layout),
 						)
 					})
 				}),
@@ -131,31 +98,19 @@ func (p *loadPatternsPopout) layout(gtx layout.Context, theme *material.Theme) l
 					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.X = labelMax.Size.X
+								gtx.Constraints.Min.X = labelMax
 								return layout.Dimensions{Size: gtx.Constraints.Min}
 							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Max.X = btnMax.Size.X
-								btn := material.Button(theme, &p.btnLoad, "Load")
-								btn.Inset = layout.Inset{Bottom: 2}
-								btn.TextSize = unit.Sp(16)
-								return btn.Layout(gtx)
-							}),
+							layout.Rigid(p.btnLoad.Layout),
 						)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					switch {
 					case p.error != nil:
-						return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Body1(theme, p.error.Error())
-							lbl.Color = errorColor
-							return lbl.Layout(gtx)
-						})
+						return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, errorLabel(theme, p.error))
 					case p.loaded != nil:
-						return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Body1(theme, fmt.Sprintf("Successfully loaded %d pattern(s)", *p.loaded)).Layout(gtx)
-						})
+						return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, label(theme, fmt.Sprintf("Successfully loaded %d pattern(s)", *p.loaded)))
 					default:
 						return layout.Dimensions{}
 					}

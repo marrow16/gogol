@@ -135,7 +135,7 @@ func row(theme *material.Theme, leftWidth int, label string, value layout.Widget
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = leftWidth
 				gtx.Constraints.Max.X = leftWidth
-				lbl := material.Body1(theme, label)
+				lbl := material.Label(theme, theme.TextSize, label)
 				lbl.Alignment = text.End
 				lbl.MaxLines = 1
 				lbl.Font.Weight = font.Bold
@@ -149,7 +149,7 @@ func row(theme *material.Theme, leftWidth int, label string, value layout.Widget
 func (p *rulesPopup) layoutDetails(rowDims layout.Dimensions) layout.FlexChild {
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		paint.FillShape(gtx.Ops, popupBorder, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X, 1)).Op())
-		maxText := measureMaxText(gtx, p.core.theme, font.Bold, "Rule: ", "Perm.: ")
+		maxText := measureMaxText(gtx, p.core.theme, font.Bold, "Rule: ", "Perm.: ").Size.X
 		pad := unit.Dp(float32(rowDims.Size.Y/3) / gtx.Metric.PxPerDp)
 		return layout.Inset{
 			Top:    pad,
@@ -161,8 +161,8 @@ func (p *rulesPopup) layoutDetails(rowDims layout.Dimensions) layout.FlexChild {
 				Axis: layout.Vertical,
 				Gap:  10,
 			}.Layout(gtx,
-				row(p.core.theme, maxText.Size.X, "Rule: ", p.rleInput.layout),
-				row(p.core.theme, maxText.Size.X, "Perm.: ", p.permInput.layout),
+				row(p.core.theme, maxText, "Rule: ", p.rleInput.layout),
+				row(p.core.theme, maxText, "Perm.: ", p.permInput.layout),
 			)
 		})
 	})
@@ -210,7 +210,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 					r := p.sortedRules[index]
 					return layout.Flex{Axis: layout.Horizontal, Gap: 32}.Layout(gtx,
 						layout.Flexed(1.5, func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Body1(p.core.theme, r.Name())
+							lbl := material.Label(p.core.theme, p.core.theme.TextSize, r.Name())
 							lbl.Alignment = text.Start
 							lbl.MaxLines = 1
 							return lbl.Layout(gtx)
@@ -220,7 +220,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 							if len(s) < 6 {
 								s = strings.Repeat("\u2007", 6-len(s)) + s
 							}
-							lbl := material.Body1(p.core.theme, r.Rle()+"  "+s)
+							lbl := material.Label(p.core.theme, p.core.theme.TextSize, r.Rle()+"  "+s)
 							lbl.Alignment = text.End
 							lbl.MaxLines = 1
 							return lbl.Layout(gtx)

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="frameStroke" x1="120" y1="900" x2="900" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1f7cff"/>
+      <stop offset="0.45" stop-color="#4ca0ff"/>
+      <stop offset="0.55" stop-color="#ff7a1a"/>
+      <stop offset="1" stop-color="#ff9f2e"/>
+    </linearGradient>
+
+    <linearGradient id="cellStroke" x1="320" y1="760" x2="760" y2="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1f7cff"/>
+      <stop offset="0.5" stop-color="#5ba7ff"/>
+      <stop offset="0.52" stop-color="#ff6a00"/>
+      <stop offset="1" stop-color="#ff9a2e"/>
+    </linearGradient>
+
+    <radialGradient id="panelFill" cx="50%" cy="48%" r="75%">
+      <stop offset="0" stop-color="#10131b"/>
+      <stop offset="0.65" stop-color="#05070b"/>
+      <stop offset="1" stop-color="#010203"/>
+    </radialGradient>
+
+    <filter id="cellGlowBlue" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="cellGlowOrange" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Transparent outside the rounded square -->
+  <rect x="4" y="4" width="1016" height="1016" rx="250"
+        fill="url(#panelFill)"
+        stroke="url(#frameStroke)"
+        stroke-width="8" />
+
+  <!-- Blue cells -->
+  <g fill="none" stroke="#ffffff" stroke-width="10" filter="url(#cellGlowBlue)">
+    <rect x="256" y="630" width="162" height="162" rx="18" stroke="#2483ff"/>
+    <rect x="442" y="630" width="162" height="162" rx="18" stroke="#2483ff"/>
+    <rect x="442" y="444" width="162" height="162" rx="18" stroke="#2d8cff"/>
+  </g>
+
+  <!-- Orange cells -->
+  <g fill="none" stroke-width="10" filter="url(#cellGlowOrange)">
+    <rect x="628" y="444" width="162" height="162" rx="18" stroke="#ff6a00"/>
+    <rect x="628" y="258" width="162" height="162" rx="18" stroke="#ff7b16"/>
+  </g>
+</svg>

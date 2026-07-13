@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 var modKeyName = func() string {
@@ -36,6 +37,7 @@ var modKey = func() key.Modifiers {
 var isMac = runtime.GOOS == "darwin"
 
 var (
+	backgroundColor                = color.NRGBA{R: 147, G: 147, B: 147, A: 255}
 	popupForeground                = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
 	popupBackground                = color.NRGBA{R: 240, G: 240, B: 239, A: 255}
 	popupBorder                    = color.NRGBA{R: 181, G: 181, B: 181, A: 255}
@@ -85,6 +87,23 @@ func resolveSavePath(path string) (string, error) {
 		return "", errors.New("Invalid user home directory")
 	}
 	return filepath.Join(dir, filepath.Base(path)), nil
+}
+
+func nowFilename(prefix string, extension string) string {
+	return prefix + " " + time.Now().Format("2006-01-02 15-04-05.999") + extension
+}
+
+func filePicker(fn func(filename string)) {
+	if fn != nil && isMac {
+		out, err := exec.Command(
+			"osascript",
+			"-e",
+			`POSIX path of (choose file)`,
+		).Output()
+		if err == nil {
+			fn(string(out))
+		}
+	}
 }
 
 func openInBrowser(filename string) {
@@ -151,18 +170,49 @@ func border(gtx layout.Context, dims layout.Dimensions, top, left, bottom, right
 	}
 }
 
-func rightLabel(theme *material.Theme, s string) material.LabelStyle {
-	lbl := material.Body1(theme, s)
-	lbl.Alignment = text.End
-	lbl.MaxLines = 1
-	return lbl
+func errorLabel(theme *material.Theme, err error) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Label(theme, theme.TextSize, err.Error())
+		lbl.MaxLines = 1
+		lbl.Color = errorColor
+		return lbl.Layout(gtx)
+	}
+}
+
+func label(theme *material.Theme, s string) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Label(theme, theme.TextSize, s)
+		lbl.MaxLines = 1
+		return lbl.Layout(gtx)
+	}
+}
+
+func rightAlignedLabel(theme *material.Theme, s string, width int) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = width
+		lbl := material.Label(theme, theme.TextSize, s)
+		lbl.Alignment = text.End
+		lbl.MaxLines = 1
+		return lbl.Layout(gtx)
+	}
+}
+
+func rightAlignedBoldLabel(theme *material.Theme, s string, width int) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = width
+		lbl := material.Label(theme, theme.TextSize, s)
+		lbl.Alignment = text.End
+		lbl.Font.Weight = font.Bold
+		lbl.MaxLines = 1
+		return lbl.Layout(gtx)
+	}
 }
 
 func measureText(gtx layout.Context, theme *material.Theme, text string) layout.Dimensions {
 	gtx.Constraints.Min = image.Point{}
 	gtx.Constraints.Max = image.Pt(1e6, 1e6)
 	macro := op.Record(gtx.Ops)
-	dims := material.Body1(theme, text).Layout(gtx)
+	dims := material.Label(theme, theme.TextSize, text).Layout(gtx)
 	_ = macro.Stop()
 	return dims
 }
@@ -171,7 +221,7 @@ func measureMaxText(gtx layout.Context, theme *material.Theme, weight font.Weigh
 	mx := layout.Dimensions{}
 	macro := op.Record(gtx.Ops)
 	for _, t := range text {
-		lbl := material.Body1(theme, t)
+		lbl := material.Label(theme, theme.TextSize, t)
 		lbl.Font.Weight = weight
 		dims := lbl.Layout(gtx)
 		if dims.Size.X > mx.Size.X {

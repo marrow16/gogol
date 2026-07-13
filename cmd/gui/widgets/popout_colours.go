@@ -4,8 +4,8 @@ import (
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/unit"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/marrow16/gogol/cmd/gui/settings"
 	"image/color"
 )
 
@@ -16,26 +16,26 @@ type popout interface {
 }
 
 type colorsPopout struct {
-	parent  *menuPopup
-	core    *Core
-	aliveR  *numberInput[int]
-	aliveG  *numberInput[int]
-	aliveB  *numberInput[int]
-	deadR   *numberInput[int]
-	deadG   *numberInput[int]
-	deadB   *numberInput[int]
-	borderR *numberInput[int]
-	borderG *numberInput[int]
-	borderB *numberInput[int]
-	inputs  []*numberInput[int]
-	borders *widget.Bool
+	parent     *menuPopup
+	core       *Core
+	aliveR     *numberInput[int]
+	aliveG     *numberInput[int]
+	aliveB     *numberInput[int]
+	deadR      *numberInput[int]
+	deadG      *numberInput[int]
+	deadB      *numberInput[int]
+	borderR    *numberInput[int]
+	borderG    *numberInput[int]
+	borderB    *numberInput[int]
+	inputs     []*numberInput[int]
+	chkBorders *checkbox
 }
 
 func newColorsPopout(p *menuPopup, c *Core) *colorsPopout {
 	result := &colorsPopout{
-		parent:  p,
-		core:    c,
-		borders: &widget.Bool{Value: c.settings.CellBorders},
+		parent:     p,
+		core:       c,
+		chkBorders: newCheckBox(c.theme, "Show Borders", c.settings.CellBorders),
 	}
 	result.aliveR = newNumberInput(c.theme, 3, 0, 255, 16, func(v int) {
 		result.colorChanged(0, 0, v)
@@ -69,6 +69,7 @@ func newColorsPopout(p *menuPopup, c *Core) *colorsPopout {
 		result.deadR, result.deadG, result.deadB,
 		result.borderR, result.borderG, result.borderB,
 	}
+	c.settingsListen(result.settingsChanged)
 	return result
 }
 
@@ -82,7 +83,11 @@ func (p *colorsPopout) reset() {
 	p.borderR.setValue(int(p.core.settings.CellBorderColor.R))
 	p.borderG.setValue(int(p.core.settings.CellBorderColor.G))
 	p.borderB.setValue(int(p.core.settings.CellBorderColor.B))
-	p.borders.Value = p.core.settings.CellBorders
+	p.chkBorders.SetChecked(p.core.settings.CellBorders)
+}
+
+func (p *colorsPopout) settingsChanged(settings *settings.Settings) {
+	p.chkBorders.SetChecked(p.core.settings.CellBorders)
 }
 
 func (p *colorsPopout) colorChanged(c int, component int, v int) {
@@ -131,7 +136,7 @@ func (p *colorsPopout) colorComponentChanged(c color.NRGBA, component int, v int
 }
 
 func (p *colorsPopout) hasFocus(gtx layout.Context) bool {
-	return gtx.Focused(p.borders) ||
+	return p.chkBorders.Focused(gtx) ||
 		p.aliveR.isFocused(gtx) || p.aliveG.isFocused(gtx) || p.aliveB.isFocused(gtx) ||
 		p.deadR.isFocused(gtx) || p.deadG.isFocused(gtx) || p.deadB.isFocused(gtx) ||
 		p.borderR.isFocused(gtx) || p.borderG.isFocused(gtx) || p.borderB.isFocused(gtx)
@@ -141,105 +146,53 @@ func (p *colorsPopout) layout(gtx layout.Context, theme *material.Theme) layout.
 	for _, inp := range p.inputs {
 		inp.update(gtx)
 	}
-	if ok := p.borders.Update(gtx); ok {
-		p.core.setCellBorders(p.borders.Value)
+	if ok := p.chkBorders.Update(gtx); ok {
+		p.core.setCellBorders(p.chkBorders.Checked())
 	}
-	labelMax := measureMaxText(gtx, theme, font.Normal, "Alive cells", "Dead cells", "Cell Border")
+	labelMax := measureMaxText(gtx, theme, font.Normal, "Alive cells", "Dead cells", "Cell Border").Size.X
 	return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8), Top: unit.Dp(8), Bottom: unit.Dp(4)}.
 		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.X = labelMax.Size.X
-								return rightLabel(p.core.theme, "Alive cells").Layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body1(theme, "R:").Layout(gtx)
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.aliveR.layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body1(theme, "G:").Layout(gtx)
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.aliveG.layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body1(theme, "B:").Layout(gtx)
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.aliveB.layout(gtx)
-							}),
+							layout.Rigid(rightAlignedLabel(theme, "Alive cells", labelMax)),
+							layout.Rigid(label(theme, "R:")),
+							layout.Flexed(1, p.aliveR.layout),
+							layout.Rigid(label(theme, "G:")),
+							layout.Flexed(1, p.aliveG.layout),
+							layout.Rigid(label(theme, "B:")),
+							layout.Flexed(1, p.aliveB.layout),
 						)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.X = labelMax.Size.X
-								return rightLabel(p.core.theme, "Dead cells").Layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body1(theme, "R:").Layout(gtx)
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.deadR.layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body1(theme, "G:").Layout(gtx)
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.deadG.layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body1(theme, "B:").Layout(gtx)
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.deadB.layout(gtx)
-							}),
+							layout.Rigid(rightAlignedLabel(theme, "Dead cells", labelMax)),
+							layout.Rigid(label(theme, "R:")),
+							layout.Flexed(1, p.deadR.layout),
+							layout.Rigid(label(theme, "G:")),
+							layout.Flexed(1, p.deadG.layout),
+							layout.Rigid(label(theme, "B:")),
+							layout.Flexed(1, p.deadB.layout),
 						)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.X = labelMax.Size.X
-								return rightLabel(p.core.theme, "Cell Border").Layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body1(theme, "R:").Layout(gtx)
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.borderR.layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body1(theme, "G:").Layout(gtx)
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.borderG.layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return material.Body1(theme, "B:").Layout(gtx)
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.borderB.layout(gtx)
-							}),
+							layout.Rigid(rightAlignedLabel(theme, "Cell Border", labelMax)),
+							layout.Rigid(label(theme, "R:")),
+							layout.Flexed(1, p.borderR.layout),
+							layout.Rigid(label(theme, "G:")),
+							layout.Flexed(1, p.borderG.layout),
+							layout.Rigid(label(theme, "B:")),
+							layout.Flexed(1, p.borderB.layout),
 						)
 					})
 				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						bordersChkBox := material.CheckBox(p.core.theme, p.borders, "Show Borders")
-						bordersChkBox.TextSize = unit.Sp(16)
-						bordersChkBox.Size = 18
-						return bordersChkBox.Layout(gtx)
-					})
-				}),
+				layout.Rigid(p.chkBorders.Layout),
 			)
 		})
 }

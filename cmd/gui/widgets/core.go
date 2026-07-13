@@ -12,7 +12,6 @@ import (
 	"github.com/marrow16/gogol/cmd/gui/settings"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
-	"image/color"
 	"strconv"
 	"sync"
 )
@@ -131,13 +130,14 @@ type Core struct {
 	statusBar   *statusBar
 	gridRecipes *gridRecipesPopout
 
-	mode            mode
-	running         bool
-	stopRun         chan struct{}
-	status          string
-	stepAheadQueued bool
-	skipBackQueued  bool
-	mutex           sync.Mutex
+	mode              mode
+	running           bool
+	stopRun           chan struct{}
+	status            string
+	stepAheadQueued   bool
+	skipBackQueued    bool
+	mutex             sync.Mutex
+	settingsListeners []func(*settings.Settings)
 
 	snapshots     []patterns.Pattern
 	snapshotsStep []uint64
@@ -153,10 +153,6 @@ type Core struct {
 	placePatternCol, placePatternRow int
 	placePatternRotation             patterns.Rotation
 }
-
-var (
-	bgColor = color.NRGBA{R: 147, G: 147, B: 147, A: 255}
-)
 
 func (c *Core) Run(window *app.Window) error {
 	c.window = window
@@ -178,7 +174,7 @@ func (c *Core) Run(window *app.Window) error {
 			c.windowRect = clip.Rect{Max: gtx.Constraints.Max}
 			c.settings.ScreenWidth = int(float32(c.windowRect.Max.X) / gtx.Metric.PxPerDp)
 			c.settings.ScreenHeight = int(float32(c.windowRect.Max.Y) / gtx.Metric.PxPerDp)
-			paint.FillShape(gtx.Ops, bgColor, c.windowRect.Op())
+			paint.FillShape(gtx.Ops, backgroundColor, c.windowRect.Op())
 			layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Flexed(1, c.gridHolder.layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -188,6 +184,16 @@ func (c *Core) Run(window *app.Window) error {
 			c.statusBar.showPopups(gtx)
 			e.Frame(gtx.Ops)
 		}
+	}
+}
+
+func (c *Core) settingsListen(fn func(*settings.Settings)) {
+	c.settingsListeners = append(c.settingsListeners, fn)
+}
+
+func (c *Core) settingsChanged() {
+	for _, fn := range c.settingsListeners {
+		fn(c.settings)
 	}
 }
 
@@ -224,6 +230,8 @@ func (c *Core) clearMode() {
 // B0135/S03 has gliders
 // B36/S237 like standard life but "never" properly stabilises?
 // B023/S1234 mazes with flashing patches
+
+// B13/S1236 4088
 
 var keyFilters = []event.Filter{
 	key.Filter{Required: key.ModAlt, Name: ""},

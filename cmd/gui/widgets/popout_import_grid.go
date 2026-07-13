@@ -5,34 +5,33 @@ import (
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/unit"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
 	"io/fs"
 	"os"
-	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 )
 
 type importGridPopout struct {
-	parent  *menuPopup
-	core    *Core
-	path    *input
-	btnLoad widget.Clickable
-	btnPath widget.Clickable
-	resize  *widget.Bool
-	error   error
+	parent    *menuPopup
+	core      *Core
+	path      *input
+	btnImport *button
+	btnPath   *pathButton
+	chkResize *checkbox
+	error     error
 }
 
 func newImportGridPopout(p *menuPopup, c *Core) *importGridPopout {
 	result := &importGridPopout{
-		parent: p,
-		core:   c,
-		path:   newInput(c.theme, "", 256, nil).maximumWidth(30),
-		resize: &widget.Bool{Value: true},
+		parent:    p,
+		core:      c,
+		path:      newInput(c.theme, "", 256, nil).maximumWidth(30),
+		btnImport: newButton(c.theme, "Import"),
+		btnPath:   newPathButton(c.theme),
+		chkResize: newCheckBox(c.theme, "Resize grid", true),
 	}
 	result.path.onChangeFn = result.clearError
 	return result
@@ -72,7 +71,8 @@ func (p *importGridPopout) importGrid() {
 				}
 			}
 			p.core.stop()
-			resizeReqd := p.resize.Value && pattern.Height != p.core.gridHolder.grid.Height && pattern.Width != p.core.gridHolder.grid.Width
+			//resizeReqd := p.resize.Value && pattern.Height != p.core.gridHolder.grid.Height && pattern.Width != p.core.gridHolder.grid.Width
+			resizeReqd := p.chkResize.Checked() && pattern.Height != p.core.gridHolder.grid.Height && pattern.Width != p.core.gridHolder.grid.Width
 			if resizeReqd {
 				p.core.gridResize(pattern.Height, pattern.Width)
 			}
@@ -91,54 +91,25 @@ func (p *importGridPopout) importGrid() {
 	}
 }
 
-func (p *importGridPopout) filePicker() {
-	if runtime.GOOS == "darwin" {
-		out, err := exec.Command(
-			"osascript",
-			"-e",
-			`POSIX path of (choose file)`,
-		).Output()
-		if err == nil {
-			p.path.setText(strings.TrimSpace(string(out)))
-		}
-	}
-}
-
 func (p *importGridPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	if p.btnLoad.Clicked(gtx) {
+	if p.btnImport.Clicked(gtx) {
 		p.importGrid()
 	}
 	if p.btnPath.Clicked(gtx) {
-		p.filePicker()
+		filePicker(func(filename string) {
+			p.path.setText(strings.TrimSpace(string(filename)))
+		})
 	}
-	labelMax := measureMaxText(gtx, theme, font.Normal, "Path: ")
-	btnMax := measureMaxText(gtx, theme, font.Normal, "  Import  ")
+	labelMax := measureMaxText(gtx, theme, font.Normal, "Path: ").Size.X
 	return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8), Top: unit.Dp(8), Bottom: unit.Dp(4)}.
 		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									gtx.Constraints.Min.X = labelMax.Size.X
-									return rightLabel(theme, "Path:").Layout(gtx)
-								})
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return p.path.layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								if !isMac {
-									return layout.Dimensions{}
-								}
-								btn := material.Button(theme, &p.btnPath, "…")
-								btn.Inset = layout.Inset{Bottom: 2, Left: 3, Right: 3}
-								btn.Background = popupBackground
-								btn.Color = popupForeground
-								btn.TextSize = unit.Sp(16)
-								return btn.Layout(gtx)
-							}),
+							layout.Rigid(rightAlignedLabel(theme, "Path: ", labelMax)),
+							layout.Flexed(1, p.path.layout),
+							layout.Rigid(p.btnPath.Layout),
 						)
 					})
 				}),
@@ -146,24 +117,11 @@ func (p *importGridPopout) layout(gtx layout.Context, theme *material.Theme) lay
 					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.X = labelMax.Size.X
+								gtx.Constraints.Min.X = labelMax
 								return layout.Dimensions{Size: gtx.Constraints.Min}
 							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Inset{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									chkBox := material.CheckBox(theme, p.resize, "Resize grid")
-									chkBox.TextSize = unit.Sp(16)
-									chkBox.Size = 18
-									return chkBox.Layout(gtx)
-								})
-							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Max.X = btnMax.Size.X
-								btn := material.Button(theme, &p.btnLoad, "Import")
-								btn.Inset = layout.Inset{Bottom: 2}
-								btn.TextSize = unit.Sp(16)
-								return btn.Layout(gtx)
-							}),
+							layout.Rigid(p.chkResize.Layout),
+							layout.Rigid(p.btnImport.Layout),
 						)
 					})
 				}),
@@ -171,17 +129,12 @@ func (p *importGridPopout) layout(gtx layout.Context, theme *material.Theme) lay
 					if p.error == nil {
 						return layout.Dimensions{}
 					}
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Body1(theme, p.error.Error())
-						lbl.Color = errorColor
-						return lbl.Layout(gtx)
-
-					})
+					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, errorLabel(theme, p.error))
 				}),
 			)
 		})
 }
 
 func (p *importGridPopout) hasFocus(gtx layout.Context) bool {
-	return p.path.isFocused(gtx) || gtx.Focused(p.resize) || gtx.Focused(&p.btnLoad) || gtx.Focused(&p.btnPath)
+	return p.path.isFocused(gtx) || p.chkResize.Focused(gtx) || gtx.Focused(&p.btnImport) || gtx.Focused(&p.btnPath)
 }

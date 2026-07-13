@@ -4,7 +4,7 @@ Game Of Life implementation in Go.
 
 ## Features
 
-* Easy-to-use terminal UI (TUI)
+* Easy-to-use terminal UI (TUI) or GUI
 * Fast rendering and simulation (up to ~60 FPS)
 * Step ahead (steps the simulation ahead without rendering)
 * Snapshot current grid and revert back to snapshot
@@ -16,11 +16,11 @@ Game Of Life implementation in Go.
 * Pattern placement, rotation and positioning
 * Pattern capture from a simulation
   * Interactive pattern editor (cropping and cleanup; metadata editing; save as RLE)
-* Grid recipes - JSON files to create initial grid
+* Grid recipes - JSON files to create initial grid (see [README](recipes/README.md))
 * Save and load current grid as RLE
 * Mouse and keyboard support
 
-## Running
+## Running TUI
 
 (requires Go 1.26 installed)
 
@@ -29,7 +29,17 @@ TUI (terminal UI):
 go run ./cmd/tui
 ```
 
-## Screenshots
+## GUI Builds
+
+See [_builds](https://github.com/marrow16/gogol/tree/main/_builds/gui)
+
+## Screenshots GUI
+
+![screenshot](./_screenshots/gui-screenshot1.png)
+![screenshot](./_screenshots/gui-screenshot2.png)
+![screenshot](./_screenshots/gui-screenshot3.png)
+
+## Screenshots TUI
 
 ![screenshot](./_screenshots/screenshot1.png)
 ![screenshot](./_screenshots/screenshot2.png)
