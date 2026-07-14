@@ -9,19 +9,23 @@ import (
 	"time"
 )
 
+func (c *Core) stopShortcuts() {
+	c.shortcutRunning = false
+}
+
 func (c *Core) userShortcutKeys(kn key.Name) bool {
-	if c.runningShortcut {
+	if c.shortcutRunning {
 		return false
 	}
 	shortcut, handled := c.settings.Shortcuts[string(kn)]
 	if !handled {
 		return false
 	}
-	c.runningShortcut = true
+	c.shortcutRunning = true
 	c.window.Invalidate()
 	go func() {
 		defer func() {
-			c.runningShortcut = false
+			c.shortcutRunning = false
 			c.window.Invalidate()
 		}()
 		c.runUserShortcut(shortcut)
@@ -31,6 +35,9 @@ func (c *Core) userShortcutKeys(kn key.Name) bool {
 
 func (c *Core) runUserShortcut(shortcut []string) {
 	for _, token := range shortcut {
+		if !c.shortcutRunning {
+			break
+		}
 		if after, ok := strings.CutPrefix(token, shortcutRepeat); ok {
 			if parts := strings.Split(after, ","); len(parts) >= 2 {
 				if nTimes, err := strconv.Atoi(parts[0]); err == nil && nTimes > 0 {
@@ -44,7 +51,6 @@ func (c *Core) runUserShortcut(shortcut []string) {
 							useParts = append(useParts, parts[i])
 						}
 					}
-					fmt.Printf("use parts: %+v\n", useParts)
 					for i := 0; i < nTimes; i++ {
 						c.runUserShortcut(useParts)
 					}
@@ -52,6 +58,8 @@ func (c *Core) runUserShortcut(shortcut []string) {
 			}
 			continue
 		}
+		now := time.Now()
+		c.shortcutCurrent = now.Format("2006-01-02 15-04-05") + fmt.Sprintf("-%03d", now.Nanosecond()/1e6)
 		switch token {
 		case shortcutRun:
 			c.start()

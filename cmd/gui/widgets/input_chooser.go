@@ -434,5 +434,5 @@ func (i *chooser[T]) setFocused(gtx layout.Context) {
 }
 
 func (i *chooser[T]) isFocused(gtx layout.Context) bool {
-	return gtx.Focused(&i.editor) || i.opened
+	return gtx.Focused(&i.editor) || i.opened || gtx.Focused(&i.button)
 }

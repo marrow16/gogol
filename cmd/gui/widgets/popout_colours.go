@@ -136,7 +136,7 @@ func (p *colorsPopout) colorComponentChanged(c color.NRGBA, component int, v int
 }
 
 func (p *colorsPopout) hasFocus(gtx layout.Context) bool {
-	return p.chkBorders.Focused(gtx) ||
+	return p.chkBorders.isFocused(gtx) ||
 		p.aliveR.isFocused(gtx) || p.aliveG.isFocused(gtx) || p.aliveB.isFocused(gtx) ||
 		p.deadR.isFocused(gtx) || p.deadG.isFocused(gtx) || p.deadB.isFocused(gtx) ||
 		p.borderR.isFocused(gtx) || p.borderG.isFocused(gtx) || p.borderB.isFocused(gtx)

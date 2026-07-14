@@ -338,7 +338,7 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context, theme *material
 }
 
 func (p *instrumentationPopout) saveAnimation() {
-	filename, err := resolveSavePath(nowFilename("Grid", ".mp4"))
+	filename, err := resolveSavePath(p.core.nowFilename("Grid", ".mp4"))
 	if err != nil {
 		p.animationResult = &animationResult{
 			filename: filename,
@@ -413,6 +413,9 @@ func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context, theme *materia
 }
 
 func (p *instrumentationPopout) hasFocus(gtx layout.Context) bool {
-	return p.skipBackBy.isFocused(gtx) ||
-		p.chkRecord.Focused(gtx) || p.chkRepeatDetect.Focused(gtx) || p.chkHeatMap.Focused(gtx)
+	_, radios := p.heatMapType.Focused()
+	return radios || p.skipBackBy.isFocused(gtx) ||
+		p.chkRecord.isFocused(gtx) || p.chkRepeatDetect.isFocused(gtx) || p.chkHeatMap.isFocused(gtx) ||
+		p.btnRepeatReset.isFocused(gtx) || p.btnRecordReset.isFocused(gtx) || p.btnSaveAnimation.isFocused(gtx) ||
+		p.btnHeatMapReset.isFocused(gtx) || p.btnHeatMapReveal.isFocused(gtx) || p.btnHeatMapSave.isFocused(gtx)
 }

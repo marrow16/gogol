@@ -384,7 +384,8 @@ func (p *capturedPatternsPopout) layoutPreviewImage(pattern *patterns.Pattern, g
 }
 
 func (p *capturedPatternsPopout) hasFocus(gtx layout.Context) bool {
-	return p.chooser.isFocused(gtx) ||
+	_, radios := p.previewMode.Focused()
+	return radios || p.chooser.isFocused(gtx) || p.btnSave.isFocused(gtx) ||
 		p.name.isFocused(gtx) || p.filename.isFocused(gtx) ||
 		p.origin.isFocused(gtx) || p.comment.isFocused(gtx)
 }

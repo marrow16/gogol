@@ -41,7 +41,7 @@ func (p *steppingPopout) reset() {
 }
 
 func (p *steppingPopout) hasFocus(gtx layout.Context) bool {
-	return p.stepDelay.isFocused(gtx) || p.stepAheadSize.isFocused(gtx) || p.chkStepAheadSnapshot.Focused(gtx)
+	return p.stepDelay.isFocused(gtx) || p.stepAheadSize.isFocused(gtx) || p.chkStepAheadSnapshot.isFocused(gtx)
 }
 
 func (p *steppingPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {

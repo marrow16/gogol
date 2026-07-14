@@ -18,7 +18,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"time"
 )
 
 var modKeyName = func() string {
@@ -26,6 +25,12 @@ var modKeyName = func() string {
 		return "⌥" //"⌘"
 	}
 	return "Ctrl+"
+}()
+var altKeyName = func() string {
+	if runtime.GOOS == "darwin" {
+		return "⌥" //"⌘"
+	}
+	return "Alt+"
 }()
 var modKey = func() key.Modifiers {
 	if runtime.GOOS == "darwin" {
@@ -89,10 +94,6 @@ func resolveSavePath(path string) (string, error) {
 	return filepath.Join(dir, filepath.Base(path)), nil
 }
 
-func nowFilename(prefix string, extension string) string {
-	return prefix + " " + time.Now().Format("2006-01-02 15-04-05.999") + extension
-}
-
 func filePicker(fn func(filename string)) {
 	if fn != nil && isMac {
 		out, err := exec.Command(
@@ -104,6 +105,19 @@ func filePicker(fn func(filename string)) {
 			fn(string(out))
 		}
 	}
+}
+
+func openURL(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default: // Linux, BSD, etc.
+		cmd = exec.Command("xdg-open", url)
+	}
+	return cmd.Start()
 }
 
 func openInBrowser(filename string) {
@@ -168,6 +182,16 @@ func border(gtx layout.Context, dims layout.Dimensions, top, left, bottom, right
 			)).Op(),
 		)
 	}
+}
+
+func row(theme *material.Theme, leftWidth int, label string, value layout.Widget) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal}.Layout(
+			gtx,
+			layout.Rigid(rightAlignedBoldLabel(theme, label, leftWidth)),
+			layout.Flexed(1, value),
+		)
+	})
 }
 
 func errorLabel(theme *material.Theme, err error) layout.Widget {

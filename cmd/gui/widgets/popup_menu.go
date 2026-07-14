@@ -46,6 +46,11 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 			label:  "Grid Recipes",
 			popout: popoutGridRecipes,
 		},
+		{
+			parent: result,
+			label:  "Shortcuts",
+			popout: popoutShortcuts,
+		},
 		{},
 		{
 			parent: result,
@@ -84,7 +89,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 			label:  "Export Grid",
 			key:    "X",
 			fn: func() {
-				parent.core.export()
+				_ = parent.core.export()
 			},
 		},
 		{
@@ -139,6 +144,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		popoutImportGrid:             newImportGridPopout(result, result.core),
 		popoutGridRecipes:            newGridRecipesPopout(result, result.core),
 		popoutInstrumentation:        newInstrumentationPopout(result, result.core),
+		popoutShortcuts:              newShortcutsPopout(result, result.core),
 	}
 	result.selected = len(result.menuItems) - 1
 	return result
@@ -441,4 +447,5 @@ const (
 	popoutImportGrid
 	popoutGridRecipes
 	popoutInstrumentation
+	popoutShortcuts
 )

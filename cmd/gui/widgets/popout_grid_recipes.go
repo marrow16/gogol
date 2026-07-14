@@ -159,5 +159,5 @@ func (p *gridRecipesPopout) layout(gtx layout.Context, theme *material.Theme) la
 }
 
 func (p *gridRecipesPopout) hasFocus(gtx layout.Context) bool {
-	return p.chooser.isFocused(gtx)
+	return p.chooser.isFocused(gtx) || p.btnRun.isFocused(gtx) || p.btnSaveRle.isFocused(gtx) || p.btnPath.isFocused(gtx)
 }

@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"fmt"
 	"gioui.org/app"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
@@ -14,6 +15,7 @@ import (
 	"github.com/marrow16/gogol/patterns"
 	"strconv"
 	"sync"
+	"time"
 )
 
 func NewCore(s *settings.Settings) (*Core, error) {
@@ -148,7 +150,8 @@ type Core struct {
 	heatMapperType    heatMapperType
 	instrumentation   logic.CompositeInstrument
 
-	runningShortcut bool
+	shortcutRunning bool
+	shortcutCurrent string
 	// pattern placing...
 	placePatternCol, placePatternRow int
 	placePatternRotation             patterns.Rotation
@@ -168,9 +171,7 @@ func (c *Core) Run(window *app.Window) error {
 		case app.FrameEvent:
 			var ops op.Ops
 			gtx := app.NewContext(&ops, e)
-
 			c.handleKeys(gtx)
-
 			c.windowRect = clip.Rect{Max: gtx.Constraints.Max}
 			c.settings.ScreenWidth = int(float32(c.windowRect.Max.X) / gtx.Metric.PxPerDp)
 			c.settings.ScreenHeight = int(float32(c.windowRect.Max.Y) / gtx.Metric.PxPerDp)
@@ -267,6 +268,7 @@ func (c *Core) handleKeys(gtx layout.Context) {
 				switch evt.Name {
 				case key.NameEscape:
 					c.statusBar.showHidePopup(popupNone)
+					c.stopShortcuts()
 					c.clearMode()
 				case "0", "1", "2", "3", "4", "5", "6", "7", "8":
 					if evt.Modifiers == key.ModCtrl {
@@ -304,6 +306,14 @@ func (c *Core) startPatternPlace(gtx layout.Context, pattern *patterns.Pattern, 
 		moved:      true,
 	}
 	gtx.Execute(key.FocusCmd{Tag: &c.gridHolder.clickable})
+}
+
+func (c *Core) nowFilename(prefix string, extension string) string {
+	if c.shortcutRunning {
+		return c.shortcutCurrent + " " + prefix + extension
+	}
+	now := time.Now()
+	return prefix + " " + now.Format("2006-01-02 15-04-05") + fmt.Sprintf("-%03d", now.Nanosecond()/1e6) + extension
 }
 
 var altCommands = map[key.Name]func(gtx layout.Context, c *Core){
