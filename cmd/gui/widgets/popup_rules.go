@@ -24,7 +24,7 @@ func newRulesPopup(parent *statusBar) *rulesPopup {
 		parent: parent,
 	}
 	p.rleInput = newInput(parent.core.theme, "sbSB/012345678", 21, p.rleChanged)
-	p.permInput = newNumberInput[int](p.core.theme, 6, 0, 1<<18, 1<<9, p.permChanged)
+	p.permInput = newNumberInput[int](p.core.theme, 6, 0, (1<<18)-1, 1<<9, p.permChanged)
 	p.refreshRules()
 	return p
 }
@@ -126,24 +126,6 @@ func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
 	border(gtx, dims, true, true, false, true)
 	call.Add(gtx.Ops)
 	return dims
-}
-
-func row(theme *material.Theme, leftWidth int, label string, value layout.Widget) layout.FlexChild {
-	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{}.Layout(
-			gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = leftWidth
-				gtx.Constraints.Max.X = leftWidth
-				lbl := material.Label(theme, theme.TextSize, label)
-				lbl.Alignment = text.End
-				lbl.MaxLines = 1
-				lbl.Font.Weight = font.Bold
-				return lbl.Layout(gtx)
-			}),
-			layout.Flexed(1, value),
-		)
-	})
 }
 
 func (p *rulesPopup) layoutDetails(rowDims layout.Dimensions) layout.FlexChild {

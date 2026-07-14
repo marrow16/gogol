@@ -120,5 +120,5 @@ func (p *loadPatternsPopout) layout(gtx layout.Context, theme *material.Theme) l
 }
 
 func (p *loadPatternsPopout) hasFocus(gtx layout.Context) bool {
-	return p.path.isFocused(gtx) || gtx.Focused(&p.btnLoad) || gtx.Focused(&p.btnPath)
+	return p.path.isFocused(gtx) || p.btnLoad.isFocused(gtx) || p.btnPath.isFocused(gtx)
 }

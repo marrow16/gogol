@@ -366,7 +366,7 @@ func (c *Core) export() (err error) {
 	c.stop()
 	var p patterns.Pattern
 	if p, err = c.settings.PatternFromGrid(c.gridHolder.grid); err == nil {
-		filename := nowFilename("Grid Export", ".rle")
+		filename := c.nowFilename("Grid Export", ".rle")
 		p.Name = filename
 		var f *os.File
 		if f, err = saveFile(filename, false); err == nil {
@@ -445,7 +445,7 @@ func (c *Core) setInstrumentationHeatMapper(hmt heatMapperType) {
 
 func (c *Core) saveHeatMapImage() {
 	if c.instrumentHeatMap != nil {
-		filename := nowFilename("Heat Map "+c.heatMapperType.String(), ".png")
+		filename := c.nowFilename("Heat Map "+c.heatMapperType.String(), ".png")
 		if f, err := saveFile(filename, false); err == nil {
 			defer func() {
 				_ = f.Close()

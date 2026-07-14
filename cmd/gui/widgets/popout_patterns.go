@@ -258,5 +258,7 @@ func (p *patternsPopout) reset() {
 }
 
 func (p *patternsPopout) hasFocus(gtx layout.Context) bool {
-	return p.chooser.isFocused(gtx) || p.chkFilterCurrentRule.Focused(gtx) || p.chkInterlaced.Focused(gtx)
+	_, radios := p.previewMode.Focused()
+	return radios || p.chooser.isFocused(gtx) || p.chkFilterCurrentRule.isFocused(gtx) || p.chkInterlaced.isFocused(gtx) ||
+		p.btnPlace.isFocused(gtx)
 }

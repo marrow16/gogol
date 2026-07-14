@@ -81,6 +81,7 @@ type statusBar struct {
 }
 
 func (sb *statusBar) play() {
+	sb.core.stopShortcuts()
 	sb.showingPopup = popupNone
 	if !sb.core.running {
 		sb.core.start()
@@ -88,6 +89,7 @@ func (sb *statusBar) play() {
 }
 
 func (sb *statusBar) pause() {
+	sb.core.stopShortcuts()
 	sb.showingPopup = popupNone
 	if sb.core.running {
 		sb.core.stop()
@@ -95,21 +97,25 @@ func (sb *statusBar) pause() {
 }
 
 func (sb *statusBar) step() {
+	sb.core.stopShortcuts()
 	sb.showingPopup = popupNone
 	sb.core.step()
 }
 
 func (sb *statusBar) stepAhead() {
+	sb.core.stopShortcuts()
 	sb.showingPopup = popupNone
 	sb.core.stepAhead()
 }
 
 func (sb *statusBar) stepBack() {
+	sb.core.stopShortcuts()
 	sb.showingPopup = popupNone
 	sb.core.stepBack()
 }
 
 func (sb *statusBar) skipBack() {
+	sb.core.stopShortcuts()
 	sb.showingPopup = popupNone
 	sb.core.skipBack()
 }
@@ -125,10 +131,12 @@ func (sb *statusBar) zoomOut() {
 }
 
 func (sb *statusBar) menu() {
+	sb.core.stopShortcuts()
 	sb.showHidePopup(popupMenu)
 }
 
 func (sb *statusBar) showHidePopup(p popup) {
+	sb.core.stopShortcuts()
 	if sb.showingPopup == p {
 		sb.showingPopup = popupNone
 	} else {
@@ -193,7 +201,7 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 	}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			switch {
-			case sb.core.runningShortcut:
+			case sb.core.shortcutRunning:
 				sb.stepDims = sb.label(gtx, theme, "Running Shortcut", text.Start)
 			case sb.core.status != "":
 				sb.stepDims = sb.label(gtx, theme, sb.core.status, text.Start)

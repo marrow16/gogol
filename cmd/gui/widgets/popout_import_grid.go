@@ -136,5 +136,6 @@ func (p *importGridPopout) layout(gtx layout.Context, theme *material.Theme) lay
 }
 
 func (p *importGridPopout) hasFocus(gtx layout.Context) bool {
-	return p.path.isFocused(gtx) || p.chkResize.Focused(gtx) || gtx.Focused(&p.btnImport) || gtx.Focused(&p.btnPath)
+	return p.path.isFocused(gtx) || p.chkResize.isFocused(gtx) ||
+		p.btnImport.isFocused(gtx) || p.btnPath.isFocused(gtx)
 }

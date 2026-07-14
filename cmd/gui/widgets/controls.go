@@ -28,6 +28,10 @@ func (b *button) Clicked(gtx layout.Context) bool {
 	return b.clickable.Clicked(gtx)
 }
 
+func (b *button) isFocused(gtx layout.Context) bool {
+	return gtx.Focused(&b.clickable)
+}
+
 func newPathButton(theme *material.Theme) *pathButton {
 	b := &pathButton{}
 	s := material.Button(theme, &b.clickable, "…")
@@ -53,6 +57,10 @@ func (b *pathButton) Layout(gtx layout.Context) layout.Dimensions {
 
 func (b *pathButton) Clicked(gtx layout.Context) bool {
 	return b.clickable.Clicked(gtx)
+}
+
+func (b *pathButton) isFocused(gtx layout.Context) bool {
+	return gtx.Focused(&b.clickable)
 }
 
 func newRadioButton(theme *material.Theme, enum *widget.Enum, key string, label string) *radioButton {
@@ -96,8 +104,8 @@ func (c *checkbox) Update(gtx layout.Context) bool {
 	return c.value.Update(gtx)
 }
 
-func (c *checkbox) Focused(gtx layout.Context) bool {
-	return gtx.Focused(c.value.Value)
+func (c *checkbox) isFocused(gtx layout.Context) bool {
+	return gtx.Focused(c.value)
 }
 
 func (c *checkbox) Checked() bool {

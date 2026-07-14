@@ -185,6 +185,9 @@ func (p *sizingPopout) layout(gtx layout.Context, theme *material.Theme) layout.
 }
 
 func (p *sizingPopout) hasFocus(gtx layout.Context) bool {
+	_, radiosWrap := p.wrapMode.Focused()
+	_, radiosBoundary := p.boundaryMode.Focused()
 	return p.height.isFocused(gtx) || p.width.isFocused(gtx) || p.cellSize.isFocused(gtx) || p.randomize.isFocused(gtx) ||
-		gtx.Focused(&p.btnResize) || gtx.Focused(&p.btnFitScreen)
+		p.btnResize.isFocused(gtx) || p.btnFitScreen.isFocused(gtx) ||
+		radiosWrap || radiosBoundary
 }
