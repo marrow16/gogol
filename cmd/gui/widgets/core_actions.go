@@ -191,6 +191,58 @@ func (c *Core) permutationDecrement() {
 	}
 }
 
+func (c *Core) permutationIncrementBorn() {
+	c.stop()
+	perm := c.gridHolder.grid.Rule.Permutation()
+	b := (perm >> 9) & 0x1FF
+	s := perm & 0x1FF
+	b = (b + 1) & 0x1FF
+	if r, err := logic.NewRuleFromPermutation((b << 9) | s); err == nil {
+		c.gridHolder.grid.SetRule(r)
+	}
+}
+
+func (c *Core) permutationDecrementBorn() {
+	c.stop()
+	perm := c.gridHolder.grid.Rule.Permutation()
+	b := (perm >> 9) & 0x1FF
+	s := perm & 0x1FF
+	if b == 0 {
+		b = 0x1FF
+	} else {
+		b = (b - 1) & 0x1FF
+	}
+	if r, err := logic.NewRuleFromPermutation((b << 9) | s); err == nil {
+		c.gridHolder.grid.SetRule(r)
+	}
+}
+
+func (c *Core) permutationIncrementSurvives() {
+	c.stop()
+	perm := c.gridHolder.grid.Rule.Permutation()
+	b := (perm >> 9) & 0x1FF
+	s := perm & 0x1FF
+	s = (s + 1) & 0x1FF
+	if r, err := logic.NewRuleFromPermutation((b << 9) | s); err == nil {
+		c.gridHolder.grid.SetRule(r)
+	}
+}
+
+func (c *Core) permutationDecrementSurvives() {
+	c.stop()
+	perm := c.gridHolder.grid.Rule.Permutation()
+	b := (perm >> 9) & 0x1FF
+	s := perm & 0x1FF
+	if s == 0 {
+		s = 0x1FF
+	} else {
+		s = (s - 1) & 0x1FF
+	}
+	if r, err := logic.NewRuleFromPermutation((b << 9) | s); err == nil {
+		c.gridHolder.grid.SetRule(r)
+	}
+}
+
 func (c *Core) standardRule() {
 	c.stop()
 	c.gridHolder.grid.SetRule(logic.StandardRule)
