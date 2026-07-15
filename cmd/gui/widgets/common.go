@@ -91,7 +91,12 @@ func resolveSavePath(path string) (string, error) {
 	if err = os.MkdirAll(dir, 0o755); err != nil {
 		return "", errors.New("Invalid user home directory")
 	}
-	return filepath.Join(dir, filepath.Base(path)), nil
+	result := filepath.Join(dir, path)
+	dir = filepath.Dir(result)
+	if err = os.MkdirAll(dir, 0o755); err != nil {
+		return "", errors.New("Invalid path")
+	}
+	return result, nil
 }
 
 func filePicker(fn func(filename string)) {

@@ -28,12 +28,12 @@ func (c *Core) userShortcutKeys(kn key.Name) bool {
 			c.shortcutRunning = false
 			c.window.Invalidate()
 		}()
-		c.runUserShortcut(shortcut)
+		c.runUserShortcut(shortcut, nil, "")
 	}()
 	return true
 }
 
-func (c *Core) runUserShortcut(shortcut []string) {
+func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string) {
 	for _, token := range shortcut {
 		if !c.shortcutRunning {
 			break
@@ -52,14 +52,18 @@ func (c *Core) runUserShortcut(shortcut []string) {
 						}
 					}
 					for i := 0; i < nTimes; i++ {
-						c.runUserShortcut(useParts)
+						c.runUserShortcut(useParts, append(repeats, i), nameFmt)
 					}
 				}
 			}
 			continue
 		}
-		now := time.Now()
-		c.shortcutCurrent = now.Format("2006-01-02 15-04-05") + fmt.Sprintf("-%03d", now.Nanosecond()/1e6)
+		if len(nameFmt) == 0 {
+			now := time.Now()
+			c.shortcutCurrent = now.Format("2006-01-02 15-04-05") + fmt.Sprintf("-%03d", now.Nanosecond()/1e6)
+		} else {
+			c.shortcutCurrent = c.shortcutFormatName(nameFmt, repeats)
+		}
 		switch token {
 		case shortcutRun:
 			c.start()
@@ -109,6 +113,14 @@ func (c *Core) runUserShortcut(shortcut []string) {
 			c.permutationDecrement()
 		case shortcutRulePermInc:
 			c.permutationIncrement()
+		case shortcutBornWithInc:
+			c.permutationIncrementBorn()
+		case shortcutBornWithDec:
+			c.permutationDecrementBorn()
+		case shortcutSurvivesWithInc:
+			c.permutationIncrementSurvives()
+		case shortcutSurvivesWithDec:
+			c.permutationDecrementSurvives()
 		case shortcutRunRecipe:
 			if c.gridRecipes != nil {
 				c.stop()
@@ -126,6 +138,8 @@ func (c *Core) runUserShortcut(shortcut []string) {
 		default:
 			if parts := strings.SplitN(token, ":", 2); len(parts) == 2 {
 				switch parts[0] {
+				case shortcutName:
+					nameFmt += parts[1]
 				case shortcutStepAhead:
 					if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 && n <= 9999 {
 						c.settings.StepAheadBy = n
@@ -299,8 +313,57 @@ func (c *Core) runUserShortcut(shortcut []string) {
 	}
 }
 
+func (c *Core) shortcutFormatName(s string, repeats []int) string {
+	rIndex := 0
+	var b strings.Builder
+	rule := c.gridHolder.grid.Rule
+	for i := 0; i < len(s); {
+		switch {
+		case strings.HasPrefix(s[i:], "%rule"):
+			b.WriteString(rule.Rle())
+			i += 5
+		case strings.HasPrefix(s[i:], "%born"):
+			b.WriteString("B" + rule.BornWith())
+			i += 5
+		case strings.HasPrefix(s[i:], "%survives"):
+			b.WriteString("S" + rule.SurvivesWith())
+			i += 9
+		case strings.HasPrefix(s[i:], "%perm"):
+			b.WriteString(strconv.Itoa(rule.Permutation()))
+			i += 5
+		case strings.HasPrefix(s[i:], "%rand"):
+			b.WriteString(strconv.Itoa(c.settings.Randomization))
+			i += 5
+		case strings.HasPrefix(s[i:], "%now"):
+			now := time.Now()
+			b.WriteString(now.Format("2006-01-02 15-04-05") + fmt.Sprintf("-%03d", now.Nanosecond()/1e6))
+			i += 4
+		case strings.HasPrefix(s[i:], "%R"):
+			if len(repeats) > 0 {
+				b.WriteString(strconv.Itoa(repeats[len(repeats)-1]))
+			}
+			i += 2
+		case strings.HasPrefix(s[i:], "%r"):
+			if rIndex < len(repeats) {
+				b.WriteString(strconv.Itoa(repeats[rIndex]))
+			} else {
+				b.WriteString("_r_")
+			}
+			rIndex++
+			i += 2
+		case s[i] == '%':
+			i++
+		default:
+			b.WriteByte(s[i])
+			i++
+		}
+	}
+	return b.String()
+}
+
 const (
 	shortcutRepeat           = "repeat:"
+	shortcutName             = "name"
 	shortcutRun              = "run"
 	shortcutStop             = "stop"
 	shortcutExport           = "export"
@@ -329,7 +392,11 @@ const (
 	shortcutRulePerm         = "rule-perm"
 	shortcutRule             = "rule"
 	shortcutBornWith         = "rule-born-with"
+	shortcutBornWithInc      = "rule-born-with++"
+	shortcutBornWithDec      = "rule-born-with--"
 	shortcutSurvivesWith     = "rule-survives-with"
+	shortcutSurvivesWithInc  = "rule-survives-with++"
+	shortcutSurvivesWithDec  = "rule-survives-with--"
 	shortcutGridWidth        = "grid-width"
 	shortcutGridHeight       = "grid-height"
 	shortcutGridSize         = "grid-size" // "widthXheight"

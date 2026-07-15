@@ -233,6 +233,7 @@ func (c *Core) clearMode() {
 // B023/S1234 mazes with flashing patches
 
 // B13/S1236 4088
+// B1278/S01238
 
 var keyFilters = []event.Filter{
 	key.Filter{Required: key.ModAlt, Name: ""},
