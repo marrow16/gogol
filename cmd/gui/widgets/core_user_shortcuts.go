@@ -135,6 +135,13 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 		case shortcutHeatMapSave:
 			c.stop()
 			c.saveHeatMapImage()
+		case shortcutHeatMapReveal:
+			c.stop()
+			if c.heatMapperType != noHeatMapper && c.instrumentHeatMap != nil {
+				c.gridHolder.buildHeatMap(c.instrumentHeatMap)
+				c.mode = heatMapMode
+				c.window.Invalidate()
+			}
 		case shortcutRepeatDetectSave:
 			c.stop()
 			c.saveRepeatDetect()
@@ -408,4 +415,5 @@ const (
 	shortcutRepeatDetectSave = "repeat-detect-save"
 	shortcutHeatMap          = "heat-map"
 	shortcutHeatMapSave      = "heat-map-save"
+	shortcutHeatMapReveal    = "heat-map-reveal"
 )

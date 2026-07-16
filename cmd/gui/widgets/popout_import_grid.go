@@ -71,7 +71,6 @@ func (p *importGridPopout) importGrid() {
 				}
 			}
 			p.core.stop()
-			//resizeReqd := p.resize.Value && pattern.Height != p.core.gridHolder.grid.Height && pattern.Width != p.core.gridHolder.grid.Width
 			resizeReqd := p.chkResize.Checked() && pattern.Height != p.core.gridHolder.grid.Height && pattern.Width != p.core.gridHolder.grid.Width
 			if resizeReqd {
 				p.core.gridResize(pattern.Height, pattern.Width)
