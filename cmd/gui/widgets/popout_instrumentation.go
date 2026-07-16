@@ -20,6 +20,7 @@ type instrumentationPopout struct {
 	// repeat...
 	chkRepeatDetect *checkbox
 	btnRepeatReset  *button
+	btnRepeatSave   *button
 	// record...
 	chkRecord        *checkbox
 	skipBackBy       *numberInput[int]
@@ -39,6 +40,7 @@ type instrumentationPopout struct {
 	radioBirths      *radioButton
 	radioFreshness   *radioButton
 	radioPhaseParity *radioButton
+	radioAll         *radioButton
 }
 
 type animationResult struct {
@@ -52,6 +54,7 @@ func newInstrumentationPopout(p *menuPopup, c *Core) *instrumentationPopout {
 		core:             c,
 		chkRepeatDetect:  newCheckBox(c.theme, "Repeat Detect", c.instrumentRepeat != nil),
 		btnRepeatReset:   newButton(c.theme, "Reset"),
+		btnRepeatSave:    newButton(c.theme, "Save Report"),
 		chkRecord:        newCheckBox(c.theme, "Record", c.instrumentRecord != nil),
 		btnRecordReset:   newButton(c.theme, "Reset"),
 		btnSaveAnimation: newButton(c.theme, "Save Animation"),
@@ -66,6 +69,7 @@ func newInstrumentationPopout(p *menuPopup, c *Core) *instrumentationPopout {
 	result.radioBirths = newRadioButton(c.theme, result.heatMapType, birthsHeatMapper.String(), "Births")
 	result.radioFreshness = newRadioButton(c.theme, result.heatMapType, freshnessHeatMapper.String(), "Freshness")
 	result.radioPhaseParity = newRadioButton(c.theme, result.heatMapType, phaseParityHeatMapper.String(), "Phase Parity")
+	result.radioAll = newRadioButton(c.theme, result.heatMapType, allHeatMapper.String(), "All")
 	result.skipBackBy = newNumberInput[int](c.theme, 4, 1, 9999, 100, result.skipBackByChanged)
 	return result
 }
@@ -169,6 +173,9 @@ func (p *instrumentationPopout) update(gtx layout.Context) {
 	}
 	if p.btnRepeatReset.Clicked(gtx) {
 		p.core.setInstrumentationRepeat(true)
+	}
+	if p.btnRepeatSave.Clicked(gtx) {
+		p.core.saveRepeatDetect()
 	}
 	if p.btnRecordReset.Clicked(gtx) {
 		if !p.animationSaving {
@@ -278,7 +285,14 @@ func (p *instrumentationPopout) layoutRepeat(gtx layout.Context, theme *material
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnRepeatReset.Layout)
+					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnRepeatReset.Layout)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnRepeatSave.Layout)
+						}),
+					)
 				}),
 			)
 		})
@@ -381,6 +395,7 @@ func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context, theme *materia
 						}),
 						layout.Rigid(p.radioFreshness.Layout),
 						layout.Rigid(p.radioPhaseParity.Layout),
+						layout.Rigid(p.radioAll.Layout),
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -416,6 +431,6 @@ func (p *instrumentationPopout) hasFocus(gtx layout.Context) bool {
 	_, radios := p.heatMapType.Focused()
 	return radios || p.skipBackBy.isFocused(gtx) ||
 		p.chkRecord.isFocused(gtx) || p.chkRepeatDetect.isFocused(gtx) || p.chkHeatMap.isFocused(gtx) ||
-		p.btnRepeatReset.isFocused(gtx) || p.btnRecordReset.isFocused(gtx) || p.btnSaveAnimation.isFocused(gtx) ||
+		p.btnRepeatReset.isFocused(gtx) || p.btnRepeatSave.isFocused(gtx) || p.btnRecordReset.isFocused(gtx) || p.btnSaveAnimation.isFocused(gtx) ||
 		p.btnHeatMapReset.isFocused(gtx) || p.btnHeatMapReveal.isFocused(gtx) || p.btnHeatMapSave.isFocused(gtx)
 }

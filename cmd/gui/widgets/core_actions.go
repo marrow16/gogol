@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"encoding/json"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"github.com/marrow16/gogol/logic"
@@ -496,15 +497,49 @@ func (c *Core) setInstrumentationHeatMapper(hmt heatMapperType) {
 }
 
 func (c *Core) saveHeatMapImage() {
+	c.stop()
 	if c.instrumentHeatMap != nil {
-		filename := c.nowFilename("Heat Map "+c.heatMapperType.String(), ".png")
+		if all, ok := c.instrumentHeatMap.(*allHeatMapInstrument); ok {
+			for hmt, hm := range all.heatMappers {
+				filename := c.nowFilename("Heat Map "+hmt.String(), ".png")
+				if f, err := saveFile(filename, false); err == nil {
+					defer func() {
+						_ = f.Close()
+					}()
+					img := image.NewNRGBA(image.Rect(0, 0, c.settings.Width*c.settings.CellSize, c.settings.Height*c.settings.CellSize))
+					c.gridHolder.drawHeatMap(img, hm)
+					_ = png.Encode(f, img)
+				}
+			}
+		} else {
+			filename := c.nowFilename("Heat Map "+c.heatMapperType.String(), ".png")
+			if f, err := saveFile(filename, false); err == nil {
+				defer func() {
+					_ = f.Close()
+				}()
+				img := image.NewNRGBA(image.Rect(0, 0, c.settings.Width*c.settings.CellSize, c.settings.Height*c.settings.CellSize))
+				c.gridHolder.drawHeatMap(img, c.instrumentHeatMap)
+				_ = png.Encode(f, img)
+			}
+		}
+	}
+}
+
+func (c *Core) saveRepeatDetect() {
+	c.stop()
+	if c.instrumentRepeat != nil {
+		filename := c.nowFilename("Repeat detection "+strconv.FormatUint(c.instrumentRepeat.Step, 10), ".json")
 		if f, err := saveFile(filename, false); err == nil {
 			defer func() {
 				_ = f.Close()
 			}()
-			img := image.NewNRGBA(image.Rect(0, 0, c.settings.Width*c.settings.CellSize, c.settings.Height*c.settings.CellSize))
-			c.gridHolder.drawHeatMap(img, c.instrumentHeatMap)
-			_ = png.Encode(f, img)
+			_ = json.NewEncoder(f).Encode(map[string]any{
+				"step":   c.instrumentRepeat.Step,
+				"found":  c.instrumentRepeat.Found,
+				"first":  c.instrumentRepeat.FirstStep,
+				"repeat": c.instrumentRepeat.RepeatStep,
+				"period": c.instrumentRepeat.Period,
+			})
 		}
 	}
 }

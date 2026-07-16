@@ -365,6 +365,38 @@ func (e *editor) handleSpecialKeys(gtx layout.Context, kev key.Event) {
 	case "Z":
 		e.endMarking(false)
 		e.doUndo()
+	case "U":
+		// rotate up
+		e.endMarking(false)
+		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
+			e.addPatternUndo(pattern, 0, 0, patterns.Rotate0)
+			pattern = pattern.RotatedUp()
+			pattern.Draw(e.g.grid, 0, 0, patterns.Rotate0)
+		}
+	case "D":
+		// rotate down
+		e.endMarking(false)
+		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
+			e.addPatternUndo(pattern, 0, 0, patterns.Rotate0)
+			pattern = pattern.RotatedDown()
+			pattern.Draw(e.g.grid, 0, 0, patterns.Rotate0)
+		}
+	case ",":
+		// rotate left
+		e.endMarking(false)
+		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
+			e.addPatternUndo(pattern, 0, 0, patterns.Rotate0)
+			pattern = pattern.RotatedLeft()
+			pattern.Draw(e.g.grid, 0, 0, patterns.Rotate0)
+		}
+	case ".":
+		// rotate right
+		e.endMarking(false)
+		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
+			e.addPatternUndo(pattern, 0, 0, patterns.Rotate0)
+			pattern = pattern.RotatedRight()
+			pattern.Draw(e.g.grid, 0, 0, patterns.Rotate0)
+		}
 	}
 }
 

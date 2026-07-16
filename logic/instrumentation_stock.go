@@ -9,7 +9,7 @@ type RepeatInstrument struct {
 	hash       uint64
 	zobrist    [][]uint64
 	seen       map[uint64]uint64
-	step       uint64
+	Step       uint64
 	FirstStep  uint64
 	RepeatStep uint64
 	Period     uint64
@@ -43,13 +43,13 @@ func NewRepeatInstrument(g *Grid) *RepeatInstrument {
 		seen: map[uint64]uint64{
 			hash: step,
 		},
-		step: step,
+		Step: step,
 	}
 }
 
 func (r *RepeatInstrument) InstrumentStop(step uint64, _ []*Cell, locations [][2]int) bool {
-	if step > r.step {
-		r.step = step
+	if step > r.Step {
+		r.Step = step
 		for _, loc := range locations {
 			r.hash ^= r.zobrist[loc[0]][loc[1]]
 		}
