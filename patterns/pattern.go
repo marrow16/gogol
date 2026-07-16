@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/marrow16/gogol/logic"
 	"io"
+	"slices"
 )
 
 type Pattern struct {
@@ -155,4 +156,79 @@ func (p Pattern) DrawTo(rot Rotation, fn func(row, col int, alive bool)) {
 			fn(row, col, alive)
 		}
 	}
+}
+
+func (p Pattern) RotatedUp() Pattern {
+	result := Pattern{
+		Width:  p.Width,
+		Height: p.Height,
+		Rule:   p.Rule,
+		Cells:  slices.Clone(p.Cells),
+	}
+	if p.Width <= 0 || p.Height <= 1 || len(p.Cells) != p.Width*p.Height {
+		return result
+	}
+	width := result.Width
+	firstRow := append([]bool(nil), result.Cells[:width]...)
+	copy(result.Cells, result.Cells[width:])
+	copy(result.Cells[len(result.Cells)-width:], firstRow)
+	return result
+}
+
+func (p Pattern) RotatedDown() Pattern {
+	result := Pattern{
+		Width:  p.Width,
+		Height: p.Height,
+		Rule:   p.Rule,
+		Cells:  slices.Clone(p.Cells),
+	}
+	if p.Width <= 0 || p.Height <= 1 || len(p.Cells) != p.Width*p.Height {
+		return result
+	}
+	width := result.Width
+	lastRowStart := len(result.Cells) - width
+	lastRow := append([]bool(nil), result.Cells[lastRowStart:]...)
+	copy(result.Cells[width:], result.Cells[:lastRowStart])
+	copy(result.Cells[:width], lastRow)
+	return result
+}
+
+func (p Pattern) RotatedLeft() Pattern {
+	result := Pattern{
+		Width:  p.Width,
+		Height: p.Height,
+		Rule:   p.Rule,
+		Cells:  slices.Clone(p.Cells),
+	}
+	if p.Width <= 1 || p.Height <= 0 || len(p.Cells) != p.Width*p.Height {
+		return result
+	}
+	for row := 0; row < result.Height; row++ {
+		start := row * result.Width
+		end := start + result.Width
+		first := result.Cells[start]
+		copy(result.Cells[start:end-1], result.Cells[start+1:end])
+		result.Cells[end-1] = first
+	}
+	return result
+}
+
+func (p Pattern) RotatedRight() Pattern {
+	result := Pattern{
+		Width:  p.Width,
+		Height: p.Height,
+		Rule:   p.Rule,
+		Cells:  slices.Clone(p.Cells),
+	}
+	if p.Width <= 1 || p.Height <= 0 || len(p.Cells) != p.Width*p.Height {
+		return result
+	}
+	for row := 0; row < result.Height; row++ {
+		start := row * result.Width
+		end := start + result.Width
+		last := result.Cells[end-1]
+		copy(result.Cells[start+1:end], result.Cells[start:end-1])
+		result.Cells[start] = last
+	}
+	return result
 }

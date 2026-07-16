@@ -135,6 +135,9 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 		case shortcutHeatMapSave:
 			c.stop()
 			c.saveHeatMapImage()
+		case shortcutRepeatDetectSave:
+			c.stop()
+			c.saveRepeatDetect()
 		default:
 			if parts := strings.SplitN(token, ":", 2); len(parts) == 2 {
 				switch parts[0] {
@@ -402,6 +405,7 @@ const (
 	shortcutGridSize         = "grid-size" // "widthXheight"
 	shortcutRecord           = "record"
 	shortcutRepeatDetect     = "repeat-detect"
+	shortcutRepeatDetectSave = "repeat-detect-save"
 	shortcutHeatMap          = "heat-map"
 	shortcutHeatMapSave      = "heat-map-save"
 )

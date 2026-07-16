@@ -61,68 +61,6 @@ func (m mode) String() string {
 	return ""
 }
 
-type heatMapperType int
-
-const (
-	noHeatMapper heatMapperType = iota
-	activityHeatMapper
-	occupancyHeatMapper
-	freshnessHeatMapper
-	phaseParityHeatMapper
-	birthsHeatMapper
-)
-
-func (hmt heatMapperType) newHeatMapper(g *logic.Grid, halfLife float32) logic.HeatMap {
-	switch hmt {
-	case activityHeatMapper:
-		return logic.NewActivityHeatMapInstrument(g)
-	case occupancyHeatMapper:
-		return logic.NewOccupancyHeatMapInstrument(g)
-	case freshnessHeatMapper:
-		return logic.NewFreshnessHeatMapInstrument(g, halfLife)
-	case phaseParityHeatMapper:
-		return logic.NewPhaseHeatMapInstrument(g)
-	case birthsHeatMapper:
-		return logic.NewBirthsHeatMapInstrument(g, halfLife)
-	default:
-		return nil
-	}
-}
-
-func (hmt heatMapperType) String() string {
-	switch hmt {
-	case activityHeatMapper:
-		return "Activity"
-	case occupancyHeatMapper:
-		return "Occupancy"
-	case freshnessHeatMapper:
-		return "Freshness"
-	case phaseParityHeatMapper:
-		return "Phase Parity"
-	case birthsHeatMapper:
-		return "Births"
-	default:
-		return "None"
-	}
-}
-
-func heatMapperTypeFrom(s string) heatMapperType {
-	switch s {
-	case "Activity":
-		return activityHeatMapper
-	case "Occupancy":
-		return occupancyHeatMapper
-	case "Freshness":
-		return freshnessHeatMapper
-	case "Phase Parity":
-		return phaseParityHeatMapper
-	case "Births":
-		return birthsHeatMapper
-	default:
-		return noHeatMapper
-	}
-}
-
 type Core struct {
 	settings    *settings.Settings
 	window      *app.Window
@@ -209,7 +147,12 @@ func (c *Core) modeDisplay() string {
 				s = strconv.Itoa(c.gridHolder.editor.row) + "x" + strconv.Itoa(c.gridHolder.editor.col) + " " + s
 			}
 		case heatMapMode:
-			s = s + " - " + c.heatMapperType.String() + " (Esc exit)"
+			if c.heatMapperType == allHeatMapper {
+				hm := c.instrumentHeatMap.(*allHeatMapInstrument)
+				s = s + " - " + hm.showType.String() + " (Esc exit)"
+			} else {
+				s = s + " - " + c.heatMapperType.String() + " (Esc exit)"
+			}
 		}
 		return s
 	}
@@ -258,7 +201,7 @@ func (c *Core) handleKeys(gtx layout.Context) {
 		switch evt := ev.(type) {
 		case key.Event:
 			if evt.State == key.Press {
-				if c.mode == noMode && evt.Modifiers == key.ModAlt {
+				if (c.mode == noMode || c.mode == heatMapMode) && evt.Modifiers == key.ModAlt {
 					if c.userShortcutKeys(evt.Name) {
 						return
 					} else if fn, ok := altCommands[evt.Name]; ok {
@@ -417,6 +360,11 @@ var altCommands = map[key.Name]func(gtx layout.Context, c *Core){
 		}
 	},
 	"H": func(gtx layout.Context, c *Core) {
+		if c.mode == heatMapMode && c.heatMapperType == allHeatMapper && c.instrumentHeatMap != nil {
+			if am, ok := c.instrumentHeatMap.(*allHeatMapInstrument); ok {
+				am.cycleShowType()
+			}
+		}
 		c.showHeatMap()
 	},
 }

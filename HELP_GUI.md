@@ -1,6 +1,6 @@
 # GoGoL GUI Help
 
-Note: `⌥` (Mac) is `Alt` on Windows
+Note: `⌥` (Mac Option) is `Alt` on Windows
 
 ## Statusbar
 
@@ -81,6 +81,10 @@ When record instrument is enabled (see **Menu > Instrumentation**):
 | `⌥I`                                    | Toggle pattern placement interlaced |
 | `⌥P`                                    | Place pattern                       |
 | `⌥R`                                    | Pattern placement rotation          |
+| `⌥U`                                    | Shift entire grid up                |
+| `⌥D`                                    | Shift entire grid down              |
+| `⌥,`                                    | Shift entire grid left              |
+| `⌥.`                                    | Shift entire grid right             |
 | `⌘A` `Ctrl+A`                           | Mark entire grid                    |
 | `⌘C` `Ctrl+C`                           | Copy marked area as pattern RLE     |
 | `⌘V` `Ctrl+V`                           | Paste pattern RLE                   |
