@@ -8,11 +8,13 @@ build-mac: build-mac-amd build-mac-arm
 build-mac-amd:
 	$(info Building mac-amd64)
 	gogio -target macos -arch amd64 -appid com.github.marrow16.gogol -icon gogol-neon-icon.png -o _builds/gui/mac/amd64/GoGoL.app ./cmd/gui
+	hdiutil create -volname "GoGoL" -srcfolder _builds/gui/mac/amd64/GoGoL.app -ov -format UDZO _builds/gui/mac/amd64/GoGoL.dmg
 
 .PHONY: build-mac-arm
 build-mac-arm:
 	$(info Building mac-arm64)
 	gogio -target macos -arch arm64 -appid com.github.marrow16.gogol -icon gogol-neon-icon.png -o _builds/gui/mac/arm64/GoGoL.app ./cmd/gui
+	hdiutil create -volname "GoGoL" -srcfolder _builds/gui/mac/arm64/GoGoL.app -ov -format UDZO _builds/gui/mac/arm64/GoGoL.dmg
 
 .PHONY: build-windows
 build-windows: build-windows-amd build-windows-arm

@@ -13,6 +13,7 @@ import (
 
 type input struct {
 	editor     widget.Editor
+	style      material.EditorStyle
 	theme      *material.Theme
 	onChangeFn func(text string)
 	upDownFn   func(k key.Name, text string) (string, bool)
@@ -31,6 +32,7 @@ func newInput(theme *material.Theme, filter any, maxLen int, fn func(text string
 		},
 		theme: theme,
 	}
+	result.style = material.Editor(theme, &result.editor, "")
 	return result
 }
 
@@ -86,18 +88,12 @@ func (i *input) layout(gtx layout.Context) layout.Dimensions {
 		borderColor = popupBorderFocused
 		borderThickness = unit.Dp(2)
 	}
-	style := material.Editor(i.theme, &i.editor, "" /*i.hint is not a hint - it's fugly placeholder */)
 	return widget.Border{
 		Color:        borderColor,
-		CornerRadius: unit.Dp(3),
+		CornerRadius: 3,
 		Width:        borderThickness,
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{
-			Top:    unit.Dp(2),
-			Bottom: unit.Dp(2),
-			Left:   unit.Dp(4),
-			Right:  unit.Dp(4),
-		}.Layout(gtx, style.Layout)
+		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, i.style.Layout)
 	})
 }
 

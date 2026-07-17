@@ -30,6 +30,7 @@ func NewSettings() *Settings {
 		WrapMode:            logic.WrapAll,
 		BoundaryMode:        logic.DeadBoundary,
 		Rule:                "B3/S23",
+		Rules:               make(map[string]string),
 		CellSize:            10,
 		CellBorders:         true,
 		CellAliveColor:      color.NRGBA{R: 0, G: 0, B: 0, A: 0xff},
@@ -273,7 +274,9 @@ func (s *Settings) fromPrefs(p prefs) {
 	if r, err := logic.NewRuleRle("", p.Rule); err == nil {
 		s.Rule = r.Rle()
 	}
-	s.Rules = p.Rules
+	if p.Rules != nil {
+		s.Rules = p.Rules
+	}
 	s.Patterns = p.Patterns
 	s.PatternLibraries = p.PatternLibraries
 	s.Originator = p.Originator
