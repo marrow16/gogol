@@ -173,6 +173,7 @@ func (c *Core) clear() {
 func (c *Core) setRule(r logic.Rule) {
 	c.stop()
 	c.gridHolder.grid.SetRule(r)
+	c.statusBar.rulesPopup.updateInputs()
 }
 
 func (c *Core) permutationIncrement() {
@@ -180,6 +181,7 @@ func (c *Core) permutationIncrement() {
 	n := c.gridHolder.grid.Rule.Permutation()
 	if r, err := logic.NewRuleFromPermutation(n + 1); err == nil {
 		c.gridHolder.grid.SetRule(r)
+		c.statusBar.rulesPopup.updateInputs()
 	}
 }
 
@@ -188,6 +190,7 @@ func (c *Core) permutationDecrement() {
 	if n := c.gridHolder.grid.Rule.Permutation(); n > 0 {
 		if r, err := logic.NewRuleFromPermutation(n - 1); err == nil {
 			c.gridHolder.grid.SetRule(r)
+			c.statusBar.rulesPopup.updateInputs()
 		}
 	}
 }
@@ -200,6 +203,7 @@ func (c *Core) permutationIncrementBorn() {
 	b = (b + 1) & 0x1FF
 	if r, err := logic.NewRuleFromPermutation((b << 9) | s); err == nil {
 		c.gridHolder.grid.SetRule(r)
+		c.statusBar.rulesPopup.updateInputs()
 	}
 }
 
@@ -215,6 +219,7 @@ func (c *Core) permutationDecrementBorn() {
 	}
 	if r, err := logic.NewRuleFromPermutation((b << 9) | s); err == nil {
 		c.gridHolder.grid.SetRule(r)
+		c.statusBar.rulesPopup.updateInputs()
 	}
 }
 
@@ -226,6 +231,7 @@ func (c *Core) permutationIncrementSurvives() {
 	s = (s + 1) & 0x1FF
 	if r, err := logic.NewRuleFromPermutation((b << 9) | s); err == nil {
 		c.gridHolder.grid.SetRule(r)
+		c.statusBar.rulesPopup.updateInputs()
 	}
 }
 
@@ -241,6 +247,7 @@ func (c *Core) permutationDecrementSurvives() {
 	}
 	if r, err := logic.NewRuleFromPermutation((b << 9) | s); err == nil {
 		c.gridHolder.grid.SetRule(r)
+		c.statusBar.rulesPopup.updateInputs()
 	}
 }
 

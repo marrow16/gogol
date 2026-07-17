@@ -5,12 +5,18 @@ import (
 	"gioui.org/unit"
 	"github.com/marrow16/gogol/cmd/gui/settings"
 	"github.com/marrow16/gogol/cmd/gui/widgets"
+	"github.com/marrow16/gogol/logic"
 	"log"
 	"os"
 )
 
 func main() {
 	s := settings.NewSettings()
+	for rn, rle := range s.Rules {
+		if r, err := logic.NewRuleRle(rn, rle); err == nil {
+			logic.AddRule(rn, r)
+		}
+	}
 	core, err := widgets.NewCore(s)
 	if err != nil {
 		log.Fatal(err)
@@ -21,7 +27,6 @@ func main() {
 			app.Title("GoGoL"),
 			app.Size(unit.Dp(s.ScreenWidth), unit.Dp(s.ScreenHeight)),
 		)
-
 		err = core.Run(window)
 		if err != nil {
 			log.Fatal(err)

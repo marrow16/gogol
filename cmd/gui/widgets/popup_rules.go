@@ -8,7 +8,6 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/logic"
@@ -25,6 +24,8 @@ func newRulesPopup(parent *statusBar) *rulesPopup {
 	}
 	p.rleInput = newInput(parent.core.theme, "sbSB/012345678", 21, p.rleChanged)
 	p.permInput = newNumberInput[int](p.core.theme, 6, 0, (1<<18)-1, 1<<9, p.permChanged)
+	p.nameInput = newInput(parent.core.theme, "", 21, p.nameChanged)
+	p.btnSaveName = newButton(parent.core.theme, "Save")
 	p.refreshRules()
 	return p
 }
@@ -38,6 +39,8 @@ type rulesPopup struct {
 	ruleClicks    []widget.Clickable
 	rleInput      *input
 	permInput     *numberInput[int]
+	nameInput     *input
+	btnSaveName   *button
 }
 
 func (p *rulesPopup) rleChanged(text string) {
@@ -48,6 +51,7 @@ func (p *rulesPopup) rleChanged(text string) {
 				return strings.Compare(a.Name(), b.Name())
 			})
 			p.permInput.setValue(r.Permutation())
+			p.nameInput.setText(r.Name())
 			if found {
 				p.selectedIndex = idx
 				p.list.ScrollTo(idx)
@@ -65,6 +69,7 @@ func (p *rulesPopup) permChanged(n int) {
 			return strings.Compare(a.Name(), b.Name())
 		})
 		p.rleInput.setText(r.Rle())
+		p.nameInput.setText(r.Name())
 		if found {
 			p.selectedIndex = idx
 			p.list.ScrollTo(idx)
@@ -73,6 +78,8 @@ func (p *rulesPopup) permChanged(n int) {
 		}
 	}
 }
+
+func (p *rulesPopup) nameChanged(text string) {}
 
 func (p *rulesPopup) refreshRules() {
 	p.sortedRules = make([]logic.Rule, 0, len(logic.Rules))
@@ -101,11 +108,26 @@ func (p *rulesPopup) setSelected() {
 func (p *rulesPopup) updateInputs() {
 	p.rleInput.setText(p.core.gridHolder.grid.Rule.Rle())
 	p.permInput.setValue(p.core.gridHolder.grid.Rule.Permutation())
+	p.nameInput.setText(p.core.gridHolder.grid.Rule.Name())
+}
+
+func (p *rulesPopup) saveRuleName() {
+	if name := p.nameInput.editor.Text(); len(name) > 0 {
+		rle := p.core.gridHolder.grid.Rule.Rle()
+		if r, err := logic.NewRuleRle(name, rle); err == nil {
+			if ok := logic.AddRule(name, r); ok {
+				p.core.settings.Rules[name] = rle
+				p.refreshRules()
+			}
+		}
+	}
 }
 
 func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
+	if p.btnSaveName.Clicked(gtx) {
+		p.saveRuleName()
+	}
 	p.handleEvents(gtx)
-
 	rowDims := measureText(gtx, p.core.theme, "Xy")
 	macro := op.Record(gtx.Ops)
 	dims := layout.Inset{Top: 1, Left: 1, Bottom: 1, Right: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -129,20 +151,40 @@ func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *rulesPopup) layoutDetails(rowDims layout.Dimensions) layout.FlexChild {
+	custom := p.core.gridHolder.grid.Rule.IsCustom()
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		paint.FillShape(gtx.Ops, popupBorder, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X, 1)).Op())
-		maxText := measureMaxText(gtx, p.core.theme, font.Bold, "Rule: ", "Perm.: ").Size.X
-		pad := unit.Dp(float32(rowDims.Size.Y/3) / gtx.Metric.PxPerDp)
-		return layout.Inset{
-			Top:    pad,
-			Bottom: pad,
-			Left:   pad,
-			Right:  pad,
-		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		maxText := measureMaxText(gtx, p.core.theme, font.Bold, "Rule: ", "Perm.: ", "Name: ").Size.X
+		return layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{
 				Axis: layout.Vertical,
 				Gap:  10,
 			}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal}.Layout(
+						gtx,
+						layout.Rigid(rightAlignedBoldLabel(p.core.theme, "Name: ", maxText)),
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							if custom {
+								return p.nameInput.layout(gtx)
+							} else {
+								return widget.Border{
+									Color:        popupBorder,
+									CornerRadius: 3,
+									Width:        1,
+								}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, label(p.core.theme, p.core.gridHolder.grid.Rule.Name()))
+								})
+							}
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if !custom {
+								return layout.Dimensions{}
+							}
+							return layout.Inset{Left: 8}.Layout(gtx, p.btnSaveName.Layout)
+						}),
+					)
+				}),
 				row(p.core.theme, maxText, "Rule: ", p.rleInput.layout),
 				row(p.core.theme, maxText, "Perm.: ", p.permInput.layout),
 			)
@@ -221,6 +263,9 @@ func (p *rulesPopup) handleEvents(gtx layout.Context) {
 		return
 	case p.permInput.isFocused(gtx):
 		p.permInput.update(gtx)
+		return
+	case p.nameInput.isFocused(gtx):
+		p.nameInput.update(gtx)
 		return
 	}
 	for {

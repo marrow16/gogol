@@ -240,15 +240,18 @@ var Rules = map[string]Rule{
 	"Vote":                    MustNewRuleRle("Vote", "B5678/S45678"),
 	"Walled cities":           MustNewRuleRle("Walled cities", "B45678/S2345"),
 	"Water Surface":           MustNewRuleRle("Water Surface", "B34/S23"),
+	"World++":                 MustNewRuleRle("World++", "B0/S467"),
 }
 
-func AddRule(name string, r Rule) {
+func AddRule(name string, r Rule) bool {
 	if _, exists := Rules[name]; !exists && name != "" {
 		if _, exists = rleToName[r.Rle()]; !exists {
 			Rules[name] = r
 			rleToName[r.Rle()] = name
+			return true
 		}
 	}
+	return false
 }
 
 func RleToName(rle string) (string, bool) {
@@ -317,4 +320,5 @@ var rleToName = map[string]string{
 	"B5678/S45678":       "Vote",
 	"B45678/S2345":       "Walled cities",
 	"B34/S23":            "Water Surface",
+	"B0/S467":            "World++",
 }
