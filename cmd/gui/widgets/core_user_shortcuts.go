@@ -22,6 +22,7 @@ func (c *Core) userShortcutKeys(kn key.Name) bool {
 		return false
 	}
 	c.shortcutRunning = true
+	c.shortcutCollectFiles = false
 	c.window.Invalidate()
 	go func() {
 		defer func() {
@@ -29,6 +30,15 @@ func (c *Core) userShortcutKeys(kn key.Name) bool {
 			c.window.Invalidate()
 		}()
 		c.runUserShortcut(shortcut, nil, "")
+		if c.shortcutCollectFiles && len(c.shortcutFiles) > 0 {
+			c.shortcutCurrent = c.shortcutFilesName
+			if f, err := saveFile(c.nowFilename("files", ".txt"), true); err == nil {
+				for _, filename := range c.shortcutFiles {
+					_, _ = f.WriteString(strings.TrimPrefix(filename, c.shortcutCurrent) + "\n")
+				}
+				_ = f.Close()
+			}
+		}
 	}()
 	return true
 }
@@ -77,6 +87,8 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 			c.snapshot()
 		case shortcutUndoToSnapshot:
 			c.undoToSnapshot()
+		case shortcutReplaySnapshot:
+			c.replaySnapshot()
 		case shortcutStep:
 			c.step()
 		case shortcutStepAhead:
@@ -145,6 +157,10 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 		case shortcutRepeatDetectSave:
 			c.stop()
 			c.saveRepeatDetect()
+		case shortcutFiles:
+			c.shortcutCollectFiles = true
+			c.shortcutFiles = make([]string, 0)
+			c.shortcutFilesName = c.shortcutCurrent
 		default:
 			if parts := strings.SplitN(token, ":", 2); len(parts) == 2 {
 				switch parts[0] {
@@ -374,12 +390,14 @@ func (c *Core) shortcutFormatName(s string, repeats []int) string {
 const (
 	shortcutRepeat           = "repeat:"
 	shortcutName             = "name"
+	shortcutFiles            = "collect-files"
 	shortcutRun              = "run"
 	shortcutStop             = "stop"
 	shortcutExport           = "export"
 	shortcutClear            = "clear"
 	shortcutSnapshot         = "snapshot"
 	shortcutUndoToSnapshot   = "undo-to-snapshot"
+	shortcutReplaySnapshot   = "replay-snapshot"
 	shortcutStep             = "step"
 	shortcutStepAhead        = "step-ahead"
 	shortcutStepAheadDec     = "step-ahead--"
