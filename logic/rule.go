@@ -90,7 +90,7 @@ func (r rule) Name() string {
 	if rn, ok := rleToName[r.Rle()]; ok {
 		return rn
 	}
-	return "Custom " + r.Rle()
+	return "Custom " + r.Rle() + " (" + strconv.Itoa(r.Permutation()) + ")"
 }
 
 func (r rule) IsCustom() bool {

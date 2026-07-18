@@ -228,15 +228,22 @@ func (p *instrumentationPopout) selectedHeatMapType() heatMapperType {
 	hmt := heatMapperTypeFrom(p.heatMapType.Value)
 	if hmt == noHeatMapper {
 		hmt = activityHeatMapper
+		p.heatMapType.Value = hmt.String()
 	}
 	return hmt
 }
 
 func (p *instrumentationPopout) layoutRepeat(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	labelMax := measureMaxText(gtx, theme, font.Bold, "Found: ", "First: ", "Repeat: ", "Period: ").Size.X
+	labelMax := measureMaxText(gtx, theme, font.Bold, "Examined: ", "Found: ", "First: ", "Repeat: ", "Period: ").Size.X
 	return layout.Inset{Left: 16, Bottom: 4}.
 		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+						layout.Rigid(rightAlignedLabel(theme, "Examined:", labelMax)),
+						layout.Rigid(label(theme, commas(strconv.FormatUint(p.core.instrumentRepeat.Steps, 10)))),
+					)
+				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 						layout.Rigid(rightAlignedLabel(theme, "Found:", labelMax)),

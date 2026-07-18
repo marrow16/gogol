@@ -14,6 +14,7 @@ import (
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -88,8 +89,11 @@ type Core struct {
 	heatMapperType    heatMapperType
 	instrumentation   logic.CompositeInstrument
 
-	shortcutRunning bool
-	shortcutCurrent string
+	shortcutRunning      bool
+	shortcutCurrent      string
+	shortcutCollectFiles bool
+	shortcutFiles        []string
+	shortcutFilesName    string
 	// pattern placing...
 	placePatternCol, placePatternRow int
 	placePatternRotation             patterns.Rotation
@@ -254,7 +258,16 @@ func (c *Core) startPatternPlace(gtx layout.Context, pattern *patterns.Pattern, 
 
 func (c *Core) nowFilename(prefix string, extension string) string {
 	if c.shortcutRunning {
-		return c.shortcutCurrent + " " + prefix + extension
+		var filename string
+		if strings.HasSuffix(c.shortcutCurrent, "/") {
+			filename = c.shortcutCurrent + prefix + extension
+		} else {
+			filename = c.shortcutCurrent + " " + prefix + extension
+		}
+		if c.shortcutCollectFiles {
+			c.shortcutFiles = append(c.shortcutFiles, filename)
+		}
+		return filename
 	}
 	now := time.Now()
 	return prefix + " " + now.Format("2006-01-02 15-04-05") + fmt.Sprintf("-%03d", now.Nanosecond()/1e6) + extension

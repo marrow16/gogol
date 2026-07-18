@@ -98,6 +98,7 @@ type Settings struct {
 	HeatMappingType     string
 	HeatMappingHalfLife float32
 	Shortcuts           map[string][]string
+	ExportImage         bool
 }
 
 func (s *Settings) Save(grid *logic.Grid, zoom float32) {
@@ -135,6 +136,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				HeatMappingType:     s.HeatMappingType,
 				HeatMappingHalfLife: s.HeatMappingHalfLife,
 				Shortcuts:           s.Shortcuts,
+				ExportImage:         s.ExportImage,
 			}
 			if pattern, err := s.PatternFromGrid(grid); err == nil {
 				var buf bytes.Buffer
@@ -290,6 +292,7 @@ func (s *Settings) fromPrefs(p prefs) {
 	if p.Shortcuts != nil {
 		s.Shortcuts = p.Shortcuts
 	}
+	s.ExportImage = p.ExportImage
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			if g, err := logic.NewGrid(pattern.Height, pattern.Width, s.WrapMode, s.BoundaryMode); err == nil {
@@ -344,6 +347,7 @@ type prefs struct {
 	HeatMappingType     string              `json:"heat_mapping_type"`
 	HeatMappingHalfLife float32             `json:"heat_mapping_half_life"`
 	Shortcuts           map[string][]string `json:"shortcuts"`
+	ExportImage         bool                `json:"export_image"`
 }
 
 var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")

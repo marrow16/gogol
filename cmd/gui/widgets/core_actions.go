@@ -8,6 +8,7 @@ import (
 	"github.com/marrow16/gogol/patterns"
 	"github.com/marrow16/gogol/recipes"
 	"image"
+	"image/draw"
 	"image/png"
 	"os"
 	"strconv"
@@ -422,6 +423,24 @@ func (c *Core) undoToSnapshot() {
 	}
 }
 
+func (c *Core) replaySnapshot() {
+	c.stop()
+	if len(c.snapshots) > 0 {
+		pattern := c.snapshots[len(c.snapshots)-1]
+		step := c.snapshotsStep[len(c.snapshotsStep)-1]
+		c.gridHolder.grid.StepCount.Store(step)
+		pattern.Draw(c.gridHolder.grid, 0, 0, patterns.Rotate0)
+		c.resetInstrumentation()
+	} else {
+		c.gridHolder.grid.Randomize(c.settings.Randomization)
+		c.resetInstrumentation()
+		if pattern, err := c.settings.PatternFromGrid(c.gridHolder.grid); err == nil {
+			c.snapshotsStep = append(c.snapshotsStep, c.gridHolder.grid.StepCount.Load())
+			c.snapshots = append(c.snapshots, pattern)
+		}
+	}
+}
+
 func (c *Core) export() (err error) {
 	c.stop()
 	var p patterns.Pattern
@@ -435,6 +454,39 @@ func (c *Core) export() (err error) {
 			}()
 			err = patterns.PatternRleEncode(p, f)
 		}
+		if c.settings.ExportImage {
+			_ = c.exportImage(p)
+		}
+	}
+	return err
+}
+
+func (c *Core) exportImage(pattern patterns.Pattern) (err error) {
+	c.stop()
+	filename := c.nowFilename("Grid Export", ".png")
+	var f *os.File
+	if f, err = saveFile(filename, false); err == nil {
+		defer func() {
+			_ = f.Close()
+		}()
+		img := image.NewNRGBA(image.Rect(0, 0, c.settings.Width*c.settings.CellSize, c.settings.Height*c.settings.CellSize))
+		draw.Draw(img, image.Rect(0, 0, c.settings.Width*c.settings.CellSize, c.settings.Height*c.settings.CellSize), &image.Uniform{c.settings.CellDeadColor}, image.Point{}, draw.Src)
+		c.gridHolder.drawCellBorders(img)
+		off := 0
+		if c.settings.CellBorders {
+			off = 1
+		}
+		pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
+			if alive {
+				draw.Draw(img, image.Rect(
+					(col*c.settings.CellSize)+off,
+					(row*c.settings.CellSize)+off,
+					(col+1)*c.settings.CellSize,
+					(row+1)*c.settings.CellSize),
+					&image.Uniform{c.settings.CellAliveColor}, image.Point{}, draw.Src)
+			}
+		})
+		err = png.Encode(f, img)
 	}
 	return err
 }
