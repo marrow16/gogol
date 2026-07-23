@@ -187,7 +187,7 @@ func (p *instrumentationPopout) update(gtx layout.Context) {
 		if !p.animationSaving && p.core.instrumentRecord != nil {
 			p.animationSaving = true
 			p.animationResult = nil
-			if p.core.instrumentRecord.StepsCount() > 0 {
+			if p.core.instrumentRecord.FramesCount() > 0 {
 				p.saveAnimation()
 			} else {
 				p.animationSaving = false
@@ -313,7 +313,7 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context, theme *material
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 						layout.Rigid(rightAlignedLabel(theme, "Steps recorded:", labelMax)),
-						layout.Rigid(label(theme, commas(strconv.Itoa(p.core.instrumentRecord.StepsCount())))),
+						layout.Rigid(label(theme, commas(strconv.Itoa(p.core.instrumentRecord.FramesCount())))),
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -328,7 +328,7 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context, theme *material
 							return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnRecordReset.Layout)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if !p.animationSaving {
+							if !p.animationSaving && p.core.instrumentRecord.FramesCount() > 0 {
 								return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnSaveAnimation.Layout)
 							} else {
 								return layout.Dimensions{}

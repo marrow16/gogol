@@ -345,6 +345,18 @@ func (c *Core) randomize() {
 	c.resetInstrumentation()
 }
 
+func (c *Core) randomizePopulation() {
+	c.stop()
+	c.gridHolder.grid.RandomizePopulation(c.settings.Randomization)
+	c.resetInstrumentation()
+}
+
+func (c *Core) maximumAdjacents(mx int) {
+	c.stop()
+	c.gridHolder.grid.LimitAliveAdjacents(mx)
+	c.resetInstrumentation()
+}
+
 func (c *Core) randomChanges() {
 	c.stop()
 	c.gridHolder.grid.RandomChanges(c.settings.Randomization)
@@ -587,7 +599,7 @@ func (c *Core) saveHeatMapImage() {
 func (c *Core) saveRepeatDetect() {
 	c.stop()
 	if c.instrumentRepeat != nil {
-		filename := c.nowFilename("Repeat detection "+strconv.FormatUint(c.instrumentRepeat.Step, 10), ".json")
+		filename := c.nowFilename("Repeat detection", ".json")
 		if f, err := saveFile(filename, false); err == nil {
 			defer func() {
 				_ = f.Close()
@@ -604,10 +616,7 @@ func (c *Core) saveRepeatDetect() {
 }
 
 func (c *Core) isRecording() bool {
-	if c.instrumentRecord != nil {
-		return c.instrumentRecord.StepsCount() > 0
-	}
-	return false
+	return c.instrumentRecord != nil
 }
 
 func (c *Core) updateInstrumentation() {

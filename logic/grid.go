@@ -149,6 +149,85 @@ func (g *Grid) Randomize(rf int) {
 	}
 }
 
+func (g *Grid) RandomizePopulation(rf int) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	render := g.Render
+	if render == nil {
+		render = nullRender
+	}
+	g.StepCount.Store(0)
+	total := g.Width * g.Height
+	alive := (total*rf + 50) / 100
+	selected := make([]bool, total)
+	switch rf {
+	case 0:
+		// do nothing, all dead
+	case 100:
+		// all alive
+		for i := 0; i < total; i++ {
+			selected[i] = true
+		}
+	default:
+		// random ordering of every cell position...
+		order := rng.Perm(total)
+		// first `alive` positions in shuffled order...
+		for _, index := range order[:alive] {
+			selected[index] = true
+		}
+	}
+	for row := 0; row < g.Height; row++ {
+		for col := 0; col < g.Width; col++ {
+			cell := g.Rows[row][col]
+			cell.Alive = selected[row*g.Width+col]
+			render(row, col, cell.Alive, true)
+		}
+	}
+}
+
+func (g *Grid) LimitAliveAdjacents(maximum int) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	maximum = max(0, min(maximum, 8))
+	render := g.Render
+	if render == nil {
+		render = nullRender
+	}
+	total := g.Width * g.Height
+	for {
+		highest := maximum
+		var candidates []int
+		for index := 0; index < total; index++ {
+			row := index / g.Width
+			col := index % g.Width
+			cell := g.Rows[row][col]
+			if !cell.Alive {
+				continue
+			}
+			adjacents := cell.AdjacentsAlive()
+			if adjacents <= maximum {
+				continue
+			}
+			switch {
+			case adjacents > highest:
+				highest = adjacents
+				candidates = candidates[:0]
+				candidates = append(candidates, index)
+			case adjacents == highest:
+				candidates = append(candidates, index)
+			}
+		}
+		if len(candidates) == 0 {
+			return
+		}
+		index := candidates[rng.Intn(len(candidates))]
+		row := index / g.Width
+		col := index % g.Width
+		g.Rows[row][col].Alive = false
+		render(row, col, false, true)
+	}
+}
+
 func (g *Grid) RandomChanges(rf int) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()

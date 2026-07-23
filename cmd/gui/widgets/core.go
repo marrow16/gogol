@@ -176,11 +176,6 @@ func (c *Core) clearMode() {
 
 // B0135/S1 snow flakes in coal mine
 // B0135/S03 has gliders
-// B36/S237 like standard life but "never" properly stabilises?
-// B023/S1234 mazes with flashing patches
-
-// B13/S1236 4088
-// B1278/S01238
 
 var keyFilters = []event.Filter{
 	key.Filter{Required: key.ModAlt, Name: ""},
