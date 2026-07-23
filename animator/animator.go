@@ -21,12 +21,11 @@ func NewAnimator(cellSize int, alive, dead, border color.NRGBA, borders bool) *A
 }
 
 type Animator struct {
-	cellSize int
-	alive    color.NRGBA
-	dead     color.NRGBA
-	border   color.NRGBA
-	borders  bool
-
+	cellSize      int
+	alive         color.NRGBA
+	dead          color.NRGBA
+	border        color.NRGBA
+	borders       bool
 	height, width int
 	grid          [][]bool
 	img           *image.NRGBA
@@ -48,7 +47,7 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument) (e
 		"-y",
 		"-f", "image2pipe",
 		"-vcodec", "png",
-		"-r", fps,
+		"-framerate", fps,
 		"-i", "-", // pipe input
 		"-c:v", "libx264",
 		"-preset", preset,

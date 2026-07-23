@@ -103,6 +103,8 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 			}
 		case shortcutRandomize:
 			c.randomize()
+		case shortcutRandomizePopulation:
+			c.randomizePopulation()
 		case shortcutRandomizationDec:
 			if c.settings.Randomization > 0 {
 				c.settings.Randomization--
@@ -177,6 +179,10 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 				case shortcutRandomization:
 					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 100 {
 						c.settings.Randomization = n
+					}
+				case shortcutMaxAdjacents:
+					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 8 {
+						c.maximumAdjacents(n)
 					}
 				case shortcutStepDelay:
 					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 2000 {
@@ -388,50 +394,52 @@ func (c *Core) shortcutFormatName(s string, repeats []int) string {
 }
 
 const (
-	shortcutRepeat           = "repeat:"
-	shortcutName             = "name"
-	shortcutFiles            = "collect-files"
-	shortcutRun              = "run"
-	shortcutStop             = "stop"
-	shortcutExport           = "export"
-	shortcutClear            = "clear"
-	shortcutSnapshot         = "snapshot"
-	shortcutUndoToSnapshot   = "undo-to-snapshot"
-	shortcutReplaySnapshot   = "replay-snapshot"
-	shortcutStep             = "step"
-	shortcutStepAhead        = "step-ahead"
-	shortcutStepAheadDec     = "step-ahead--"
-	shortcutStepAheadInc     = "step-ahead++"
-	shortcutRandomize        = "randomize"
-	shortcutRandomizationDec = "randomization--"
-	shortcutRandomizationInc = "randomization++"
-	shortcutStepDelayDec     = "step-delay--"
-	shortcutStepDelayInc     = "step-delay++"
-	shortcutRulePermDec      = "rule-perm--"
-	shortcutRulePermInc      = "rule-perm++"
-	shortcutSleep            = "sleep"
-	shortcutRunRecipe        = "run-recipe"
-	shortcutWrapMode         = "wrap-mode"
-	shortcutBoundaryMode     = "boundary-mode"
-	shortcutStepAheadBy      = "step-ahead-by"
-	shortcutRandomization    = "randomization"
-	shortcutRandomChanges    = "random-changes"
-	shortcutStepDelay        = "step-delay"
-	shortcutRulePerm         = "rule-perm"
-	shortcutRule             = "rule"
-	shortcutBornWith         = "rule-born-with"
-	shortcutBornWithInc      = "rule-born-with++"
-	shortcutBornWithDec      = "rule-born-with--"
-	shortcutSurvivesWith     = "rule-survives-with"
-	shortcutSurvivesWithInc  = "rule-survives-with++"
-	shortcutSurvivesWithDec  = "rule-survives-with--"
-	shortcutGridWidth        = "grid-width"
-	shortcutGridHeight       = "grid-height"
-	shortcutGridSize         = "grid-size" // "widthXheight"
-	shortcutRecord           = "record"
-	shortcutRepeatDetect     = "repeat-detect"
-	shortcutRepeatDetectSave = "repeat-detect-save"
-	shortcutHeatMap          = "heat-map"
-	shortcutHeatMapSave      = "heat-map-save"
-	shortcutHeatMapReveal    = "heat-map-reveal"
+	shortcutRepeat              = "repeat:"
+	shortcutName                = "name"
+	shortcutFiles               = "collect-files"
+	shortcutRun                 = "run"
+	shortcutStop                = "stop"
+	shortcutExport              = "export"
+	shortcutClear               = "clear"
+	shortcutSnapshot            = "snapshot"
+	shortcutUndoToSnapshot      = "undo-to-snapshot"
+	shortcutReplaySnapshot      = "replay-snapshot"
+	shortcutStep                = "step"
+	shortcutStepAhead           = "step-ahead"
+	shortcutStepAheadDec        = "step-ahead--"
+	shortcutStepAheadInc        = "step-ahead++"
+	shortcutRandomize           = "randomize"
+	shortcutRandomizationDec    = "randomization--"
+	shortcutRandomizationInc    = "randomization++"
+	shortcutRandomization       = "randomization"
+	shortcutRandomChanges       = "random-changes"
+	shortcutRandomizePopulation = "randomize-population"
+	shortcutMaxAdjacents        = "max-adjacents"
+	shortcutStepDelayDec        = "step-delay--"
+	shortcutStepDelayInc        = "step-delay++"
+	shortcutRulePermDec         = "rule-perm--"
+	shortcutRulePermInc         = "rule-perm++"
+	shortcutSleep               = "sleep"
+	shortcutRunRecipe           = "run-recipe"
+	shortcutWrapMode            = "wrap-mode"
+	shortcutBoundaryMode        = "boundary-mode"
+	shortcutStepAheadBy         = "step-ahead-by"
+	shortcutStepDelay           = "step-delay"
+	shortcutRulePerm            = "rule-perm"
+	shortcutRule                = "rule"
+	shortcutBornWith            = "rule-born-with"
+	shortcutBornWithInc         = "rule-born-with++"
+	shortcutBornWithDec         = "rule-born-with--"
+	shortcutSurvivesWith        = "rule-survives-with"
+	shortcutSurvivesWithInc     = "rule-survives-with++"
+	shortcutSurvivesWithDec     = "rule-survives-with--"
+	shortcutGridWidth           = "grid-width"
+	shortcutGridHeight          = "grid-height"
+	shortcutGridSize            = "grid-size" // "widthXheight"
+	shortcutRecord              = "record"
+	shortcutRepeatDetect        = "repeat-detect"
+	shortcutRepeatDetectSave    = "repeat-detect-save"
+	shortcutHeatMap             = "heat-map"
+	shortcutHeatMapSave         = "heat-map-save"
+	shortcutHeatMapReveal       = "heat-map-reveal"
 )

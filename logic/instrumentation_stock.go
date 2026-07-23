@@ -103,13 +103,14 @@ type RecordInstrument struct {
 	grid    *Grid
 	frames  []frame
 	initial [][]bool
+	step    uint64
 }
 
 var _ StepInstrumentation = (*RecordInstrument)(nil)
 var _ StepStopInstrumentation = (*RecordInstrument)(nil)
 var _ DualUseInstrumentation = (*RecordInstrument)(nil)
 
-func (r *RecordInstrument) StepsCount() int {
+func (r *RecordInstrument) FramesCount() int {
 	return len(r.frames)
 }
 
@@ -137,17 +138,33 @@ func (r *RecordInstrument) InstrumentStop(step uint64, _ []*Cell, locations [][2
 }
 
 func (r *RecordInstrument) Instrument(step uint64, _ []*Cell, locations [][2]int) {
-	r.frames = append(r.frames, frame{
-		step:      step,
-		locations: append([][2]int(nil), locations...),
-	})
+	if step > r.step {
+		r.step = step
+		r.frames = append(r.frames, frame{
+			step:      step,
+			locations: append([][2]int(nil), locations...),
+		})
+	}
 }
 
-func (r *RecordInstrument) Undo() bool {
+func (r *RecordInstrument) restoreInitial() {
+	r.grid.StepCount.Store(0)
+	r.step = 0
+	r.frames = r.frames[:0]
+	for rn, row := range r.initial {
+		for cn, active := range row {
+			r.grid.Rows[rn][cn].Alive = active
+		}
+	}
+}
+
+func (r *RecordInstrument) Undo() {
 	r.grid.mutex.Lock()
 	defer r.grid.mutex.Unlock()
 	if len(r.frames) == 0 {
-		return false
+		// restore original grid state
+		r.restoreInitial()
+		return
 	}
 	f := r.frames[len(r.frames)-1]
 	r.frames = r.frames[:len(r.frames)-1]
@@ -155,12 +172,16 @@ func (r *RecordInstrument) Undo() bool {
 		r.grid.Rows[loc[0]][loc[1]].flip()
 	}
 	r.grid.StepCount.Store(f.step - 1)
-	return true
+	r.step = f.step - 1
 }
 
-func (r *RecordInstrument) Undos(n int) int {
+func (r *RecordInstrument) Undos(n int) {
 	r.grid.mutex.Lock()
 	defer r.grid.mutex.Unlock()
+	if n > len(r.frames) {
+		r.restoreInitial()
+		return
+	}
 	undone := 0
 	for undone < n && len(r.frames) > 0 {
 		f := r.frames[len(r.frames)-1]
@@ -169,30 +190,9 @@ func (r *RecordInstrument) Undos(n int) int {
 			r.grid.Rows[loc[0]][loc[1]].flip()
 		}
 		r.grid.StepCount.Store(f.step - 1)
+		r.step = f.step - 1
 		undone++
 	}
-	return undone
-}
-
-func (r *RecordInstrument) UndoTo(step uint64) bool {
-	r.grid.mutex.Lock()
-	defer r.grid.mutex.Unlock()
-	changed := false
-	for len(r.frames) > 0 {
-		f := r.frames[len(r.frames)-1]
-		if f.step <= step {
-			break
-		}
-		r.frames = r.frames[:len(r.frames)-1]
-		for _, loc := range f.locations {
-			r.grid.Rows[loc[0]][loc[1]].flip()
-		}
-		changed = true
-	}
-	if changed {
-		r.grid.StepCount.Store(step)
-	}
-	return changed
 }
 
 type HeatLocation struct {
