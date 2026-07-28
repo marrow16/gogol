@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"gioui.org/io/key"
 	"github.com/marrow16/gogol/logic"
+	"github.com/marrow16/gogol/logic/meta"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -339,8 +341,44 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 					if r, err := logic.NewRuleRle("", "B"+bw+"/S"+sw); err == nil {
 						c.setRule(r)
 					}
+				case shortcutNextMetaRule:
+					if mr, err := meta.ParseRule(parts[1]); err == nil {
+						curr := c.gridHolder.grid.Rule.Permutation()
+						if !mr.Matches(uint32(curr)) {
+							curr = -1
+						}
+						if next := mr.Next(curr); next != curr {
+							if r, err := logic.NewRuleFromPermutation(int(next)); err == nil {
+								c.setRule(r)
+							}
+						}
+					}
+				case shortcutPreviousMetaRule:
+					if mr, err := meta.ParseRule(parts[1]); err == nil {
+						curr := c.gridHolder.grid.Rule.Permutation()
+						if !mr.Matches(uint32(curr)) {
+							curr = -1
+						}
+						if prev := mr.Previous(curr); prev != curr {
+							if r, err := logic.NewRuleFromPermutation(int(prev)); err == nil {
+								c.setRule(r)
+							}
+						}
+					}
+				case shortcutLog:
+					c.shortcutLog(parts[1])
 				}
 			}
+		}
+	}
+}
+
+func (c *Core) shortcutLog(msgf string) {
+	if fp, err := resolveSavePath("./output.log"); err == nil {
+		if f, err := os.OpenFile(fp, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
+			defer f.Close()
+			msg := c.shortcutFormatName(msgf, nil) + "\n"
+			_, _ = f.WriteString(msg)
 		}
 	}
 }
@@ -370,6 +408,41 @@ func (c *Core) shortcutFormatName(s string, repeats []int) string {
 			now := time.Now()
 			b.WriteString(now.Format("2006-01-02 15-04-05") + fmt.Sprintf("-%03d", now.Nanosecond()/1e6))
 			i += 4
+		case strings.HasPrefix(s[i:], "%timestamp"):
+			b.WriteString(time.Now().Format(time.RFC3339))
+			i += 10
+		case strings.HasPrefix(s[i:], "%step"):
+			step := c.gridHolder.grid.StepCount.Load()
+			b.WriteString(strconv.FormatUint(step, 10))
+			i += 5
+		case strings.HasPrefix(s[i:], "%repeat-found"):
+			if c.instrumentRepeat != nil {
+				b.WriteString(strconv.FormatBool(c.instrumentRepeat.Found))
+			} else {
+				b.WriteString("_")
+			}
+			i += 13
+		case strings.HasPrefix(s[i:], "%repeat-first"):
+			if c.instrumentRepeat != nil {
+				b.WriteString(strconv.FormatUint(c.instrumentRepeat.FirstStep, 10))
+			} else {
+				b.WriteString("_")
+			}
+			i += 13
+		case strings.HasPrefix(s[i:], "%repeat-at"):
+			if c.instrumentRepeat != nil {
+				b.WriteString(strconv.FormatUint(c.instrumentRepeat.RepeatStep, 10))
+			} else {
+				b.WriteString("_")
+			}
+			i += 10
+		case strings.HasPrefix(s[i:], "%repeat-period"):
+			if c.instrumentRepeat != nil {
+				b.WriteString(strconv.FormatUint(c.instrumentRepeat.Period, 10))
+			} else {
+				b.WriteString("_")
+			}
+			i += 14
 		case strings.HasPrefix(s[i:], "%R"):
 			if len(repeats) > 0 {
 				b.WriteString(strconv.Itoa(repeats[len(repeats)-1]))
@@ -442,4 +515,7 @@ const (
 	shortcutHeatMap             = "heat-map"
 	shortcutHeatMapSave         = "heat-map-save"
 	shortcutHeatMapReveal       = "heat-map-reveal"
+	shortcutNextMetaRule        = "next-meta-rule"
+	shortcutPreviousMetaRule    = "previous-meta-rule"
+	shortcutLog                 = "log"
 )
