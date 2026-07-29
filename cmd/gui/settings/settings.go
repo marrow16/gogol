@@ -38,6 +38,27 @@ func NewSettings() *Settings {
 		CellBorderColor:     color.NRGBA{R: 240, G: 240, B: 239, A: 255},
 		HeatMappingHalfLife: 0.996,
 		Shortcuts:           make(map[string][]string),
+		MetaRules: map[string]string{
+			"Plus Worlds": `AllOf(
+	S(+47) / B(!2345),
+	AnyOf(
+		B(+0,!1) / S(!0123,-568),
+		B(+0,!16) / S(+568,!0123),
+		B(+07,!1) / S(+568,!0123),
+		B(+17,!06) / S(+5,!3,-12),
+		B(+017,!6) / S(+5,!3,-12,-68),
+		B(+1,!067) / S(+5,!03,-12),
+		B(+1,!067) / S(+5,!13,-12),
+		B(+1,!067) / S(+56,!3,-12),
+		B(+01,!678) / S(+5,!03,-12,-68),
+		B(+01,!678) / S(+5,!13,-12,-68),
+		B(+018,!67) / S(+5,!03,-12,-68),
+		B(+018,!67) / S(+5,!13,-12,-68),
+		B(+018,!67) / S(+56,!38,-12),
+		B(+018,!67) / S(+58,!36,-12)
+	)
+)`,
+		},
 	}
 	if path, err := settingsPath(false); err == nil {
 		if f, err := os.Open(path); err == nil {
@@ -99,6 +120,7 @@ type Settings struct {
 	HeatMappingHalfLife float32
 	Shortcuts           map[string][]string
 	ExportImage         bool
+	MetaRules           map[string]string
 }
 
 func (s *Settings) Save(grid *logic.Grid, zoom float32) {
@@ -137,6 +159,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				HeatMappingHalfLife: s.HeatMappingHalfLife,
 				Shortcuts:           s.Shortcuts,
 				ExportImage:         s.ExportImage,
+				MetaRules:           s.MetaRules,
 			}
 			if pattern, err := s.PatternFromGrid(grid); err == nil {
 				var buf bytes.Buffer
@@ -293,6 +316,9 @@ func (s *Settings) fromPrefs(p prefs) {
 		s.Shortcuts = p.Shortcuts
 	}
 	s.ExportImage = p.ExportImage
+	if p.MetaRules != nil {
+		s.MetaRules = p.MetaRules
+	}
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			if g, err := logic.NewGrid(pattern.Height, pattern.Width, s.WrapMode, s.BoundaryMode); err == nil {
@@ -348,6 +374,7 @@ type prefs struct {
 	HeatMappingHalfLife float32             `json:"heat_mapping_half_life"`
 	Shortcuts           map[string][]string `json:"shortcuts"`
 	ExportImage         bool                `json:"export_image"`
+	MetaRules           map[string]string   `json:"meta_rules"`
 }
 
 var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")

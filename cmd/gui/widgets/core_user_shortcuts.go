@@ -342,25 +342,41 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 						c.setRule(r)
 					}
 				case shortcutNextMetaRule:
-					if mr, err := meta.ParseRule(parts[1]); err == nil {
-						curr := c.gridHolder.grid.Rule.Permutation()
-						if !mr.Matches(uint32(curr)) {
-							curr = -1
+					mrs := parts[1]
+					if strings.HasPrefix(mrs, `"`) && strings.HasSuffix(mrs, `"`) && len(mrs) > 2 {
+						name := mrs[1 : len(mrs)-1]
+						if named, ok := c.settings.MetaRules[name]; ok {
+							mrs = named
 						}
+					}
+					if mr, err := meta.ParseRule(mrs); err == nil {
+						curr := c.gridHolder.grid.Rule.Permutation()
 						if next := mr.Next(curr); next != curr {
-							if r, err := logic.NewRuleFromPermutation(int(next)); err == nil {
+							if r, err := logic.NewRuleFromPermutation(next); err == nil {
+								c.setRule(r)
+							}
+						} else if next = mr.Next(-1); next != -1 {
+							if r, err := logic.NewRuleFromPermutation(next); err == nil {
 								c.setRule(r)
 							}
 						}
 					}
 				case shortcutPreviousMetaRule:
-					if mr, err := meta.ParseRule(parts[1]); err == nil {
-						curr := c.gridHolder.grid.Rule.Permutation()
-						if !mr.Matches(uint32(curr)) {
-							curr = -1
+					mrs := parts[1]
+					if strings.HasPrefix(mrs, `"`) && strings.HasSuffix(mrs, `"`) && len(mrs) > 2 {
+						name := mrs[1 : len(mrs)-1]
+						if named, ok := c.settings.MetaRules[name]; ok {
+							mrs = named
 						}
+					}
+					if mr, err := meta.ParseRule(mrs); err == nil {
+						curr := c.gridHolder.grid.Rule.Permutation()
 						if prev := mr.Previous(curr); prev != curr {
-							if r, err := logic.NewRuleFromPermutation(int(prev)); err == nil {
+							if r, err := logic.NewRuleFromPermutation(prev); err == nil {
+								c.setRule(r)
+							}
+						} else if prev = mr.Previous(-1); prev != -1 {
+							if r, err := logic.NewRuleFromPermutation(prev); err == nil {
 								c.setRule(r)
 							}
 						}

@@ -41,6 +41,7 @@ type rulesPopup struct {
 	permInput     *numberInput[int]
 	nameInput     *input
 	btnSaveName   *button
+	inputsDirty   bool
 }
 
 func (p *rulesPopup) rleChanged(text string) {
@@ -106,6 +107,11 @@ func (p *rulesPopup) setSelected() {
 }
 
 func (p *rulesPopup) updateInputs() {
+	p.inputsDirty = true
+}
+
+func (p *rulesPopup) refreshInputs() {
+	p.inputsDirty = false
 	p.rleInput.setText(p.core.gridHolder.grid.Rule.Rle())
 	p.permInput.setValue(p.core.gridHolder.grid.Rule.Permutation())
 	p.nameInput.setText(p.core.gridHolder.grid.Rule.Name())
@@ -124,6 +130,9 @@ func (p *rulesPopup) saveRuleName() {
 }
 
 func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
+	if p.inputsDirty {
+		p.refreshInputs()
+	}
 	if p.btnSaveName.Clicked(gtx) {
 		p.saveRuleName()
 	}
