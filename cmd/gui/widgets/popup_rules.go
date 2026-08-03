@@ -224,7 +224,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 					gtx.Execute(key.FocusCmd{Tag: &p.list})
 					p.core.stop()
 					p.core.gridHolder.grid.SetRule(p.sortedRules[index])
-					p.updateInputs()
+					p.refreshInputs()
 					p.core.window.Invalidate()
 				}
 				return p.ruleClicks[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -358,7 +358,7 @@ func (p *rulesPopup) handleEvents(gtx layout.Context) {
 				p.list.Position.First = p.selectedIndex - 9
 			}
 			p.core.gridHolder.grid.SetRule(p.sortedRules[p.selectedIndex])
-			p.updateInputs()
+			p.refreshInputs()
 			p.core.window.Invalidate()
 		}
 	}

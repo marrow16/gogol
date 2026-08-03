@@ -185,6 +185,20 @@ func (g *Grid) RandomizePopulation(rf int) {
 	}
 }
 
+func (g *Grid) Population() int {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	result := 0
+	for row := 0; row < g.Height; row++ {
+		for col := 0; col < g.Width; col++ {
+			if g.Rows[row][col].Alive {
+				result++
+			}
+		}
+	}
+	return result
+}
+
 func (g *Grid) LimitAliveAdjacents(maximum int) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()

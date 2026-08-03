@@ -24,6 +24,7 @@ type chooser[T any] struct {
 	editor         widget.Editor
 	button         widget.Clickable
 	list           widget.List
+	listStyle      material.ListStyle
 	opened         bool
 	items          []T
 	filteredItems  []T
@@ -61,6 +62,7 @@ func newChooser[T any](theme *material.Theme, maxWidth int, items []T, onChange 
 		filteredItems: items,
 		onChangeFn:    onChange,
 	}
+	result.listStyle = material.List(theme, &result.list)
 	if labeller == nil {
 		result.labeller = func(item T) string {
 			return defaultLabeller(item)
@@ -95,19 +97,14 @@ func (i *chooser[T]) layout(gtx layout.Context) layout.Dimensions {
 	borderThickness := unit.Dp(1)
 	if i.isFocused(gtx) {
 		borderColor = popupBorderFocused
-		borderThickness = unit.Dp(2)
+		borderThickness = 2
 	}
 	i.dims = widget.Border{
 		Color:        borderColor,
-		CornerRadius: unit.Dp(3),
+		CornerRadius: 3,
 		Width:        borderThickness,
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{
-			Top:    unit.Dp(2),
-			Bottom: unit.Dp(2),
-			Left:   unit.Dp(4),
-			Right:  unit.Dp(4),
-		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					maxChWd := measureText(gtx, i.theme, "M")
@@ -159,6 +156,8 @@ func (i *chooser[T]) update(gtx layout.Context) {
 		case widget.SubmitEvent:
 			if i.onSubmitFn != nil {
 				i.onSubmitFn(i.editor.Text())
+			} else if !i.opened && len(i.filteredItems) > 0 {
+				i.opened = true
 			}
 		}
 	}
@@ -196,7 +195,7 @@ func (i *chooser[T]) handleKeys(gtx layout.Context) {
 					if idx != -1 {
 						lbl := i.labeller(i.items[idx])
 						i.editor.SetText(lbl)
-						i.editor.SetCaret(0, len(lbl))
+						i.editor.SetCaret(len(lbl), 0)
 					}
 					return
 				}
@@ -219,7 +218,7 @@ func (i *chooser[T]) handleKeys(gtx layout.Context) {
 			if idx >= 0 && idx <= maxi {
 				lbl := i.labeller(i.items[idx])
 				i.editor.SetText(lbl)
-				i.editor.SetCaret(0, len(lbl))
+				i.editor.SetCaret(len(lbl), 0)
 			}
 		}
 	}
@@ -228,6 +227,8 @@ func (i *chooser[T]) handleKeys(gtx layout.Context) {
 func (i *chooser[T]) handleOpenedKeys(gtx layout.Context) {
 	for {
 		ev, ok := gtx.Event(
+			key.Filter{Name: key.NameReturn},
+			key.Filter{Name: key.NameEnter},
 			key.Filter{Name: key.NameUpArrow},
 			key.Filter{Name: key.NameDownArrow},
 			key.Filter{Name: key.NamePageUp},
@@ -247,8 +248,10 @@ func (i *chooser[T]) handleOpenedKeys(gtx layout.Context) {
 				})
 			}
 			switch kev.Name {
+			case key.NameEnter, key.NameReturn:
+				i.opened = false
 			case key.NameUpArrow:
-				if idx-1 > 0 {
+				if idx > 0 {
 					idx--
 				} else {
 					idx = maxi
@@ -281,7 +284,7 @@ func (i *chooser[T]) handleOpenedKeys(gtx layout.Context) {
 				i.list.ScrollTo(idx)
 				lbl := i.labeller(i.filteredItems[idx])
 				i.editor.SetText(lbl)
-				i.editor.SetCaret(0, len(lbl))
+				i.editor.SetCaret(len(lbl), 0)
 			}
 		}
 	}
@@ -292,8 +295,8 @@ func (i *chooser[T]) searchAndFilter() {
 		i.noRefilter = false
 		return
 	}
-	curr := i.editor.Text()
-	curr = strings.ToLower(curr)
+	actual := i.editor.Text()
+	curr := strings.ToLower(actual)
 	switch len(curr) {
 	case 0:
 		i.filteredItems = i.items
@@ -306,19 +309,26 @@ func (i *chooser[T]) searchAndFilter() {
 			i.list.ScrollTo(idx)
 		}
 	default:
-		// filter list down to those that contain this value
-		startsWith := make([]T, 0, len(i.items))
-		contains := make([]T, 0, len(i.items))
-		for _, item := range i.items {
-			label := strings.ToLower(i.labeller(item))
-			if strings.HasPrefix(label, curr) {
-				startsWith = append(startsWith, item)
-			} else if strings.Contains(label, curr) {
-				contains = append(contains, item)
+		if idx := slices.IndexFunc(i.items, func(item T) bool {
+			return i.labeller(item) == actual
+		}); idx != -1 {
+			i.filteredItems = i.items
+			i.list.ScrollTo(idx)
+		} else {
+			// filter list down to those that contain this value
+			startsWith := make([]T, 0, len(i.items))
+			contains := make([]T, 0, len(i.items))
+			for _, item := range i.items {
+				lbl := strings.ToLower(i.labeller(item))
+				if strings.HasPrefix(lbl, curr) {
+					startsWith = append(startsWith, item)
+				} else if strings.Contains(lbl, curr) {
+					contains = append(contains, item)
+				}
 			}
+			i.filteredItems = append(startsWith, contains...)
+			i.list.ScrollTo(0)
 		}
-		i.filteredItems = append(startsWith, contains...)
-		i.list.ScrollTo(0)
 	}
 }
 
@@ -362,12 +372,20 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context, dims layout.Dimensions) 
 				if len(i.rowClicks) != len(i.filteredItems) {
 					i.rowClicks = make([]widget.Clickable, len(i.filteredItems))
 				}
-				listDims := material.List(i.theme, &i.list).Layout(pgtx, len(i.filteredItems), func(gtx layout.Context, index int) layout.Dimensions {
+				fillAdj := 0
+				if len(i.filteredItems) <= i.dropdownRows {
+					i.listStyle.AnchorStrategy = material.Overlay
+				} else {
+					i.listStyle.AnchorStrategy = material.Occupy
+					fillAdj = gtx.Dp(i.listStyle.Width())
+				}
+				listDims := i.listStyle.Layout(pgtx, len(i.filteredItems), func(gtx layout.Context, index int) layout.Dimensions {
 					lbl := i.labeller(i.filteredItems[index])
 					for i.rowClicks[index].Clicked(gtx) {
 						i.setText(lbl)
 						gtx.Execute(op.InvalidateCmd{})
-						gtx.Execute(key.FocusCmd{Tag: &i.list})
+						gtx.Execute(key.FocusCmd{Tag: &i.editor})
+						i.editor.SetCaret(len(lbl), 0)
 						i.opened = false
 					}
 					return i.rowClicks[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -375,7 +393,7 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context, dims layout.Dimensions) 
 							paint.FillShape(
 								gtx.Ops,
 								popupSelectedBackground,
-								clip.Rect{Max: image.Pt(width, rowDims.Size.Y)}.Op(),
+								clip.Rect{Max: image.Pt(width-fillAdj, rowDims.Size.Y)}.Op(),
 							)
 						}
 						gtx.Constraints.Min.X = pgtx.Constraints.Max.X
@@ -425,7 +443,7 @@ func middleEllipsis(gtx layout.Context, theme *material.Theme, s string, maxWidt
 func (i *chooser[T]) setText(text string) {
 	if text != i.editor.Text() {
 		i.editor.SetText(text)
-		i.editor.SetCaret(0, len(text))
+		i.editor.SetCaret(len(text), 0)
 	}
 }
 

@@ -351,6 +351,11 @@ func (c *Core) randomizePopulation() {
 	c.resetInstrumentation()
 }
 
+func (c *Core) population() int {
+	c.stop()
+	return c.gridHolder.grid.Population()
+}
+
 func (c *Core) maximumAdjacents(mx int) {
 	c.stop()
 	c.gridHolder.grid.LimitAliveAdjacents(mx)
@@ -518,6 +523,8 @@ func (c *Core) runRecipe(filename string) {
 			c.window.Invalidate()
 		} else {
 			c.resetInstrumentation()
+			c.gridHolder.grid.Draw()
+			c.window.Invalidate()
 		}
 	}
 }
