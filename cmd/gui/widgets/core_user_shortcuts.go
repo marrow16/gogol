@@ -3,6 +3,7 @@ package widgets
 import (
 	"fmt"
 	"gioui.org/io/key"
+	"github.com/go-andiamo/splitter"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/logic/meta"
 	"os"
@@ -25,6 +26,7 @@ func (c *Core) userShortcutKeys(kn key.Name) bool {
 	}
 	c.shortcutRunning = true
 	c.shortcutCollectFiles = false
+	c.shortcutStatus.Store(nil)
 	c.window.Invalidate()
 	go func() {
 		defer func() {
@@ -45,13 +47,20 @@ func (c *Core) userShortcutKeys(kn key.Name) bool {
 	return true
 }
 
+var shortcutCommasSplitter = splitter.MustCreateSplitter(',',
+	splitter.DoubleQuotes, splitter.SingleQuotes)
+
 func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string) {
+	if len(repeats) > 0 {
+		st := fmt.Sprintf("%v", repeats)
+		c.shortcutStatus.Store(&st)
+	}
 	for _, token := range shortcut {
 		if !c.shortcutRunning {
 			break
 		}
 		if after, ok := strings.CutPrefix(token, shortcutRepeat); ok {
-			if parts := strings.Split(after, ","); len(parts) >= 2 {
+			if parts, err := shortcutCommasSplitter.Split(after); err == nil && len(parts) >= 2 {
 				if nTimes, err := strconv.Atoi(parts[0]); err == nil && nTimes > 0 {
 					parts = parts[1:]
 					useParts := make([]string, 0, len(parts))
@@ -67,6 +76,40 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 						c.runUserShortcut(useParts, append(repeats, i), nameFmt)
 					}
 				}
+			}
+			continue
+		} else if after, ok = strings.CutPrefix(token, shortcutIterateMetaRule); ok {
+			if parts, err := shortcutCommasSplitter.Split(after); err == nil && len(parts) >= 2 {
+				name := strings.TrimSpace(parts[0])
+				if (strings.HasPrefix(name, `"`) && strings.HasSuffix(name, `"`)) || (strings.HasPrefix(name, `'`) && strings.HasSuffix(name, `'`)) {
+					name = name[1 : len(name)-1]
+				}
+				mrs := name
+				if named, ok := c.settings.MetaRules[name]; ok {
+					mrs = named
+				}
+				if ev, err := meta.ParseRule(mrs); err == nil {
+					parts = parts[1:]
+					useParts := make([]string, 0, len(parts))
+					for i := 0; i < len(parts); i++ {
+						if strings.HasPrefix(parts[i], shortcutRepeat) {
+							useParts = append(useParts, strings.Join(parts[i:], ","))
+							break
+						} else {
+							useParts = append(useParts, parts[i])
+						}
+					}
+					i := 0
+					for r := range ev.MatchingRules() {
+						c.setRule(r)
+						c.runUserShortcut(useParts, append(repeats, i), nameFmt)
+						i++
+					}
+				} else {
+					return
+				}
+			} else {
+				return
 			}
 			continue
 		}
@@ -393,6 +436,9 @@ func (c *Core) shortcutLog(msgf string) {
 	if fp, err := resolveSavePath("./output.log"); err == nil {
 		if f, err := os.OpenFile(fp, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
 			defer f.Close()
+			if (strings.HasPrefix(msgf, `"`) && strings.HasSuffix(msgf, `"`)) || (strings.HasPrefix(msgf, `'`) && strings.HasSuffix(msgf, `'`)) {
+				msgf = msgf[1 : len(msgf)-1]
+			}
 			msg := c.shortcutFormatName(msgf, nil) + "\n"
 			_, _ = f.WriteString(msg)
 		}
@@ -459,6 +505,9 @@ func (c *Core) shortcutFormatName(s string, repeats []int) string {
 				b.WriteString("_")
 			}
 			i += 14
+		case strings.HasPrefix(s[i:], "%population"):
+			b.WriteString(strconv.Itoa(c.population()))
+			i += 11
 		case strings.HasPrefix(s[i:], "%R"):
 			if len(repeats) > 0 {
 				b.WriteString(strconv.Itoa(repeats[len(repeats)-1]))
@@ -533,5 +582,6 @@ const (
 	shortcutHeatMapReveal       = "heat-map-reveal"
 	shortcutNextMetaRule        = "next-meta-rule"
 	shortcutPreviousMetaRule    = "previous-meta-rule"
+	shortcutIterateMetaRule     = "iterate-meta-rule:"
 	shortcutLog                 = "log"
 )

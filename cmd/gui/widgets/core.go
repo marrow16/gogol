@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -94,6 +95,7 @@ type Core struct {
 	shortcutCollectFiles bool
 	shortcutFiles        []string
 	shortcutFilesName    string
+	shortcutStatus       atomic.Pointer[string]
 	// pattern placing...
 	placePatternCol, placePatternRow int
 	placePatternRotation             patterns.Rotation
