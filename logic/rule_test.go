@@ -171,14 +171,14 @@ func TestRlePermutationReversible(t *testing.T) {
 	r, err := NewRuleRle("", "S0/B0")
 	require.NoError(t, err)
 	assert.Equal(t, "B0/S0", r.Rle())
-	assert.Equal(t, "Custom B0/S0", r.Name())
+	assert.Equal(t, "Custom B0/S0 (513)", r.Name())
 }
 
 func TestNewRuleEvaluatorFromPermutation_ZeroPerm(t *testing.T) {
 	r, err := NewRuleFromPermutation(0)
 	require.NoError(t, err)
 	assert.Equal(t, "B/S", r.Rle())
-	assert.Equal(t, "Custom B/S", r.Name())
+	assert.Equal(t, "Custom B/S (0)", r.Name())
 	assert.Equal(t, 0, r.Permutation())
 }
 

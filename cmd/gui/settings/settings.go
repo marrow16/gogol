@@ -40,25 +40,26 @@ func NewSettings() *Settings {
 		Shortcuts:           make(map[string][]string),
 		MetaRules: map[string]string{
 			"Plus Worlds": `AllOf(
-	S(+47) / B(!2345),
-	AnyOf(
-		B(+0,!1) / S(!0123,-568),
-		B(+0,!16) / S(+568,!0123),
-		B(+07,!1) / S(+568,!0123),
-		B(+17,!06) / S(+5,!3,-12),
-		B(+017,!6) / S(+5,!3,-12,-68),
-		B(+1,!067) / S(+5,!03,-12),
-		B(+1,!067) / S(+5,!13,-12),
-		B(+1,!067) / S(+56,!3,-12),
-		B(+01,!678) / S(+5,!03,-12,-68),
-		B(+01,!678) / S(+5,!13,-12,-68),
-		B(+018,!67) / S(+5,!03,-12,-68),
-		B(+018,!67) / S(+5,!13,-12,-68),
-		B(+018,!67) / S(+56,!38,-12),
-		B(+018,!67) / S(+58,!36,-12)
-	)
+    B(!2345) / S(+47,!3),
+    AnyOf(
+        B(+0,!1) / S(!012,-568),
+        B(+0,!16) / S(+568,!012),
+        B(+07,!1) / S(+568,!012),
+        B(+17,!06) / S(+5,-12),
+        B(+017,!6) / S(+5,-12,-68),
+        B(+1,!067) / S(+5,!0,-12),
+        B(+1,!067) / S(+5,!1,-12),
+        B(+1,!067) / S(+56,-12),
+        B(+01,!678) / S(+5,!0,-12,-68),
+        B(+01,!678) / S(+5,!1,-12,-68),
+        B(+018,!67) / S(+5,!0,-12,-68),
+        B(+018,!67) / S(+5,!1,-12,-68),
+        B(+018,!67) / S(+56,!8,-12),
+        B(+018,!67) / S(+58,!6,-12)
+    )
 )`,
 		},
+		CollectedRules: make(map[int]bool),
 	}
 	if path, err := settingsPath(false); err == nil {
 		if f, err := os.Open(path); err == nil {
@@ -121,6 +122,7 @@ type Settings struct {
 	Shortcuts           map[string][]string
 	ExportImage         bool
 	MetaRules           map[string]string
+	CollectedRules      map[int]bool
 }
 
 func (s *Settings) Save(grid *logic.Grid, zoom float32) {
@@ -129,6 +131,11 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 			defer func() {
 				_ = f.Close()
 			}()
+			fr := make([]int, 0, len(s.CollectedRules))
+			for k := range s.CollectedRules {
+				fr = append(fr, k)
+			}
+			slices.Sort(fr)
 			p := prefs{
 				ScreenHeight:        s.ScreenHeight,
 				ScreenWidth:         s.ScreenWidth,
@@ -160,6 +167,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				Shortcuts:           s.Shortcuts,
 				ExportImage:         s.ExportImage,
 				MetaRules:           s.MetaRules,
+				CollectedRules:      fr,
 			}
 			if pattern, err := s.PatternFromGrid(grid); err == nil {
 				var buf bytes.Buffer
@@ -319,6 +327,9 @@ func (s *Settings) fromPrefs(p prefs) {
 	if p.MetaRules != nil {
 		s.MetaRules = p.MetaRules
 	}
+	for _, fr := range p.CollectedRules {
+		s.CollectedRules[fr] = true
+	}
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			if g, err := logic.NewGrid(pattern.Height, pattern.Width, s.WrapMode, s.BoundaryMode); err == nil {
@@ -375,6 +386,7 @@ type prefs struct {
 	Shortcuts           map[string][]string `json:"shortcuts"`
 	ExportImage         bool                `json:"export_image"`
 	MetaRules           map[string]string   `json:"meta_rules"`
+	CollectedRules      []int               `json:"collected_rules"`
 }
 
 var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")

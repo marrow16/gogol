@@ -180,7 +180,12 @@ func (c *Core) setRule(r logic.Rule) {
 func (c *Core) permutationIncrement() {
 	c.stop()
 	n := c.gridHolder.grid.Rule.Permutation()
-	if r, err := logic.NewRuleFromPermutation(n + 1); err == nil {
+	if n+1 < 1<<18 {
+		n++
+	} else {
+		n = 0
+	}
+	if r, err := logic.NewRuleFromPermutation(n); err == nil {
 		c.gridHolder.grid.SetRule(r)
 		c.statusBar.rulesPopup.updateInputs()
 	}
@@ -188,11 +193,15 @@ func (c *Core) permutationIncrement() {
 
 func (c *Core) permutationDecrement() {
 	c.stop()
-	if n := c.gridHolder.grid.Rule.Permutation(); n > 0 {
-		if r, err := logic.NewRuleFromPermutation(n - 1); err == nil {
-			c.gridHolder.grid.SetRule(r)
-			c.statusBar.rulesPopup.updateInputs()
-		}
+	n := c.gridHolder.grid.Rule.Permutation()
+	if n == 0 {
+		n = (1 << 18) - 1
+	} else {
+		n--
+	}
+	if r, err := logic.NewRuleFromPermutation(n); err == nil {
+		c.gridHolder.grid.SetRule(r)
+		c.statusBar.rulesPopup.updateInputs()
 	}
 }
 
