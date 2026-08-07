@@ -7,6 +7,7 @@ import (
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/logic/meta"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -208,6 +209,14 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 			c.shortcutCollectFiles = true
 			c.shortcutFiles = make([]string, 0)
 			c.shortcutFilesName = c.shortcutCurrent
+		case shortcutAddCollectedRule:
+			c.settings.CollectedRules[c.gridHolder.grid.Rule.Permutation()] = true
+		case shortcutRemoveCollectedRule:
+			delete(c.settings.CollectedRules, c.gridHolder.grid.Rule.Permutation())
+		case shortcutPreviousCollectedRule:
+			c.shortcutCollectedRuleMove(false)
+		case shortcutNextCollectedRule:
+			c.shortcutCollectedRuleMove(true)
 		default:
 			if parts := strings.SplitN(token, ":", 2); len(parts) == 2 {
 				switch parts[0] {
@@ -432,6 +441,39 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 	}
 }
 
+func (c *Core) shortcutCollectedRuleMove(inc bool) {
+	if len(c.settings.CollectedRules) == 0 {
+		return
+	}
+	fr := make([]int, 0, len(c.settings.CollectedRules))
+	for i := range c.settings.CollectedRules {
+		fr = append(fr, i)
+	}
+	if len(fr) == 1 {
+		if r, err := logic.NewRuleFromPermutation(fr[0]); err == nil {
+			c.setRule(r)
+		}
+	}
+	slices.Sort(fr)
+	idx, found := slices.BinarySearch(fr, c.gridHolder.grid.Rule.Permutation())
+	if !found && idx == 0 {
+		idx = -1
+	}
+	if inc {
+		idx++
+	} else {
+		idx--
+	}
+	if idx >= len(fr) {
+		idx = 0
+	} else if idx < 0 {
+		idx = len(fr) - 1
+	}
+	if r, err := logic.NewRuleFromPermutation(fr[idx]); err == nil {
+		c.setRule(r)
+	}
+}
+
 func (c *Core) shortcutLog(msgf string) {
 	if fp, err := resolveSavePath("./output.log"); err == nil {
 		if f, err := os.OpenFile(fp, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
@@ -532,56 +574,60 @@ func (c *Core) shortcutFormatName(s string, repeats []int) string {
 }
 
 const (
-	shortcutRepeat              = "repeat:"
-	shortcutName                = "name"
-	shortcutFiles               = "collect-files"
-	shortcutRun                 = "run"
-	shortcutStop                = "stop"
-	shortcutExport              = "export"
-	shortcutClear               = "clear"
-	shortcutSnapshot            = "snapshot"
-	shortcutUndoToSnapshot      = "undo-to-snapshot"
-	shortcutReplaySnapshot      = "replay-snapshot"
-	shortcutStep                = "step"
-	shortcutStepAhead           = "step-ahead"
-	shortcutStepAheadDec        = "step-ahead--"
-	shortcutStepAheadInc        = "step-ahead++"
-	shortcutRandomize           = "randomize"
-	shortcutRandomizationDec    = "randomization--"
-	shortcutRandomizationInc    = "randomization++"
-	shortcutRandomization       = "randomization"
-	shortcutRandomChanges       = "random-changes"
-	shortcutRandomizePopulation = "randomize-population"
-	shortcutMaxAdjacents        = "max-adjacents"
-	shortcutStepDelayDec        = "step-delay--"
-	shortcutStepDelayInc        = "step-delay++"
-	shortcutRulePermDec         = "rule-perm--"
-	shortcutRulePermInc         = "rule-perm++"
-	shortcutSleep               = "sleep"
-	shortcutRunRecipe           = "run-recipe"
-	shortcutWrapMode            = "wrap-mode"
-	shortcutBoundaryMode        = "boundary-mode"
-	shortcutStepAheadBy         = "step-ahead-by"
-	shortcutStepDelay           = "step-delay"
-	shortcutRulePerm            = "rule-perm"
-	shortcutRule                = "rule"
-	shortcutBornWith            = "rule-born-with"
-	shortcutBornWithInc         = "rule-born-with++"
-	shortcutBornWithDec         = "rule-born-with--"
-	shortcutSurvivesWith        = "rule-survives-with"
-	shortcutSurvivesWithInc     = "rule-survives-with++"
-	shortcutSurvivesWithDec     = "rule-survives-with--"
-	shortcutGridWidth           = "grid-width"
-	shortcutGridHeight          = "grid-height"
-	shortcutGridSize            = "grid-size" // "widthXheight"
-	shortcutRecord              = "record"
-	shortcutRepeatDetect        = "repeat-detect"
-	shortcutRepeatDetectSave    = "repeat-detect-save"
-	shortcutHeatMap             = "heat-map"
-	shortcutHeatMapSave         = "heat-map-save"
-	shortcutHeatMapReveal       = "heat-map-reveal"
-	shortcutNextMetaRule        = "next-meta-rule"
-	shortcutPreviousMetaRule    = "previous-meta-rule"
-	shortcutIterateMetaRule     = "iterate-meta-rule:"
-	shortcutLog                 = "log"
+	shortcutRepeat                = "repeat:"
+	shortcutName                  = "name"
+	shortcutFiles                 = "collect-files"
+	shortcutRun                   = "run"
+	shortcutStop                  = "stop"
+	shortcutExport                = "export"
+	shortcutClear                 = "clear"
+	shortcutSnapshot              = "snapshot"
+	shortcutUndoToSnapshot        = "undo-to-snapshot"
+	shortcutReplaySnapshot        = "replay-snapshot"
+	shortcutStep                  = "step"
+	shortcutStepAhead             = "step-ahead"
+	shortcutStepAheadDec          = "step-ahead--"
+	shortcutStepAheadInc          = "step-ahead++"
+	shortcutRandomize             = "randomize"
+	shortcutRandomizationDec      = "randomization--"
+	shortcutRandomizationInc      = "randomization++"
+	shortcutRandomization         = "randomization"
+	shortcutRandomChanges         = "random-changes"
+	shortcutRandomizePopulation   = "randomize-population"
+	shortcutMaxAdjacents          = "max-adjacents"
+	shortcutStepDelayDec          = "step-delay--"
+	shortcutStepDelayInc          = "step-delay++"
+	shortcutRulePermDec           = "rule-perm--"
+	shortcutRulePermInc           = "rule-perm++"
+	shortcutSleep                 = "sleep"
+	shortcutRunRecipe             = "run-recipe"
+	shortcutWrapMode              = "wrap-mode"
+	shortcutBoundaryMode          = "boundary-mode"
+	shortcutStepAheadBy           = "step-ahead-by"
+	shortcutStepDelay             = "step-delay"
+	shortcutRulePerm              = "rule-perm"
+	shortcutRule                  = "rule"
+	shortcutBornWith              = "rule-born-with"
+	shortcutBornWithInc           = "rule-born-with++"
+	shortcutBornWithDec           = "rule-born-with--"
+	shortcutSurvivesWith          = "rule-survives-with"
+	shortcutSurvivesWithInc       = "rule-survives-with++"
+	shortcutSurvivesWithDec       = "rule-survives-with--"
+	shortcutGridWidth             = "grid-width"
+	shortcutGridHeight            = "grid-height"
+	shortcutGridSize              = "grid-size" // "widthXheight"
+	shortcutRecord                = "record"
+	shortcutRepeatDetect          = "repeat-detect"
+	shortcutRepeatDetectSave      = "repeat-detect-save"
+	shortcutHeatMap               = "heat-map"
+	shortcutHeatMapSave           = "heat-map-save"
+	shortcutHeatMapReveal         = "heat-map-reveal"
+	shortcutNextMetaRule          = "next-meta-rule"
+	shortcutPreviousMetaRule      = "previous-meta-rule"
+	shortcutIterateMetaRule       = "iterate-meta-rule:"
+	shortcutLog                   = "log"
+	shortcutAddCollectedRule      = "add-collected-rule"
+	shortcutRemoveCollectedRule   = "remove-collected-rule"
+	shortcutPreviousCollectedRule = "previous-collected-rule"
+	shortcutNextCollectedRule     = "next-collected-rule"
 )

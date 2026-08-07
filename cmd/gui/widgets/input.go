@@ -16,6 +16,7 @@ type input struct {
 	style      material.EditorStyle
 	theme      *material.Theme
 	onChangeFn func(text string)
+	onSubmitFn func(text string)
 	upDownFn   func(k key.Name, text string) (string, bool)
 	maxWidth   int
 }
@@ -43,6 +44,11 @@ func (i *input) upDownSupport(fn func(k key.Name, text string) (string, bool)) *
 
 func (i *input) maximumWidth(w int) *input {
 	i.maxWidth = w
+	return i
+}
+
+func (i *input) onSubmit(fn func(string)) *input {
+	i.onSubmitFn = fn
 	return i
 }
 
@@ -146,7 +152,9 @@ func (i *input) update(gtx layout.Context) {
 				i.onChangeFn(i.editor.Text())
 			}
 		case widget.SubmitEvent:
-			// optional
+			if i.onSubmitFn != nil {
+				i.onSubmitFn(i.editor.Text())
+			}
 		}
 	}
 	if currentlyFocused != gtx.Focused(&i.editor) {

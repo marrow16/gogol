@@ -75,6 +75,22 @@ func TestParseRule(t *testing.T) {
 			input:    "AnyOf(AllOf(S(+457, !3, -01, -12 )  /  B( +1 ), S(+4, !3, -01, -12 )  /  B( +1 )), AllOf(S(+7, !3, -01, -12 )  /  B( +1 )))",
 			expected: "AnyOf(AllOf(B(+1) / S(+457,!3,-01,-12), B(+1) / S(+4,!3,-01,-12)), AllOf(B(+1) / S(+7,!3,-01,-12)))",
 		},
+		{
+			input: `B( +1 ) // this is a comment
+	/S(+457, !3, -01, -12 )`,
+			expected: "B(+1) / S(+457,!3,-01,-12)",
+		},
+		{
+			input: `AllOf(
+    B(!2345) / S(+47,!3),
+	//B(!2345) / S(+47,!3),
+    AnyOf(
+        //B(+0,!1) / S(!012,-568),
+        B(+0,!16) / S(+568,!012),
+    )
+)`,
+			expected: "AllOf(B(!2345) / S(+47,!3), AnyOf(B(+0,!16) / S(+568,!012)))",
+		},
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("[%d]", i+1), func(t *testing.T) {

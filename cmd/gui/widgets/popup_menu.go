@@ -53,6 +53,11 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		},
 		{
 			parent: result,
+			label:  "Collected Rules",
+			popout: popoutCollectedRules,
+		},
+		{
+			parent: result,
 			label:  "Grid Recipes",
 			popout: popoutGridRecipes,
 		},
@@ -151,6 +156,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		popoutInstrumentation:        newInstrumentationPopout(result, result.core),
 		popoutShortcuts:              newShortcutsPopout(result, result.core),
 		popoutMetaRules:              newMetaRulesPopout(result, result.core),
+		popoutCollectedRules:         newCollectedRulesPopout(result, result.core),
 	}
 	result.selected = len(result.menuItems) - 1
 	return result
@@ -455,4 +461,5 @@ const (
 	popoutInstrumentation
 	popoutShortcuts
 	popoutMetaRules
+	popoutCollectedRules
 )

@@ -16,7 +16,7 @@ func newShortcutsPopout(p *menuPopup, c *Core) *shortcutsPopout {
 		parent: p,
 		core:   c,
 	}
-	result.key = newInput(c.theme, "", 1, result.keyChanged).upDownSupport(result.keyUpDown).maximumWidth(2)
+	result.key = newInput(c.theme, "", 3, result.keyChanged).upDownSupport(result.keyUpDown).maximumWidth(3)
 	return result
 }
 
@@ -32,7 +32,7 @@ type shortcutsPopout struct {
 func (p *shortcutsPopout) keyUpDown(k key.Name, text string) (string, bool) {
 	shortcuts := make([]string, 0)
 	for sc := range p.core.settings.Shortcuts {
-		if len(sc) == 1 {
+		if p.isAllowedKey(strings.ToUpper(sc)) {
 			shortcuts = append(shortcuts, sc)
 		}
 	}
@@ -63,12 +63,19 @@ func (p *shortcutsPopout) keyUpDown(k key.Name, text string) (string, bool) {
 	return shortcuts[idx], true
 }
 
+func (p *shortcutsPopout) isAllowedKey(k string) bool {
+	if len(k) == 1 {
+		return true
+	}
+	return len(k) == 2 && strings.Contains("F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11,F12,", k+",")
+}
+
 func (p *shortcutsPopout) keyChanged(s string) {
 	us := strings.ToUpper(s)
 	if us != s {
 		p.key.setText(us)
 	}
-	if len(us) != 1 {
+	if !p.isAllowedKey(us) {
 		return
 	} else if p.onShortcut != us {
 		if sc, ok := p.core.settings.Shortcuts[us]; ok {
@@ -87,11 +94,12 @@ func (p *shortcutsPopout) layout(gtx layout.Context, theme *material.Theme) layo
 	ht := kw.Size.Y * 16
 	m := measureText(gtx, theme, "M")
 	ew := m.Size.X * 30
-	k := p.key.editor.Text()
+	k := strings.ToUpper(p.key.editor.Text())
+	isAllowedKey := p.isAllowedKey(k)
 	if p.linkHelp.Clicked(gtx) {
 		_ = openURL("https://github.com/marrow16/gogol/tree/main/cmd/gui/SHORTCUTS.md")
 	}
-	if len(k) == 1 {
+	if isAllowedKey {
 		for {
 			ev, ok := p.editor.Update(gtx)
 			if !ok {
@@ -121,7 +129,7 @@ func (p *shortcutsPopout) layout(gtx layout.Context, theme *material.Theme) layo
 						return p.key.layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if len(k) != 1 {
+						if !isAllowedKey {
 							return layout.Dimensions{}
 						}
 						return label(theme, altKeyName+k)(gtx)
@@ -137,7 +145,7 @@ func (p *shortcutsPopout) layout(gtx layout.Context, theme *material.Theme) layo
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if len(k) != 1 {
+				if !isAllowedKey {
 					return layout.Dimensions{}
 				}
 				gtx.Constraints.Max.X = ew

@@ -36,6 +36,7 @@ type metaRulesPopout struct {
 	btnLast     *button
 	btnNext     *button
 	btnPrev     *button
+	btnAddAll   *button
 	current     string
 	currentRule meta.Evaluator
 	matched     []logic.Rule
@@ -56,6 +57,7 @@ func newMetaRulesPopout(p *menuPopup, c *Core) *metaRulesPopout {
 		btnLast:   newButton(c.theme, "Last"),
 		btnNext:   newButton(c.theme, "Next"),
 		btnPrev:   newButton(c.theme, "Prev"),
+		btnAddAll: newButton(c.theme, "Add all to collected rules"),
 	}
 	result.listStyle = material.List(c.theme, &result.list)
 	result.chooser = newChooser[string](c.theme, 38,
@@ -213,11 +215,17 @@ func (p *metaRulesPopout) layoutNavButtons(gtx layout.Context, theme *material.T
 				p.list.ScrollTo(len(p.matched) - 1)
 			}
 		}
+		if p.btnAddAll.Clicked(gtx) {
+			for perm := range p.currentRule.MatchingPermutations() {
+				p.core.settings.CollectedRules[int(perm)] = true
+			}
+		}
 		return layout.Flex{Axis: layout.Horizontal, Gap: 30}.Layout(gtx,
 			layout.Rigid(p.btnFirst.Layout),
 			layout.Rigid(p.btnLast.Layout),
 			layout.Rigid(p.btnNext.Layout),
 			layout.Rigid(p.btnPrev.Layout),
+			layout.Rigid(p.btnAddAll.Layout),
 		)
 	} else {
 		return label(theme, "No matched rules found")(gtx)
@@ -360,7 +368,7 @@ func (p *metaRulesPopout) hasFocus(gtx layout.Context) bool {
 		p.btnCreate.isFocused(gtx) || p.btnDelete.isFocused(gtx) ||
 		gtx.Focused(&p.editor) ||
 		p.btnFirst.isFocused(gtx) || p.btnLast.isFocused(gtx) ||
-		p.btnPrev.isFocused(gtx) || p.btnNext.isFocused(gtx) ||
+		p.btnPrev.isFocused(gtx) || p.btnNext.isFocused(gtx) || p.btnPrev.isFocused(gtx) ||
 		gtx.Focused(&p.list)
 }
 

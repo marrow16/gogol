@@ -91,6 +91,9 @@ func (p *ruleParser) parse() (result Evaluator, err error) {
 	seen := map[byte]bool{}
 	for !p.atEnd() {
 		p.skipSpace()
+		if p.atEnd() {
+			break
+		}
 		b := p.peek()
 		if seen[b] {
 			return nil, p.errorf("repeat '%s' not allowed", string(b))
@@ -173,7 +176,9 @@ func (p *ruleParser) parseComposites() (Evaluator, bool, error) {
 					offset += len(part) + 2
 					var sr Evaluator
 					if sr, err = sub.parse(); err == nil {
-						cmr.Rules = append(cmr.Rules, sr)
+						if sr.String() != "" {
+							cmr.Rules = append(cmr.Rules, sr)
+						}
 					} else {
 						return nil, false, err
 					}
@@ -422,10 +427,34 @@ func (p *ruleParser) skipSpace() {
 		switch p.peek() {
 		case ' ', '\t', '\r', '\n':
 			p.pos++
+		case '/':
+			if p.peekN(2) == "//" {
+				// comment - skip to end of line
+				p.pos += 2
+				foundEol := false
+				for !p.atEnd() && !foundEol {
+					switch p.peek() {
+					case '\r', '\n':
+						p.pos++
+						foundEol = true
+						p.skipSpace()
+					default:
+						p.pos++
+					}
+				}
+			}
+			return
 		default:
 			return
 		}
 	}
+}
+
+func (p *ruleParser) peekN(n int) (result string) {
+	if p.pos+n < len(p.input) {
+		result = p.input[p.pos : p.pos+n]
+	}
+	return
 }
 
 func (p *ruleParser) peek() (result byte) {
