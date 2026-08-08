@@ -13,6 +13,7 @@ type Rule interface {
 	BornWith() string
 	SurvivesWith() string
 	Permutation() int
+	Integer() int
 	Name() string
 	IsCustom() bool
 }
@@ -83,6 +84,19 @@ func (r rule) Permutation() int {
 	return result
 }
 
+func (r rule) Integer() int {
+	result := 0
+	for i := 0; i < 9; i++ {
+		if r.bornWith[i] {
+			result |= 1 << i
+		}
+		if r.survivesWith[i] {
+			result |= 1 << (i + 9)
+		}
+	}
+	return result
+}
+
 func (r rule) Name() string {
 	if r.name != "" {
 		return r.name
@@ -108,6 +122,13 @@ func NewRuleFromPermutation(permutation int) (Rule, error) {
 		r.survivesWith[i] = permutation&(1<<i) != 0
 	}
 	return r, nil
+}
+
+func NewRuleFromInteger(i int) (Rule, error) {
+	if i < 0 || i >= 1<<18 {
+		return nil, ErrInvalidInteger
+	}
+	return NewRuleFromPermutation(IntegerToPermutation(i))
 }
 
 func MustNewRuleRle(name string, rle string) Rule {
@@ -174,7 +195,16 @@ func NewRuleRle(name string, rle string) (Rule, error) {
 	return result, nil
 }
 
+func PermutationToInteger(perm int) int {
+	return ((perm & 0x1FF) << 9) | ((perm >> 9) & 0x1FF)
+}
+
+func IntegerToPermutation(integer int) int {
+	return ((integer & 0x1FF) << 9) | ((integer >> 9) & 0x1FF)
+}
+
 var (
 	ErrInvalidRule        = errors.New("invalid RLE rule")
 	ErrInvalidPermutation = errors.New("invalid permutation")
+	ErrInvalidInteger     = errors.New("invalid integer")
 )

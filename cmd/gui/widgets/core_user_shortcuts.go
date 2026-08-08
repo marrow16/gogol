@@ -173,6 +173,10 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 			c.permutationDecrement()
 		case shortcutRulePermInc:
 			c.permutationIncrement()
+		case shortcutRuleIntDec:
+			c.integerDecrement()
+		case shortcutRuleIntInc:
+			c.integerIncrement()
 		case shortcutBornWithInc:
 			c.permutationIncrementBorn()
 		case shortcutBornWithDec:
@@ -251,6 +255,12 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 				case shortcutRulePerm:
 					if n, err := strconv.Atoi(parts[1]); err == nil {
 						if r, err := logic.NewRuleFromPermutation(n); err == nil {
+							c.setRule(r)
+						}
+					}
+				case shortcutRuleInt:
+					if n, err := strconv.Atoi(parts[1]); err == nil {
+						if r, err := logic.NewRuleFromInteger(n); err == nil {
 							c.setRule(r)
 						}
 					}
@@ -505,6 +515,9 @@ func (c *Core) shortcutFormatName(s string, repeats []int) string {
 		case strings.HasPrefix(s[i:], "%perm"):
 			b.WriteString(strconv.Itoa(rule.Permutation()))
 			i += 5
+		case strings.HasPrefix(s[i:], "%integer"):
+			b.WriteString(strconv.Itoa(rule.Integer()))
+			i += 8
 		case strings.HasPrefix(s[i:], "%rand"):
 			b.WriteString(strconv.Itoa(c.settings.Randomization))
 			i += 5
@@ -599,6 +612,8 @@ const (
 	shortcutStepDelayInc          = "step-delay++"
 	shortcutRulePermDec           = "rule-perm--"
 	shortcutRulePermInc           = "rule-perm++"
+	shortcutRuleIntDec            = "rule-int--"
+	shortcutRuleIntInc            = "rule-int++"
 	shortcutSleep                 = "sleep"
 	shortcutRunRecipe             = "run-recipe"
 	shortcutWrapMode              = "wrap-mode"
@@ -606,6 +621,7 @@ const (
 	shortcutStepAheadBy           = "step-ahead-by"
 	shortcutStepDelay             = "step-delay"
 	shortcutRulePerm              = "rule-perm"
+	shortcutRuleInt               = "rule-int"
 	shortcutRule                  = "rule"
 	shortcutBornWith              = "rule-born-with"
 	shortcutBornWithInc           = "rule-born-with++"
