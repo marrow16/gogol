@@ -359,7 +359,13 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context, theme *material
 }
 
 func (p *instrumentationPopout) saveAnimation() {
-	filename, err := resolveSavePath(p.core.nowFilename("Grid", ".mp4"))
+	var filename string
+	var err error
+	if p.core.settings.AnimationFormat != "mp4" {
+		filename, err = resolveSavePath(p.core.nowFilename("Grid", ".gif"))
+	} else {
+		filename, err = resolveSavePath(p.core.nowFilename("Grid", ".mp4"))
+	}
 	if err != nil {
 		p.animationResult = &animationResult{
 			filename: filename,
@@ -370,7 +376,7 @@ func (p *instrumentationPopout) saveAnimation() {
 	}
 	recorder := p.core.instrumentRecord
 	go func() {
-		ani := animator.NewAnimator(p.core.settings.CellSize, p.core.settings.CellAliveColor, p.core.settings.CellDeadColor, p.core.settings.CellBorderColor, p.core.settings.CellBorders)
+		ani := animator.NewAnimator(p.core.settings.CellSize, p.core.settings.CellAliveColor, p.core.settings.CellDeadColor, p.core.settings.CellBorderColor, p.core.settings.CellBorders, p.core.settings.AnimationFormat)
 		err := ani.Animate(filename, recorder)
 		p.animationSaving = false
 		p.animationResult = &animationResult{

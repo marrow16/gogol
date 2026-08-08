@@ -59,7 +59,8 @@ func NewSettings() *Settings {
     )
 )`,
 		},
-		CollectedRules: make(map[int]bool),
+		CollectedRules:  make(map[int]bool),
+		AnimationFormat: "gif",
 	}
 	if path, err := settingsPath(false); err == nil {
 		if f, err := os.Open(path); err == nil {
@@ -123,6 +124,7 @@ type Settings struct {
 	ExportImage         bool
 	MetaRules           map[string]string
 	CollectedRules      map[int]bool
+	AnimationFormat     string
 }
 
 func (s *Settings) Save(grid *logic.Grid, zoom float32) {
@@ -168,6 +170,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				ExportImage:         s.ExportImage,
 				MetaRules:           s.MetaRules,
 				CollectedRules:      fr,
+				AnimationFormat:     s.AnimationFormat,
 			}
 			if pattern, err := s.PatternFromGrid(grid); err == nil {
 				var buf bytes.Buffer
@@ -330,6 +333,7 @@ func (s *Settings) fromPrefs(p prefs) {
 	for _, fr := range p.CollectedRules {
 		s.CollectedRules[fr] = true
 	}
+	s.AnimationFormat = p.AnimationFormat
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			if g, err := logic.NewGrid(pattern.Height, pattern.Width, s.WrapMode, s.BoundaryMode); err == nil {
@@ -387,6 +391,7 @@ type prefs struct {
 	ExportImage         bool                `json:"export_image"`
 	MetaRules           map[string]string   `json:"meta_rules"`
 	CollectedRules      []int               `json:"collected_rules"`
+	AnimationFormat     string              `json:"animation_format"`
 }
 
 var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")
