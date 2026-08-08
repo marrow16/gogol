@@ -205,6 +205,34 @@ func (c *Core) permutationDecrement() {
 	}
 }
 
+func (c *Core) integerIncrement() {
+	c.stop()
+	n := c.gridHolder.grid.Rule.Integer()
+	if n+1 < 1<<18 {
+		n++
+	} else {
+		n = 0
+	}
+	if r, err := logic.NewRuleFromInteger(n); err == nil {
+		c.gridHolder.grid.SetRule(r)
+		c.statusBar.rulesPopup.updateInputs()
+	}
+}
+
+func (c *Core) integerDecrement() {
+	c.stop()
+	n := c.gridHolder.grid.Rule.Integer()
+	if n == 0 {
+		n = (1 << 18) - 1
+	} else {
+		n--
+	}
+	if r, err := logic.NewRuleFromInteger(n); err == nil {
+		c.gridHolder.grid.SetRule(r)
+		c.statusBar.rulesPopup.updateInputs()
+	}
+}
+
 func (c *Core) permutationIncrementBorn() {
 	c.stop()
 	perm := c.gridHolder.grid.Rule.Permutation()

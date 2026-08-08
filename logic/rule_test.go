@@ -191,3 +191,18 @@ func TestNewRuleEvaluatorFromPermutation_BadPerm(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, ErrInvalidPermutation, err)
 }
+
+func TestRule_Integer(t *testing.T) {
+	i := StandardRule.Integer()
+	require.Equal(t, 6152, i)
+}
+
+func TestPermutationToInteger(t *testing.T) {
+	i := PermutationToInteger(StandardRule.Permutation())
+	require.Equal(t, 6152, i)
+}
+
+func TestIntegerToPermutation(t *testing.T) {
+	i := IntegerToPermutation(StandardRule.Integer())
+	require.Equal(t, 4108, i)
+}
