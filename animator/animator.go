@@ -248,8 +248,8 @@ func (a *Animator) drawCellPaletted(r, c int, alive bool) {
 	}
 	x0 := (c * a.cellSize) + a.borderOffset
 	y0 := (r * a.cellSize) + a.borderOffset
-	x1 := ((c + 1) * a.cellSize) - a.borderOffset
-	y1 := ((r + 1) * a.cellSize) - a.borderOffset
+	x1 := x0 + a.cellSize - a.borderOffset
+	y1 := y0 + a.cellSize - a.borderOffset
 	for y := y0; y < y1; y++ {
 		off := a.imgP.PixOffset(x0, y)
 		row := a.imgP.Pix[off : off+(x1-x0)]

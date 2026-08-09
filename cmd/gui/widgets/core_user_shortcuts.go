@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"gioui.org/io/key"
 	"github.com/go-andiamo/splitter"
+	"github.com/marrow16/gogol/animator"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/logic/meta"
+	"image/color"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -127,6 +130,11 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 			c.stop()
 		case shortcutExport:
 			_ = c.export()
+		case shortcutExportImage:
+			c.stop()
+			if p, err := c.settings.PatternFromGrid(c.gridHolder.grid); err == nil {
+				_ = c.exportImage(p)
+			}
 		case shortcutClear:
 			c.clear()
 		case shortcutSnapshot:
@@ -209,6 +217,22 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 		case shortcutRepeatDetectSave:
 			c.stop()
 			c.saveRepeatDetect()
+		case shortcutAnimationSave:
+			c.stop()
+			recorder := c.instrumentRecord
+			if recorder != nil && recorder.FramesCount() > 1 {
+				var filename string
+				var err error
+				if c.settings.AnimationFormat != "mp4" {
+					filename, err = resolveSavePath(c.nowFilename("Grid", ".gif"))
+				} else {
+					filename, err = resolveSavePath(c.nowFilename("Grid", ".mp4"))
+				}
+				if err == nil {
+					ani := animator.NewAnimator(c.settings.CellSize, c.settings.CellAliveColor, c.settings.CellDeadColor, c.settings.CellBorderColor, c.settings.CellBorders, c.settings.AnimationFormat)
+					_ = ani.Animate(filename, recorder)
+				}
+			}
 		case shortcutFiles:
 			c.shortcutCollectFiles = true
 			c.shortcutFiles = make([]string, 0)
@@ -233,6 +257,10 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 				case shortcutStepAheadBy:
 					if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
 						c.stepAheadBy(n)
+					}
+				case shortcutStepBackBy:
+					if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
+						c.skipBackBy(n)
 					}
 				case shortcutRandomization:
 					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 100 {
@@ -445,6 +473,32 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 					}
 				case shortcutLog:
 					c.shortcutLog(parts[1])
+				case shortcutBorders:
+					if b, err := strconv.ParseBool(parts[1]); err == nil {
+						c.setCellBorders(b)
+					}
+				case shortcutCellSize:
+					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 3 && n <= 100 {
+						c.setCellSize(n)
+					}
+				case shortcutCellColorAlive:
+					if clr, ok := parseColor(parts[1]); ok {
+						c.stop()
+						c.settings.CellAliveColor = clr
+						c.gridHolder.grid.Draw()
+					}
+				case shortcutCellColorDead:
+					if clr, ok := parseColor(parts[1]); ok {
+						c.stop()
+						c.settings.CellDeadColor = clr
+						c.gridHolder.grid.Draw()
+					}
+				case shortcutCellColorBorder:
+					if clr, ok := parseColor(parts[1]); ok {
+						c.stop()
+						c.settings.CellBorderColor = clr
+						c.gridHolder.grid.Draw()
+					}
 				}
 			}
 		}
@@ -586,6 +640,23 @@ func (c *Core) shortcutFormatName(s string, repeats []int) string {
 	return b.String()
 }
 
+var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")
+
+func parseColor(s string) (c color.NRGBA, ok bool) {
+	if !colorRegex.MatchString(s) {
+		return c, false
+	}
+	r, _ := strconv.ParseUint(s[1:3], 16, 8)
+	g, _ := strconv.ParseUint(s[3:5], 16, 8)
+	b, _ := strconv.ParseUint(s[5:7], 16, 8)
+	return color.NRGBA{
+		R: uint8(r),
+		G: uint8(g),
+		B: uint8(b),
+		A: 0xff,
+	}, true
+}
+
 const (
 	shortcutRepeat                = "repeat:"
 	shortcutName                  = "name"
@@ -593,6 +664,7 @@ const (
 	shortcutRun                   = "run"
 	shortcutStop                  = "stop"
 	shortcutExport                = "export"
+	shortcutExportImage           = "export-image"
 	shortcutClear                 = "clear"
 	shortcutSnapshot              = "snapshot"
 	shortcutUndoToSnapshot        = "undo-to-snapshot"
@@ -619,6 +691,7 @@ const (
 	shortcutWrapMode              = "wrap-mode"
 	shortcutBoundaryMode          = "boundary-mode"
 	shortcutStepAheadBy           = "step-ahead-by"
+	shortcutStepBackBy            = "step-back-by"
 	shortcutStepDelay             = "step-delay"
 	shortcutRulePerm              = "rule-perm"
 	shortcutRuleInt               = "rule-int"
@@ -646,4 +719,10 @@ const (
 	shortcutRemoveCollectedRule   = "remove-collected-rule"
 	shortcutPreviousCollectedRule = "previous-collected-rule"
 	shortcutNextCollectedRule     = "next-collected-rule"
+	shortcutBorders               = "borders"
+	shortcutCellSize              = "cell-size"
+	shortcutCellColorAlive        = "cell-color-alive"
+	shortcutCellColorDead         = "cell-color-dead"
+	shortcutCellColorBorder       = "cell-color-border"
+	shortcutAnimationSave         = "record-animation-save"
 )

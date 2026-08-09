@@ -8,7 +8,7 @@ import (
 	"github.com/marrow16/gogol/patterns"
 	"github.com/marrow16/gogol/recipes"
 	"image"
-	"image/draw"
+	"image/color"
 	"image/png"
 	"os"
 	"strconv"
@@ -159,6 +159,15 @@ func (c *Core) skipBack() {
 			c.skipBackQueued = false
 			c.status = ""
 		}()
+	}
+}
+
+func (c *Core) skipBackBy(n int) {
+	c.stop()
+	if c.instrumentRecord != nil {
+		c.instrumentRecord.Undos(n)
+		c.gridHolder.grid.Draw()
+		c.window.Invalidate()
 	}
 }
 
@@ -523,21 +532,45 @@ func (c *Core) exportImage(pattern patterns.Pattern) (err error) {
 		defer func() {
 			_ = f.Close()
 		}()
-		img := image.NewNRGBA(image.Rect(0, 0, c.settings.Width*c.settings.CellSize, c.settings.Height*c.settings.CellSize))
-		draw.Draw(img, image.Rect(0, 0, c.settings.Width*c.settings.CellSize, c.settings.Height*c.settings.CellSize), &image.Uniform{c.settings.CellDeadColor}, image.Point{}, draw.Src)
-		c.gridHolder.drawCellBorders(img)
-		off := 0
+		wd, ht := pattern.Width*c.settings.CellSize, pattern.Height*c.settings.CellSize
+		offset := 0
 		if c.settings.CellBorders {
-			off = 1
+			offset = 1
+		}
+		img := image.NewPaletted(image.Rect(0, 0, wd+offset, ht+offset), color.Palette{
+			0: c.settings.CellDeadColor,
+			1: c.settings.CellAliveColor,
+			2: c.settings.CellBorderColor,
+		})
+		if c.settings.CellBorders {
+			// horizontal borders...
+			for y := 0; y <= ht; y += c.settings.CellSize {
+				off := img.PixOffset(0, y)
+				r := img.Pix[off : off+wd]
+				for i := range r {
+					r[i] = 2
+				}
+			}
+			// vertical borders...
+			for x := 0; x <= wd; x += c.settings.CellSize {
+				for y := 0; y < ht; y++ {
+					img.Pix[img.PixOffset(x, y)] = 2
+				}
+			}
 		}
 		pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
 			if alive {
-				draw.Draw(img, image.Rect(
-					(col*c.settings.CellSize)+off,
-					(row*c.settings.CellSize)+off,
-					(col+1)*c.settings.CellSize,
-					(row+1)*c.settings.CellSize),
-					&image.Uniform{c.settings.CellAliveColor}, image.Point{}, draw.Src)
+				x0 := (col * c.settings.CellSize) + offset
+				y0 := (row * c.settings.CellSize) + offset
+				x1 := x0 + c.settings.CellSize - offset
+				y1 := y0 + c.settings.CellSize - offset
+				for y := y0; y < y1; y++ {
+					off := img.PixOffset(x0, y)
+					r := img.Pix[off : off+(x1-x0)]
+					for i := range r {
+						r[i] = 1
+					}
+				}
 			}
 		})
 		err = png.Encode(f, img)
