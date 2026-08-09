@@ -52,17 +52,19 @@ func (e *gifEncoder) writeHeader() {
 	e.write(e.buf[:3])
 	e.encodeColorTable(paddedSize)
 
-	// add animation info
-	e.buf[0] = 0x21 // Extension Introducer.
-	e.buf[1] = 0xff // Application Label.
-	e.buf[2] = 0x0b // Block Size.
-	e.write(e.buf[:3])
-	e.writeString("NETSCAPE2.0")
-	e.buf[0] = 0x03 // Block Size.
-	e.buf[1] = 0x01 // Sub-block Index.
-	lEPutUint16(e.buf[2:4], uint16(e.loopCount))
-	e.buf[4] = 0x00 // Block Terminator.
-	e.write(e.buf[:5])
+	if e.loopCount >= 0 {
+		// add animation loop info
+		e.buf[0] = 0x21
+		e.buf[1] = 0xff
+		e.buf[2] = 0x0b
+		e.write(e.buf[:3])
+		e.writeString("NETSCAPE2.0")
+		e.buf[0] = 0x03
+		e.buf[1] = 0x01
+		lEPutUint16(e.buf[2:4], uint16(e.loopCount))
+		e.buf[4] = 0x00
+		e.write(e.buf[:5])
+	}
 }
 
 func (e *gifEncoder) encodeColorTable(paddedSize int) {
@@ -141,10 +143,6 @@ func (e *gifEncoder) writeImageBlock(pm *image.Paletted) {
 	lEPutUint16(e.buf[7:9], uint16(b.Dy()))
 	e.write(e.buf[:9])
 
-	// To determine whether or not this frame's palette is the same as the
-	// global palette, we can check a couple things. First, do they actually
-	// point to the same []color.Color? If so, they are equal so long as the
-	// frame's palette is not longer than the global palette...
 	paddedSize := log2(len(pm.Palette)) // Size of Local Color Table: 2^(1+n).
 	e.writeByte(0)                      // Use the global color table.
 
@@ -160,20 +158,20 @@ func (e *gifEncoder) writeImageBlock(pm *image.Paletted) {
 	if dx := b.Dx(); dx == pm.Stride {
 		_, e.err = lzww.Write(pm.Pix[:dx*b.Dy()])
 		if e.err != nil {
-			lzww.Close()
+			_ = lzww.Close()
 			return
 		}
 	} else {
 		for i, y := 0, b.Min.Y; y < b.Max.Y; i, y = i+pm.Stride, y+1 {
 			_, e.err = lzww.Write(pm.Pix[i : i+dx])
 			if e.err != nil {
-				lzww.Close()
+				_ = lzww.Close()
 				return
 			}
 		}
 	}
-	lzww.Close() // flush to bw
-	bw.close()   // flush to e.w
+	_ = lzww.Close() // flush to bw
+	bw.close()       // flush to e.w
 }
 
 type blockWriter struct {
