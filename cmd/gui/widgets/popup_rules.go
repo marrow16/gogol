@@ -168,7 +168,7 @@ func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
 		}.Layout(
 			gtx,
 			p.layoutList(rowDims),
-			p.layoutDetails(rowDims),
+			p.layoutDetails(),
 		)
 	})
 	call := macro.Stop()
@@ -182,7 +182,7 @@ func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
 	return dims
 }
 
-func (p *rulesPopup) layoutDetails(rowDims layout.Dimensions) layout.FlexChild {
+func (p *rulesPopup) layoutDetails() layout.FlexChild {
 	custom := p.core.gridHolder.grid.Rule.IsCustom()
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		paint.FillShape(gtx.Ops, popupBorder, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X, 1)).Op())
@@ -254,7 +254,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 				return p.ruleClicks[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					if index == idx {
 						bg := popupSelectedBackground
-						if !p.rleInput.isFocused(gtx) && !p.permInput.isFocused(gtx) && !p.intInput.isFocused(gtx) {
+						if !p.rleInput.isFocused(gtx) && !p.permInput.isFocused(gtx) && !p.intInput.isFocused(gtx) && !p.nameInput.isFocused(gtx) {
 							bg = popupSelectedFocusedBackground
 						}
 						paint.FillShape(

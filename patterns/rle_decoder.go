@@ -92,48 +92,53 @@ func PatternRleDecoder(r io.Reader) (result Pattern, err error) {
 }
 
 func parseRows(width, height int, rows []string) (result []bool, err error) {
-	mx := width * height
-	result = make([]bool, mx)
-	for r, row := range rows {
+	result = make([]bool, width*height)
+	r := 0
+	for rn, row := range rows {
+		if r >= height {
+			return nil, errors.New("invalid RLE format - too many rows")
+		}
+		col := 0
 		rl := ""
-		start := r * width
 		for _, ch := range []byte(row) {
 			switch ch {
-			case 'o':
-				// alive
+			case 'o', 'b':
 				n := 1
-				if len(rl) > 0 {
+				if rl != "" {
 					n, err = strconv.Atoi(rl)
 					if err != nil || n < 1 {
-						err = errors.New("invalid RLE format - bad run length")
+						return nil, errors.New("invalid RLE format - bad run length")
 					}
 				}
 				rl = ""
-				for c := 0; c < n && start+c < mx; c++ {
-					result[start+c] = true
+				if col+n > width {
+					return nil, errors.New("invalid RLE format - row exceeds width")
 				}
-				start += n
-			case 'b':
-				// dead
-				n := 1
-				if len(rl) > 0 {
-					n, err = strconv.Atoi(rl)
-					if err != nil || n < 1 {
-						err = errors.New("invalid RLE format - bad run length")
+				if ch == 'o' {
+					start := r*width + col
+					for c := 0; c < n; c++ {
+						result[start+c] = true
 					}
 				}
-				rl = ""
-				for c := 0; c < n && start+c < mx; c++ {
-					result[start+c] = false
-				}
-				start += n
+				col += n
 			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-				rl += string(byte(ch))
+				rl += string(ch)
 			default:
-				err = errors.New("invalid RLE format")
-				return
+				return nil, errors.New("invalid RLE format")
 			}
 		}
+		if rn < len(rows)-1 {
+			advance := 1
+			if rl != "" {
+				advance, err = strconv.Atoi(rl)
+				if err != nil || advance < 1 {
+					return nil, errors.New("invalid RLE format - bad row run length")
+				}
+			}
+			r += advance
+		} else if rl != "" {
+			return nil, errors.New("invalid RLE format - dangling run length")
+		}
 	}
-	return
+	return result, nil
 }

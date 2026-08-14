@@ -1,6 +1,8 @@
 package patterns
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"github.com/marrow16/gogol/logic"
 	"io"
@@ -24,6 +26,131 @@ func (p Pattern) String() string {
 		return p.Name
 	}
 	return p.Filename
+}
+
+func (p Pattern) Trimmed() Pattern {
+	if p.Width <= 0 || p.Height <= 0 || len(p.Cells) != p.Width*p.Height {
+		return Pattern{}
+	}
+	minRow, minCol := p.Height, p.Width
+	maxRow, maxCol := -1, -1
+	for row := 0; row < p.Height; row++ {
+		for col := 0; col < p.Width; col++ {
+			if !p.Cells[row*p.Width+col] {
+				continue
+			}
+			if row < minRow {
+				minRow = row
+			}
+			if row > maxRow {
+				maxRow = row
+			}
+			if col < minCol {
+				minCol = col
+			}
+			if col > maxCol {
+				maxCol = col
+			}
+		}
+	}
+	if maxRow == -1 {
+		// no live cells...
+		return Pattern{}
+	}
+	width := maxCol - minCol + 1
+	height := maxRow - minRow + 1
+	if width == p.Width && height == p.Height {
+		return p
+	}
+	cells := make([]bool, width*height)
+	for row := 0; row < height; row++ {
+		src := (minRow+row)*p.Width + minCol
+		dst := row * width
+		copy(cells[dst:dst+width], p.Cells[src:src+width])
+	}
+	return Pattern{
+		Width:  width,
+		Height: height,
+		Cells:  cells,
+	}
+}
+
+func (p Pattern) Rotated(rotation Rotation) Pattern {
+	switch rotation {
+	case Rotate0:
+		return p
+	case Rotate90:
+		cells := make([]bool, len(p.Cells))
+		width, height := p.Height, p.Width
+		for row := 0; row < p.Height; row++ {
+			for col := 0; col < p.Width; col++ {
+				newRow := col
+				newCol := p.Height - 1 - row
+				cells[newRow*width+newCol] =
+					p.Cells[row*p.Width+col]
+			}
+		}
+		return Pattern{
+			Width:  width,
+			Height: height,
+			Cells:  cells,
+		}
+	case Rotate180:
+		cells := make([]bool, len(p.Cells))
+		for i := range p.Cells {
+			cells[len(p.Cells)-1-i] = p.Cells[i]
+		}
+		return Pattern{
+			Width:  p.Width,
+			Height: p.Height,
+			Cells:  cells,
+		}
+	case Rotate270:
+		cells := make([]bool, len(p.Cells))
+		width, height := p.Height, p.Width
+		for row := 0; row < p.Height; row++ {
+			for col := 0; col < p.Width; col++ {
+				newRow := p.Width - 1 - col
+				newCol := row
+				cells[newRow*width+newCol] =
+					p.Cells[row*p.Width+col]
+			}
+		}
+		return Pattern{
+			Width:  width,
+			Height: height,
+			Cells:  cells,
+		}
+	default:
+		panic("invalid rotation")
+	}
+}
+
+func (p Pattern) Reflected() Pattern {
+	cells := make([]bool, len(p.Cells))
+	for row := 0; row < p.Height; row++ {
+		for col := 0; col < p.Width; col++ {
+			cells[row*p.Width+(p.Width-1-col)] = p.Cells[row*p.Width+col]
+		}
+	}
+	return Pattern{
+		Width:  p.Width,
+		Height: p.Height,
+		Cells:  cells,
+	}
+}
+
+func (p Pattern) Hash() [32]byte {
+	// 8 bytes for dimensions + packed alive cell bits...
+	data := make([]byte, 8+(len(p.Cells)+7)/8)
+	binary.LittleEndian.PutUint32(data[0:4], uint32(p.Width))
+	binary.LittleEndian.PutUint32(data[4:8], uint32(p.Height))
+	for i, alive := range p.Cells {
+		if alive {
+			data[8+i/8] |= 1 << (i % 8)
+		}
+	}
+	return sha256.Sum256(data)
 }
 
 func NewPattern(name string, width int, cells []bool) (Pattern, error) {
