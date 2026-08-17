@@ -10,15 +10,16 @@ import (
 )
 
 type Pattern struct {
-	Name        string
-	Width       int
-	Height      int
-	Cells       []bool // flat slice of cells - rows x cols
-	Comments    []string
-	Origination string
-	Coordinates string
-	Rule        logic.Rule
-	Filename    string
+	Name          string
+	Width         int
+	Height        int
+	Cells         []bool // flat slice of cells - rows x cols
+	Comments      []string
+	Origination   string
+	Coordinates   string
+	Rule          logic.Rule
+	Filename      string
+	CellsEncoding CellsEncoding // used for json marshalling
 }
 
 func (p Pattern) String() string {
@@ -126,6 +127,7 @@ func (p Pattern) Rotated(rotation Rotation) Pattern {
 	}
 }
 
+// Reflected returns a horizontally reflected version of the pattern
 func (p Pattern) Reflected() Pattern {
 	cells := make([]bool, len(p.Cells))
 	for row := 0; row < p.Height; row++ {
@@ -140,8 +142,13 @@ func (p Pattern) Reflected() Pattern {
 	}
 }
 
+// Hash returns a SHA-256 hash for the pattern
+// Note that the pattern is expected to have been trimmed
+//
+// The hash is SHA-256 sum of:
+//   - 8-bytes for dimensions (width followed by height)
+//   - packed alive cell bits
 func (p Pattern) Hash() [32]byte {
-	// 8 bytes for dimensions + packed alive cell bits...
 	data := make([]byte, 8+(len(p.Cells)+7)/8)
 	binary.LittleEndian.PutUint32(data[0:4], uint32(p.Width))
 	binary.LittleEndian.PutUint32(data[4:8], uint32(p.Height))
@@ -151,6 +158,33 @@ func (p Pattern) Hash() [32]byte {
 		}
 	}
 	return sha256.Sum256(data)
+}
+
+// AllHashes returns all unique hashes under reflection and rotation
+// for the pattern, up to a maximum of 8
+//
+// The pattern is expected to have been trimmed
+func (p Pattern) AllHashes() [][32]byte {
+	result := make([][32]byte, 0, 8)
+	seen := make(map[[32]byte]struct{}, 8)
+	add := func(p Pattern) {
+		h := p.Hash()
+		if _, ok := seen[h]; ok {
+			return
+		}
+		seen[h] = struct{}{}
+		result = append(result, h)
+	}
+	add(p)
+	add(p.Rotated(Rotate90))
+	add(p.Rotated(Rotate180))
+	add(p.Rotated(Rotate270))
+	reflected := p.Reflected()
+	add(reflected)
+	add(reflected.Rotated(Rotate90))
+	add(reflected.Rotated(Rotate180))
+	add(reflected.Rotated(Rotate270))
+	return result
 }
 
 func NewPattern(name string, width int, cells []bool) (Pattern, error) {
@@ -358,4 +392,78 @@ func (p Pattern) RotatedRight() Pattern {
 		result.Cells[start] = last
 	}
 	return result
+}
+
+type PhasesResult int
+
+const (
+	PhaseRepeat PhasesResult = iota
+	PhaseStopped
+	PhaseExtinct
+	PhaseGrowth
+	PhaseDecay
+	PhaseLimit
+)
+
+// Phases returns the different phase patterns of a pattern (that might be a glider, spaceship or blinker etc.)
+//
+//   - maxSteps is the maximum number of steps (generations) - values < 1 default to 1 (suggested is > max "expected" period, e.g. 50+)
+//   - populationFactor is the change in population used to determine growth/decay - values < 1 default to 4
+//   - sizeFactor is the overall size factor of the grid (universe) to use - values < 3 default to 3
+func (p Pattern) Phases(maxSteps int, populationFactor int, sizeFactor int) (phases []Pattern, result PhasesResult) {
+	if maxSteps < 1 {
+		maxSteps = 1
+	}
+	if populationFactor < 1 {
+		populationFactor = 4
+	}
+	if sizeFactor < 3 {
+		sizeFactor = 3
+	}
+	orig := p.Trimmed()
+	phases = []Pattern{orig}
+	hash := orig.Hash()
+	seen := map[[32]byte]struct{}{
+		hash: {},
+	}
+	gh, gw := orig.Height*sizeFactor, orig.Width*sizeFactor
+	g, _ := logic.NewGrid(gh, gw, logic.WrapAll, logic.DeadBoundary)
+	rule := logic.StandardRule
+	if p.Rule != nil {
+		rule = p.Rule
+	}
+	g.SetRule(rule)
+	orig.Draw(g, (gh-orig.Height)/2, (gw-orig.Width)/2, Rotate0)
+	initialPop := g.Population()
+	maxPop := initialPop * populationFactor
+	minPop := initialPop / populationFactor
+	for i := 0; i < maxSteps; i++ {
+		if !g.Step() {
+			result = PhaseStopped
+			return
+		}
+		pop := g.Population()
+		switch {
+		case pop == 0:
+			result = PhaseExtinct
+			return
+		case pop >= maxPop:
+			result = PhaseGrowth
+			return
+		case pop <= minPop:
+			result = PhaseDecay
+			return
+		}
+		pt, _ := NewPatternFromGrid(g)
+		pt = pt.Trimmed()
+		h := pt.Hash()
+		if _, ok := seen[h]; ok {
+			result = PhaseRepeat
+			return
+		}
+		seen[h] = struct{}{}
+		phases = append(phases, pt)
+	}
+	result = PhaseLimit
+	return
 }

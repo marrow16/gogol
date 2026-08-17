@@ -67,7 +67,7 @@ func (p *patternsPopout) sortedPatterns() []patterns.Pattern {
 		p.currentRule = p.core.gridHolder.grid.Rule
 		perm := p.currentRule.Permutation()
 		for _, pattern := range patterns.PatternLibrary {
-			if pattern.Rule.Permutation() == perm {
+			if pattern.Rule != nil && pattern.Rule.Permutation() == perm {
 				result = append(result, pattern)
 			}
 		}
