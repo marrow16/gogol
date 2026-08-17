@@ -1,6 +1,7 @@
 package patterns
 
 import (
+	"errors"
 	"github.com/marrow16/gogol/logic"
 	"io"
 	"strconv"
@@ -8,7 +9,7 @@ import (
 )
 
 const (
-	maxLineLength  = 71
+	maxLineLength  = 70
 	tagName        = 'N'
 	tagOrigination = 'O'
 	tagComment     = 'C'
@@ -26,7 +27,11 @@ func PatternRleEncode(p Pattern, w io.Writer) (err error) {
 		rw.writeTag(tagComment, line)
 	}
 	rw.writeDimensions(p.Width, p.Height, p.Rule)
-	rw.writeData(p.Width, p.Cells)
+	if p.Width > 0 && p.Height > 0 && len(p.Cells) == p.Width*p.Height {
+		rw.writeData(p.Width, p.Height, p.Cells)
+	} else {
+		rw.err = errors.New("invalid pattern cells or pattern size")
+	}
 	rw.write([]byte{'!'})
 	return rw.err
 }
@@ -67,32 +72,43 @@ func (w *rleWriter) writeDimensions(x, y int, r logic.Rule) {
 	w.write(nl)
 }
 
-func (w *rleWriter) writeData(width int, cells []bool) {
-	ht := len(cells) / width
+func (w *rleWriter) writeData(width, height int, cells []bool) {
 	var lb strings.Builder
-	checkLineLen := func(l int) {
-		if lb.Len()+l > maxLineLength {
+	write := func(s string) {
+		if lb.Len()+len(s) > maxLineLength {
 			w.writeLine(lb.String())
 			lb.Reset()
 		}
+		lb.WriteString(s)
 	}
-	for r := 0; r < ht; r++ {
-		if r > 0 {
-			checkLineLen(1)
-			lb.WriteRune('$')
-		}
+	pendingRows := 0
+	written := false
+	for r := 0; r < height; r++ {
 		row := cells[r*width : (r+1)*width]
-
+		// trim trailing dead cells...
 		for len(row) > 0 && !row[len(row)-1] {
 			row = row[:len(row)-1]
 		}
 		if len(row) == 0 {
-			row = make([]bool, width)
+			pendingRows++
+			continue
+		}
+		if pendingRows > 0 || written {
+			n := pendingRows
+			if written {
+				n++
+			}
+			if n > 1 {
+				write(strconv.Itoa(n) + "$")
+			} else {
+				write("$")
+			}
 		}
 		for _, run := range runs(row) {
-			checkLineLen(len(run))
-			lb.WriteString(run)
+			write(run)
 		}
+		written = true
+		pendingRows = 0
 	}
 	w.writeString(lb.String())
 }

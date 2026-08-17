@@ -28,6 +28,10 @@ func (c *Core) start() {
 	stop := c.stopRun
 	delay := time.Duration(c.settings.StepDelay) * time.Millisecond
 	c.mutex.Unlock()
+	ignoreRepeat := false
+	if c.instrumentRepeat != nil && c.instrumentRepeat.Found {
+		ignoreRepeat = true
+	}
 	go func() {
 		defer func() {
 			c.mutex.Lock()
@@ -45,6 +49,12 @@ func (c *Core) start() {
 			}
 			start := time.Now()
 			if !c.gridHolder.grid.StepWithInstrumentation(c.instrumentation) {
+				time.Sleep(50 * time.Millisecond)
+				c.gridHolder.dirty = true
+				c.window.Invalidate()
+				return
+			}
+			if !ignoreRepeat && c.instrumentRepeat != nil && c.instrumentRepeat.Found {
 				time.Sleep(50 * time.Millisecond)
 				c.gridHolder.dirty = true
 				c.window.Invalidate()

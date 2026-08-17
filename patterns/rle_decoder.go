@@ -18,7 +18,6 @@ func PatternRleDecoder(r io.Reader) (result Pattern, err error) {
 		switch {
 		case dataStarted:
 			if strings.HasSuffix(line, "!") {
-				line = strings.TrimSuffix(line, "!")
 				endSeen = true
 			}
 			data.WriteString(line)
@@ -46,15 +45,24 @@ func PatternRleDecoder(r io.Reader) (result Pattern, err error) {
 				if len(dims) == 2 {
 					switch strings.TrimSpace(dims[0]) {
 					case "x":
-						if n, err := strconv.Atoi(strings.TrimSpace(dims[1])); err == nil {
+						var n int
+						if n, err = strconv.Atoi(strings.TrimSpace(dims[1])); err == nil {
 							result.Width = n
+						} else {
+							err = errors.New("invalid RLE format - bad dimension line")
 						}
 					case "y":
-						if n, err := strconv.Atoi(strings.TrimSpace(dims[1])); err == nil {
+						var n int
+						if n, err = strconv.Atoi(strings.TrimSpace(dims[1])); err == nil {
 							result.Height = n
+						} else {
+							err = errors.New("invalid RLE format - bad dimension line")
 						}
 					case "rule":
 						rle := strings.TrimSpace(strings.ToUpper(dims[1]))
+						if cAt := strings.Index(rle, ":"); cAt != -1 {
+							rle = rle[:cAt]
+						}
 						if !strings.ContainsRune(rle, 'S') && !strings.ContainsRune(rle, 'B') {
 							// fix up lazy rules - e.g. "23/3" is "B3/S23"
 							if bs := strings.Split(rle, "/"); len(bs) == 2 {
@@ -82,63 +90,59 @@ func PatternRleDecoder(r io.Reader) (result Pattern, err error) {
 		err = errors.New("invalid RLE format - no end")
 		return
 	}
-	dataRows := strings.Split(data.String(), "$")
-	if len(dataRows) > result.Height {
-		err = errors.New("invalid RLE format - too many rows")
-		return
-	}
-	result.Cells, err = parseRows(result.Width, result.Height, dataRows)
+	result.Cells, err = ParseRLEData(result.Width, result.Height, data.String())
 	return
 }
 
-func parseRows(width, height int, rows []string) (result []bool, err error) {
-	result = make([]bool, width*height)
-	r := 0
-	for rn, row := range rows {
-		if r >= height {
-			return nil, errors.New("invalid RLE format - too many rows")
-		}
-		col := 0
-		rl := ""
-		for _, ch := range []byte(row) {
-			switch ch {
-			case 'o', 'b':
-				n := 1
-				if rl != "" {
-					n, err = strconv.Atoi(rl)
-					if err != nil || n < 1 {
-						return nil, errors.New("invalid RLE format - bad run length")
-					}
-				}
-				rl = ""
-				if col+n > width {
-					return nil, errors.New("invalid RLE format - row exceeds width")
-				}
-				if ch == 'o' {
-					start := r*width + col
-					for c := 0; c < n; c++ {
-						result[start+c] = true
-					}
-				}
-				col += n
-			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-				rl += string(ch)
-			default:
-				return nil, errors.New("invalid RLE format")
+func ParseRLEData(width, height int, data string) ([]bool, error) {
+	result := make([]bool, width*height)
+	row, col := 0, 0
+	run := ""
+	for _, ch := range []byte(data) {
+		switch ch {
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			run += string(ch)
+			continue
+		case ' ', '\t', '\r', '\n':
+			continue
+		case '!':
+			if run != "" {
+				return nil, errors.New("invalid RLE format - dangling run length")
 			}
+			return result, nil
 		}
-		if rn < len(rows)-1 {
-			advance := 1
-			if rl != "" {
-				advance, err = strconv.Atoi(rl)
-				if err != nil || advance < 1 {
-					return nil, errors.New("invalid RLE format - bad row run length")
+		n := 1
+		if run != "" {
+			var err error
+			if n, err = strconv.Atoi(run); err != nil || n < 1 {
+				return nil, errors.New("invalid RLE format - bad run length")
+			}
+			run = ""
+		}
+		switch ch {
+		case 'o', 'b', 'x', 'y', 'z':
+			if col+n > width {
+				return nil, errors.New("invalid RLE format - row exceeds width")
+			}
+			if ch != 'b' {
+				start := row*width + col
+				for i := 0; i < n; i++ {
+					result[start+i] = true
 				}
 			}
-			r += advance
-		} else if rl != "" {
-			return nil, errors.New("invalid RLE format - dangling run length")
+			col += n
+		case '$':
+			row += n
+			col = 0
+			if row >= height {
+				return nil, errors.New("invalid RLE format - too many rows")
+			}
+		default:
+			return nil, errors.New("invalid RLE format")
 		}
+	}
+	if run != "" {
+		return nil, errors.New("invalid RLE format - dangling run length")
 	}
 	return result, nil
 }
