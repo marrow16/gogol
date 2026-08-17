@@ -61,6 +61,13 @@ func (p *patternsPopout) patternSelected(pattern *patterns.Pattern) {
 	//fmt.Printf("Pattern selected: %+v\n", pattern)
 }
 
+func (p *patternsPopout) setSelected(name string) {
+	p.chkFilterCurrentRule.SetChecked(false)
+	p.chooser.opened = false
+	p.chooser.resetItems(p.sortedPatterns())
+	p.chooser.editor.SetText(name)
+}
+
 func (p *patternsPopout) sortedPatterns() []patterns.Pattern {
 	result := make([]patterns.Pattern, 0, len(patterns.PatternLibrary))
 	if p.chkFilterCurrentRule.Checked() {
