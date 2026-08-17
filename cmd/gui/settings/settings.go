@@ -114,6 +114,7 @@ type Settings struct {
 	Rules               map[string]string
 	Patterns            []string
 	PatternLibraries    []string
+	CapturedPatterns    []*patterns.Pattern
 	Recipes             []string
 	SavedGrid           *logic.Grid
 	Recording           bool
@@ -136,6 +137,13 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 			fr := make([]int, 0, len(s.CollectedRules))
 			for k := range s.CollectedRules {
 				fr = append(fr, k)
+			}
+			capturedPatterns := make([]string, 0, len(s.CapturedPatterns))
+			for _, cp := range s.CapturedPatterns {
+				var buf bytes.Buffer
+				if err := patterns.PatternRleEncode(*cp, &buf); err == nil {
+					capturedPatterns = append(capturedPatterns, buf.String())
+				}
 			}
 			slices.Sort(fr)
 			p := prefs{
@@ -160,6 +168,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				Rules:               s.Rules,
 				Patterns:            s.Patterns,
 				PatternLibraries:    s.PatternLibraries,
+				CapturedPatterns:    capturedPatterns,
 				Originator:          s.Originator,
 				Recipes:             s.Recipes,
 				Recording:           s.Recording,
@@ -350,6 +359,11 @@ func (s *Settings) fromPrefs(p prefs) {
 			}
 		}
 	}
+	for _, cp := range p.CapturedPatterns {
+		if pattern, err := patterns.PatternRleDecoder(strings.NewReader(cp)); err == nil {
+			s.CapturedPatterns = append(s.CapturedPatterns, &pattern)
+		}
+	}
 	go func() {
 		for _, path := range s.PatternLibraries {
 			_, _ = LoadPatternsLibrary(path)
@@ -382,6 +396,7 @@ type prefs struct {
 	Rules               map[string]string   `json:"rules,omitempty"`
 	Patterns            []string            `json:"patterns,omitempty"`
 	PatternLibraries    []string            `json:"pattern_libraries,omitempty"`
+	CapturedPatterns    []string            `json:"captured_patterns,omitempty"`
 	Originator          string              `json:"originator,omitempty"`
 	Grid                string              `json:"grid,omitempty"`
 	Recipes             []string            `json:"recipes,omitempty"`

@@ -186,6 +186,15 @@ func (p *menuPopup) setSelected(n int) {
 	p.selected = n
 }
 
+func (p *menuPopup) showPattern(name string) {
+	for _, mi := range p.menuItems {
+		if mi.popout == popoutPatterns {
+			p.setSelected(mi.index)
+			p.patternsPopout.setSelected(name)
+		}
+	}
+}
+
 func (p *menuPopup) resetPopout(n int) {
 	if pout, ok := p.popouts[p.menuItems[n].popout]; ok {
 		pout.reset()

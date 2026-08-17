@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -28,12 +29,25 @@ type capturedPatternsPopout struct {
 	radioMetadata *radioButton
 	btnSave       *button
 	chkAddLibrary *checkbox
+	btnRemove     *button
+	btnClear      *button
 	error         error
-	patterns      []*patterns.Pattern
 	name          *input
 	filename      *input
 	origin        *input
 	comment       *input
+	// pattern identification...
+	btnIdentify        *button
+	chkWithPhases      *checkbox
+	identifyStatus     atomic.Int32
+	identifying        *patterns.Pattern
+	identLibLen        int
+	identifyError      error
+	identifyHashCount  int
+	identifyFound      string
+	identifyFoundCount int
+	identifyFoundClick widget.Clickable
+	index              map[[32]byte][]string
 }
 
 func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
@@ -42,7 +56,11 @@ func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
 		core:          c,
 		previewMode:   &widget.Enum{Value: previewMetadata},
 		btnSave:       newButton(c.theme, "Save"),
+		btnRemove:     newButton(c.theme, "Remove"),
+		btnClear:      newButton(c.theme, "Clear"),
 		chkAddLibrary: newCheckBox(c.theme, "Add to library", true),
+		btnIdentify:   newButton(c.theme, "Identify"),
+		chkWithPhases: newCheckBox(c.theme, "With phases", false),
 	}
 	result.radioPreview = newRadioButton(c.theme, result.previewMode, previewImage, "Preview")
 	result.radioMetadata = newRadioButton(c.theme, result.previewMode, previewMetadata, "Metadata")
@@ -53,7 +71,7 @@ func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
 	result.comment.editor.SingleLine = false
 	result.comment.editor.Submit = false
 	result.chooser = newChooser[*patterns.Pattern](c.theme, 38,
-		result.patterns,
+		c.settings.CapturedPatterns,
 		result.patternSelected,
 		func(pattern *patterns.Pattern) string {
 			return pattern.String()
@@ -63,22 +81,22 @@ func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
 }
 
 func (p *capturedPatternsPopout) addCapturedPattern(pattern patterns.Pattern) {
-	name := time.Now().Format("2006-01-02 15:04:05")
+	name := time.Now().Format("2006-01-02 15-04-05")
 	origin := p.core.settings.Originator
 	if len(origin) == 0 {
 		origin = "(your name)"
 	}
-	p.patterns = append(p.patterns, &patterns.Pattern{
-		Name:        name,
-		Width:       pattern.Width,
-		Height:      pattern.Height,
-		Cells:       slices.Clone(pattern.Cells),
-		Comments:    []string{"Captured by GoGoL"},
-		Origination: origin,
-		Rule:        p.core.gridHolder.grid.Rule,
-		Filename:    name + ".rle",
-	})
-	p.chooser.resetItems(p.patterns)
+	p.core.settings.CapturedPatterns = append(p.core.settings.CapturedPatterns,
+		&patterns.Pattern{
+			Name:        name,
+			Width:       pattern.Width,
+			Height:      pattern.Height,
+			Cells:       slices.Clone(pattern.Cells),
+			Comments:    []string{"Captured by GoGoL"},
+			Origination: origin,
+			Rule:        p.core.gridHolder.grid.Rule,
+			Filename:    name + ".rle"})
+	p.chooser.resetItems(p.core.settings.CapturedPatterns)
 	p.chooser.setText(name)
 }
 
@@ -196,6 +214,15 @@ func (p *capturedPatternsPopout) savePattern(pattern *patterns.Pattern) {
 		if p.error = patterns.PatternRleEncode(*pattern, f); p.error == nil && p.chkAddLibrary.Checked() {
 			patterns.PatternLibrary[pattern.Name] = *pattern
 			p.core.settings.AddPattern(pattern.Filename)
+			// remove from list...
+			for i, v := range p.core.settings.CapturedPatterns {
+				if v == pattern {
+					p.core.settings.CapturedPatterns = append(p.core.settings.CapturedPatterns[:i], p.core.settings.CapturedPatterns[i+1:]...)
+					break
+				}
+			}
+			p.identLibLen = 0
+			p.chooser.resetItems(p.core.settings.CapturedPatterns)
 		}
 	} else {
 		p.error = err
@@ -205,16 +232,32 @@ func (p *capturedPatternsPopout) savePattern(pattern *patterns.Pattern) {
 func (p *capturedPatternsPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	chd := measureText(gtx, p.core.theme, "M")
 	gtx.Constraints.Min.Y = chd.Size.Y * 20
-	if len(p.patterns) == 0 {
+	if len(p.core.settings.CapturedPatterns) == 0 {
 		// no patterns captured yet
 		gtx.Constraints.Min.Y = chd.Size.Y * 10
 		gtx.Constraints.Min.X = chd.Size.X * 30
 		return p.layoutNoPatterns(gtx, theme, gtx.Constraints.Min.X)
 	}
+	currentPattern := p.chooser.currentItem()
 	if p.btnSave.Clicked(gtx) {
-		if sp := p.chooser.currentItem(); sp != nil {
-			p.savePattern(*sp)
+		if currentPattern != nil {
+			p.savePattern(*currentPattern)
+			currentPattern = p.chooser.currentItem()
 		}
+	}
+	if p.btnRemove.Clicked(gtx) {
+		if currentPattern != nil {
+			for i, v := range p.core.settings.CapturedPatterns {
+				if v == *currentPattern {
+					p.core.settings.CapturedPatterns = append(p.core.settings.CapturedPatterns[:i], p.core.settings.CapturedPatterns[i+1:]...)
+					break
+				}
+			}
+			p.chooser.resetItems(p.core.settings.CapturedPatterns)
+		}
+	}
+	if p.btnClear.Clicked(gtx) {
+		p.core.settings.CapturedPatterns = nil
 	}
 	return layout.Inset{
 		Left: unit.Dp(8), Right: unit.Dp(8),
@@ -244,7 +287,10 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context, theme *material.Them
 				return p.layoutPreview(gtx, theme, p.chooser.dims.Size.X, chd.Size.Y*15)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if p.chooser.currentItem() != nil {
+				switch {
+				case currentPattern == nil:
+					return layout.Dimensions{}
+				case p.previewMode.Value == previewMetadata:
 					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 						layout.Rigid(p.btnSave.Layout),
 						layout.Rigid(p.chkAddLibrary.Layout),
@@ -254,9 +300,11 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context, theme *material.Them
 							}
 							return layout.Dimensions{}
 						}),
+						layout.Rigid(p.btnRemove.Layout),
+						layout.Rigid(p.btnClear.Layout),
 					)
-				} else {
-					return layout.Dimensions{}
+				default:
+					return p.layoutIdentifyControls(gtx, theme, *currentPattern)
 				}
 			}),
 		)
@@ -383,11 +431,141 @@ func (p *capturedPatternsPopout) layoutPreviewImage(pattern *patterns.Pattern, g
 	)
 }
 
+const (
+	identifyingNone int32 = iota
+	identifyingIndexing
+	identifyingPhases
+	identifyingSearching
+	identifyingNotFound
+	identifyingFound
+)
+
+func (p *capturedPatternsPopout) layoutIdentifyControls(gtx layout.Context, theme *material.Theme, pattern *patterns.Pattern) layout.Dimensions {
+	status := p.identifyStatus.Load()
+	p.chkWithPhases.Update(gtx)
+	if status == identifyingNone || (p.identifying != pattern && (status == identifyingNotFound || status == identifyingFound)) {
+		if p.btnIdentify.Clicked(gtx) {
+			p.identify(pattern, p.chkWithPhases.Checked())
+		}
+		return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+			layout.Rigid(p.btnIdentify.Layout),
+			layout.Rigid(p.chkWithPhases.Layout),
+		)
+	} else if p.identifying != pattern {
+		return label(theme, "(Identification currently busy)")(gtx)
+	}
+	switch status {
+	case identifyingIndexing:
+		return label(theme, "Indexing pattern library...")(gtx)
+	case identifyingPhases:
+		return label(theme, "Generating pattern phases...")(gtx)
+	case identifyingSearching:
+		return label(theme, "Searching pattern library...")(gtx)
+	case identifyingNotFound:
+		if p.btnIdentify.Clicked(gtx) {
+			p.identify(pattern, p.chkWithPhases.Checked())
+		}
+		return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+			layout.Rigid(p.btnIdentify.Layout),
+			layout.Rigid(p.chkWithPhases.Layout),
+			layout.Rigid(label(theme, "Not found (searched "+strconv.Itoa(p.identifyHashCount)+" hashes)")),
+		)
+	case identifyingFound:
+		if p.btnIdentify.Clicked(gtx) {
+			p.identify(pattern, p.chkWithPhases.Checked())
+		}
+		if p.identifyFoundClick.Clicked(gtx) {
+			p.parent.showPattern(p.identifyFound)
+		}
+		return layout.Flex{Axis: layout.Vertical, Gap: 4}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+					layout.Rigid(p.btnIdentify.Layout),
+					layout.Rigid(p.chkWithPhases.Layout),
+					layout.Rigid(label(theme, "Found "+strconv.Itoa(p.identifyFoundCount)+" (searched "+strconv.Itoa(p.identifyHashCount)+" hashes)")),
+				)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						wd := measureText(gtx, theme, " Identify ").Size.X
+						return layout.Dimensions{Size: image.Point{X: wd}}
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Clickable(gtx, &p.identifyFoundClick, label(theme, p.identifyFound))
+					}),
+				)
+			}),
+		)
+	}
+	return layout.Dimensions{}
+}
+
+func (p *capturedPatternsPopout) identify(pattern *patterns.Pattern, withPhases bool) {
+	p.identifyStatus.Store(identifyingIndexing)
+	p.identifyError = nil
+	p.identifying = pattern
+	p.core.window.Invalidate()
+	go func() {
+		searchPattern := pattern.Trimmed()
+		if p.identLibLen != len(patterns.PatternLibrary) {
+			p.index = make(map[[32]byte][]string, len(patterns.PatternLibrary))
+			for k, v := range patterns.PatternLibrary {
+				trimmed := v.Trimmed()
+				h := trimmed.Hash()
+				if _, ok := p.index[h]; ok {
+					p.index[h] = append(p.index[h], k)
+				} else {
+					p.index[h] = []string{k}
+				}
+			}
+			p.identLibLen = len(patterns.PatternLibrary)
+		}
+		p.identifyHashCount = -1
+		searchHashes := make(map[[32]byte]struct{})
+		for _, h := range searchPattern.AllHashes() {
+			searchHashes[h] = struct{}{}
+		}
+		if withPhases {
+			p.identifyStatus.Store(identifyingPhases)
+			p.core.window.Invalidate()
+			phases, _ := searchPattern.Phases(100, 0, 4)
+			for _, phase := range phases {
+				for _, h := range phase.AllHashes() {
+					searchHashes[h] = struct{}{}
+				}
+			}
+		}
+		p.identifyHashCount = len(searchHashes)
+		p.identifyStatus.Store(identifyingSearching)
+		p.core.window.Invalidate()
+		p.identifyFoundCount = 0
+		for h := range searchHashes {
+			if names, ok := p.index[h]; ok {
+				for _, name := range names {
+					if p.identifyFoundCount == 0 {
+						p.identifyFound = name
+					}
+					p.identifyFoundCount++
+				}
+			}
+		}
+		if p.identifyFoundCount > 0 {
+			p.identifyStatus.Store(identifyingFound)
+		} else {
+			p.identifyStatus.Store(identifyingNotFound)
+		}
+		p.core.window.Invalidate()
+	}()
+}
+
 func (p *capturedPatternsPopout) hasFocus(gtx layout.Context) bool {
 	_, radios := p.previewMode.Focused()
-	return radios || p.chooser.isFocused(gtx) || p.btnSave.isFocused(gtx) ||
+	return radios || p.chooser.isFocused(gtx) || p.btnSave.isFocused(gtx) || p.chkAddLibrary.isFocused(gtx) ||
+		p.btnRemove.isFocused(gtx) || p.btnClear.isFocused(gtx) ||
 		p.name.isFocused(gtx) || p.filename.isFocused(gtx) ||
-		p.origin.isFocused(gtx) || p.comment.isFocused(gtx)
+		p.origin.isFocused(gtx) || p.comment.isFocused(gtx) ||
+		p.btnIdentify.isFocused(gtx) || p.chkWithPhases.isFocused(gtx)
 }
 
 func (p *capturedPatternsPopout) reset() {
