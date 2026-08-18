@@ -2,13 +2,9 @@ package widgets
 
 import (
 	"gioui.org/layout"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/logic/meta"
-	"image"
 	"maps"
 	"slices"
 	"strconv"
@@ -17,9 +13,7 @@ import (
 type collectedRulesPopout struct {
 	parent           *menuPopup
 	core             *Core
-	list             widget.List
-	listStyle        material.ListStyle
-	ruleClicks       []widget.Clickable
+	rulesList        *listControl[logic.Rule]
 	btnClear         *button
 	btnAddCurrent    *button
 	btnRemoveCurrent *button
@@ -38,9 +32,16 @@ func newCollectedRulesPopout(p *menuPopup, c *Core) *collectedRulesPopout {
 		btnAddCurrent:    newButton(c.theme, "Add Current"),
 		btnRemoveCurrent: newButton(c.theme, "Remove Current"),
 	}
-	result.listStyle = material.List(c.theme, &result.list)
-	result.list.Axis = layout.Vertical
 	result.commonEdit = newInput(c.theme, nil, 256, func(text string) {}).maximumWidth(20).onSubmit(result.submitCommonality)
+	result.rulesList = newListControl[logic.Rule](c.theme, result.rules, true).
+		rowRenderer(result.layoutRule).
+		onItemSelect(func(r logic.Rule) {
+			c.gridHolder.grid.SetRule(r)
+			c.window.Invalidate()
+		}).
+		onIsSelected(func(index int, r logic.Rule) bool {
+			return r.Permutation() == c.gridHolder.grid.Rule.Permutation()
+		})
 	return result
 }
 
@@ -73,7 +74,10 @@ func (p *collectedRulesPopout) layout(gtx layout.Context, theme *material.Theme)
 		gtx.Constraints.Min.Y = ht
 		return layout.Flex{Axis: layout.Vertical, Gap: 10}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return p.layoutList(gtx, theme)
+				rowHt := measureText(gtx, theme, "Xy").Size.Y
+				gtx.Constraints.Min.Y = rowHt * 14
+				gtx.Constraints.Max.Y = rowHt * 14
+				return p.rulesList.Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Gap: 30}.Layout(gtx,
@@ -97,40 +101,12 @@ func (p *collectedRulesPopout) layout(gtx layout.Context, theme *material.Theme)
 	})
 }
 
-func (p *collectedRulesPopout) layoutList(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	if len(p.rules) != len(p.ruleClicks) {
-		p.ruleClicks = make([]widget.Clickable, len(p.rules))
+func (p *collectedRulesPopout) layoutRule(gtx layout.Context, index int, r logic.Rule) layout.Dimensions {
+	name := r.Rle()
+	if !r.IsCustom() {
+		name += ` "` + r.Name() + `"`
 	}
-	m := measureText(gtx, theme, "M")
-	ht := m.Size.Y * 13
-	gtx.Constraints.Min.Y = ht
-	gtx.Constraints.Max.Y = ht
-	return widget.Border{Color: popupBorder, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return p.listStyle.Layout(
-				gtx, len(p.rules),
-				func(gtx layout.Context, index int) layout.Dimensions {
-					r := p.rules[index]
-					name := r.Rle()
-					if !r.IsCustom() {
-						name += ` "` + r.Name() + `"`
-					}
-					for p.ruleClicks[index].Clicked(gtx) {
-						p.core.setRule(r)
-					}
-					if r.Permutation() == p.core.gridHolder.grid.Rule.Permutation() {
-						lineHt := measureText(gtx, theme, "(Xy)").Size.Y
-						paint.FillShape(
-							gtx.Ops,
-							popupSelectedBackground,
-							clip.Rect{Max: image.Pt(gtx.Constraints.Max.X, lineHt)}.Op(),
-						)
-					}
-					return p.ruleClicks[index].Layout(gtx, label(theme, name+" ("+strconv.Itoa(r.Permutation())+")"))
-				},
-			)
-		})
-	})
+	return label(p.core.theme, name+" ("+strconv.Itoa(r.Permutation())+")")(gtx)
 }
 
 func (p *collectedRulesPopout) checkFoundRulesChanged() {
@@ -157,6 +133,7 @@ func (p *collectedRulesPopout) checkFoundRulesChanged() {
 			}
 			return 1
 		})
+		p.rulesList.resetItems(p.rules)
 		if ev, err := meta.CommonalityFromRules(p.rules...); err == nil {
 			p.commonality = ev.String()
 			p.commonEdit.setText(p.commonality)
@@ -172,7 +149,7 @@ func (p *collectedRulesPopout) checkFoundRulesChanged() {
 
 func (p *collectedRulesPopout) hasFocus(gtx layout.Context) bool {
 	return p.btnClear.isFocused(gtx) || p.btnRemoveCurrent.isFocused(gtx) || p.btnAddCurrent.isFocused(gtx) ||
-		p.commonEdit.isFocused(gtx)
+		p.commonEdit.isFocused(gtx) || p.rulesList.isFocused(gtx)
 }
 
 func (p *collectedRulesPopout) reset() {
