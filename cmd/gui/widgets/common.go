@@ -51,6 +51,7 @@ var (
 	popupSelectedBackground        = color.NRGBA{R: 102, G: 128, B: 230, A: 128}
 	popupSelectedFocusedBackground = color.NRGBA{R: 102, G: 128, B: 230, A: 200}
 	popupHighlightColor            = popupSelectedFocusedBackground
+	popupLinkColor                 = color.NRGBA{R: 102, G: 128, B: 230, A: 255}
 	errorColor                     = color.NRGBA{R: 200, G: 0, B: 0, A: 255}
 )
 
@@ -208,11 +209,28 @@ func errorLabel(theme *material.Theme, err error) layout.Widget {
 	}
 }
 
+func insetErrorLabel(theme *material.Theme, err error) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Label(theme, theme.TextSize, err.Error())
+		lbl.MaxLines = 1
+		lbl.Color = errorColor
+		return layout.Inset{Top: 3}.Layout(gtx, lbl.Layout)
+	}
+}
+
 func label(theme *material.Theme, s string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		lbl := material.Label(theme, theme.TextSize, s)
 		lbl.MaxLines = 1
 		return lbl.Layout(gtx)
+	}
+}
+
+func insetLabel(theme *material.Theme, s string) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Label(theme, theme.TextSize, s)
+		lbl.MaxLines = 1
+		return layout.Inset{Top: 3}.Layout(gtx, lbl.Layout)
 	}
 }
 
@@ -234,6 +252,32 @@ func rightAlignedBoldLabel(theme *material.Theme, s string, width int) layout.Wi
 		lbl.Font.Weight = font.Bold
 		lbl.MaxLines = 1
 		return lbl.Layout(gtx)
+	}
+}
+
+func linkLabel(theme *material.Theme, s string) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Stack{}.Layout(gtx,
+			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+				lbl := material.Label(theme, theme.TextSize, s)
+				lbl.MaxLines = 1
+				lbl.Color = popupLinkColor
+				return lbl.Layout(gtx)
+			}),
+			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+				thickness := gtx.Dp(1)
+				rect := image.Rect(
+					0,
+					gtx.Constraints.Min.Y-thickness,
+					gtx.Constraints.Min.X,
+					gtx.Constraints.Min.Y,
+				)
+				defer clip.Rect(rect).Push(gtx.Ops).Pop()
+				paint.ColorOp{Color: popupLinkColor}.Add(gtx.Ops)
+				paint.PaintOp{}.Add(gtx.Ops)
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}),
+		)
 	}
 }
 

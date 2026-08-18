@@ -81,7 +81,7 @@ func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
 }
 
 func (p *capturedPatternsPopout) addCapturedPattern(pattern patterns.Pattern) {
-	name := time.Now().Format("2006-01-02 15-04-05")
+	name := strconv.Itoa(len(p.core.settings.CapturedPatterns)+1) + " (" + time.Now().Format("2006-01-02 15-04-05") + ")"
 	origin := p.core.settings.Originator
 	if len(origin) == 0 {
 		origin = "(your name)"
@@ -296,7 +296,7 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context, theme *material.Them
 						layout.Rigid(p.chkAddLibrary.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if p.error != nil {
-								return errorLabel(theme, p.error)(gtx)
+								return insetErrorLabel(theme, p.error)(gtx)
 							}
 							return layout.Dimensions{}
 						}),
@@ -452,15 +452,15 @@ func (p *capturedPatternsPopout) layoutIdentifyControls(gtx layout.Context, them
 			layout.Rigid(p.chkWithPhases.Layout),
 		)
 	} else if p.identifying != pattern {
-		return label(theme, "(Identification currently busy)")(gtx)
+		return insetLabel(theme, "(Identification currently busy)")(gtx)
 	}
 	switch status {
 	case identifyingIndexing:
-		return label(theme, "Indexing pattern library...")(gtx)
+		return insetLabel(theme, "Indexing pattern library...")(gtx)
 	case identifyingPhases:
-		return label(theme, "Generating pattern phases...")(gtx)
+		return insetLabel(theme, "Generating pattern phases...")(gtx)
 	case identifyingSearching:
-		return label(theme, "Searching pattern library...")(gtx)
+		return insetLabel(theme, "Searching pattern library...")(gtx)
 	case identifyingNotFound:
 		if p.btnIdentify.Clicked(gtx) {
 			p.identify(pattern, p.chkWithPhases.Checked())
@@ -468,7 +468,7 @@ func (p *capturedPatternsPopout) layoutIdentifyControls(gtx layout.Context, them
 		return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 			layout.Rigid(p.btnIdentify.Layout),
 			layout.Rigid(p.chkWithPhases.Layout),
-			layout.Rigid(label(theme, "Not found (searched "+strconv.Itoa(p.identifyHashCount)+" hashes)")),
+			layout.Rigid(insetLabel(theme, "Not found (searched "+strconv.Itoa(p.identifyHashCount)+" hashes)")),
 		)
 	case identifyingFound:
 		if p.btnIdentify.Clicked(gtx) {
@@ -482,7 +482,7 @@ func (p *capturedPatternsPopout) layoutIdentifyControls(gtx layout.Context, them
 				return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 					layout.Rigid(p.btnIdentify.Layout),
 					layout.Rigid(p.chkWithPhases.Layout),
-					layout.Rigid(label(theme, "Found "+strconv.Itoa(p.identifyFoundCount)+" (searched "+strconv.Itoa(p.identifyHashCount)+" hashes)")),
+					layout.Rigid(insetLabel(theme, "Found "+strconv.Itoa(p.identifyFoundCount)+" (searched "+strconv.Itoa(p.identifyHashCount)+" hashes)")),
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -492,7 +492,7 @@ func (p *capturedPatternsPopout) layoutIdentifyControls(gtx layout.Context, them
 						return layout.Dimensions{Size: image.Point{X: wd}}
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Clickable(gtx, &p.identifyFoundClick, label(theme, p.identifyFound))
+						return material.Clickable(gtx, &p.identifyFoundClick, linkLabel(theme, p.identifyFound))
 					}),
 				)
 			}),
