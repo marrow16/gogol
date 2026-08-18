@@ -344,7 +344,7 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context, theme *material
 							return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 								layout.Rigid(label(theme, "Saved to:")),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return material.Clickable(gtx, &p.linkAnimation, label(theme, filepath.Base(p.animationResult.filename)))
+									return material.Clickable(gtx, &p.linkAnimation, linkLabel(theme, filepath.Base(p.animationResult.filename)))
 								}),
 							)
 						} else {

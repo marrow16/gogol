@@ -171,7 +171,7 @@ func (p *metaRulesPopout) layoutReport(gtx layout.Context, theme *material.Theme
 	}
 	return layout.Flex{Axis: layout.Horizontal, Gap: 30}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Clickable(gtx, &p.linkHelp, label(theme, "(see help)"))
+			return material.Clickable(gtx, &p.linkHelp, linkLabel(theme, "(see help)"))
 		}),
 		layout.Rigid(label(theme, "Matched rules: "+strconv.Itoa(len(p.matched)))),
 	)

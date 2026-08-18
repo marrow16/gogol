@@ -137,12 +137,14 @@ func (p *shortcutsPopout) layout(gtx layout.Context, theme *material.Theme) layo
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-					layout.Rigid(label(theme, "Actions:")),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Clickable(gtx, &p.linkHelp, label(theme, "(see help)"))
-					}),
-				)
+				return layout.Inset{Bottom: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+						layout.Rigid(label(theme, "Actions:")),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return material.Clickable(gtx, &p.linkHelp, linkLabel(theme, "(see help)"))
+						}),
+					)
+				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if !isAllowedKey {
