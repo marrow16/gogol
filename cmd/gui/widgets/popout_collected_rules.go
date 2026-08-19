@@ -106,7 +106,7 @@ func (p *collectedRulesPopout) layoutRule(gtx layout.Context, index int, r logic
 	if !r.IsCustom() {
 		name += ` "` + r.Name() + `"`
 	}
-	return label(p.core.theme, name+" ("+strconv.Itoa(r.Permutation())+")")(gtx)
+	return layout.Inset{Left: 4, Right: 4}.Layout(gtx, label(p.core.theme, name+" ("+strconv.Itoa(r.Permutation())+")"))
 }
 
 func (p *collectedRulesPopout) checkFoundRulesChanged() {

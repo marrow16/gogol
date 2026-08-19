@@ -29,6 +29,9 @@ type instrumentationPopout struct {
 	animationSaving  bool
 	animationResult  *animationResult
 	linkAnimation    widget.Clickable
+	animationFormat  *widget.Enum
+	radioMp4         *radioButton
+	radioGif         *radioButton
 	// heat map...
 	chkHeatMap       *checkbox
 	heatMapType      *widget.Enum
@@ -49,6 +52,10 @@ type animationResult struct {
 }
 
 func newInstrumentationPopout(p *menuPopup, c *Core) *instrumentationPopout {
+	animFormat := c.settings.AnimationFormat
+	if animFormat != "gif" && animFormat != "mp4" {
+		animFormat = "gif"
+	}
 	result := &instrumentationPopout{
 		parent:           p,
 		core:             c,
@@ -58,6 +65,7 @@ func newInstrumentationPopout(p *menuPopup, c *Core) *instrumentationPopout {
 		chkRecord:        newCheckBox(c.theme, "Record", c.instrumentRecord != nil),
 		btnRecordReset:   newButton(c.theme, "Reset"),
 		btnSaveAnimation: newButton(c.theme, "Save Animation"),
+		animationFormat:  &widget.Enum{Value: animFormat},
 		chkHeatMap:       newCheckBox(c.theme, "Heat Mapping", c.instrumentHeatMap != nil),
 		btnHeatMapReset:  newButton(c.theme, "Reset"),
 		btnHeatMapReveal: newButton(c.theme, "Reveal"),
@@ -70,6 +78,8 @@ func newInstrumentationPopout(p *menuPopup, c *Core) *instrumentationPopout {
 	result.radioFreshness = newRadioButton(c.theme, result.heatMapType, freshnessHeatMapper.String(), "Freshness")
 	result.radioPhaseParity = newRadioButton(c.theme, result.heatMapType, phaseParityHeatMapper.String(), "Phase Parity")
 	result.radioAll = newRadioButton(c.theme, result.heatMapType, allHeatMapper.String(), "All")
+	result.radioGif = newRadioButton(c.theme, result.animationFormat, "gif", "Gif")
+	result.radioMp4 = newRadioButton(c.theme, result.animationFormat, "mp4", "Mp4")
 	result.skipBackBy = newNumberInput[int](c.theme, 4, 1, 9999, 100, result.skipBackByChanged)
 	return result
 }
@@ -86,6 +96,11 @@ func (p *instrumentationPopout) reset() {
 	p.chkHeatMap.SetChecked(p.core.instrumentHeatMap != nil)
 	p.heatMapType.Value = p.core.heatMapperType.String()
 	p.skipBackBy.setValue(p.core.settings.SkipBackBy)
+	af := p.core.settings.AnimationFormat
+	if af != "gif" && af != "mp4" {
+		af = "gif"
+	}
+	p.animationFormat.Value = af
 }
 
 func (p *instrumentationPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
@@ -307,6 +322,10 @@ func (p *instrumentationPopout) layoutRepeat(gtx layout.Context, theme *material
 
 func (p *instrumentationPopout) layoutRecord(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	labelMax := measureMaxText(gtx, theme, font.Bold, "Steps recorded: ", "Skip back by: ").Size.X
+	canSave := !p.animationSaving && p.core.instrumentRecord.FramesCount() > 0
+	if p.animationFormat.Update(gtx) {
+		p.core.settings.AnimationFormat = p.animationFormat.Value
+	}
 	return layout.Inset{Left: 16, Bottom: 4}.
 		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -328,11 +347,22 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context, theme *material
 							return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnRecordReset.Layout)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if !p.animationSaving && p.core.instrumentRecord.FramesCount() > 0 {
+							if canSave {
 								return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnSaveAnimation.Layout)
-							} else {
-								return layout.Dimensions{}
 							}
+							return layout.Dimensions{}
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if canSave {
+								return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.radioGif.Layout)
+							}
+							return layout.Dimensions{}
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if canSave {
+								return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.radioMp4.Layout)
+							}
+							return layout.Dimensions{}
 						}),
 					)
 				}),
@@ -359,13 +389,7 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context, theme *material
 }
 
 func (p *instrumentationPopout) saveAnimation() {
-	var filename string
-	var err error
-	if p.core.settings.AnimationFormat != "mp4" {
-		filename, err = resolveSavePath(p.core.nowFilename("Grid", ".gif"))
-	} else {
-		filename, err = resolveSavePath(p.core.nowFilename("Grid", ".mp4"))
-	}
+	filename, err := resolveSavePath(p.core.nowFilename("Grid", "."+p.animationFormat.Value))
 	if err != nil {
 		p.animationResult = &animationResult{
 			filename: filename,
@@ -441,8 +465,9 @@ func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context, theme *materia
 }
 
 func (p *instrumentationPopout) hasFocus(gtx layout.Context) bool {
-	_, radios := p.heatMapType.Focused()
-	return radios || p.skipBackBy.isFocused(gtx) ||
+	_, heatRadios := p.heatMapType.Focused()
+	_, animRadios := p.animationFormat.Focused()
+	return heatRadios || animRadios || p.skipBackBy.isFocused(gtx) ||
 		p.chkRecord.isFocused(gtx) || p.chkRepeatDetect.isFocused(gtx) || p.chkHeatMap.isFocused(gtx) ||
 		p.btnRepeatReset.isFocused(gtx) || p.btnRepeatSave.isFocused(gtx) || p.btnRecordReset.isFocused(gtx) || p.btnSaveAnimation.isFocused(gtx) ||
 		p.btnHeatMapReset.isFocused(gtx) || p.btnHeatMapReveal.isFocused(gtx) || p.btnHeatMapSave.isFocused(gtx)
