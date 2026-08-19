@@ -51,8 +51,8 @@ func (c *Core) userShortcutKeys(kn key.Name) bool {
 	return true
 }
 
-var shortcutCommasSplitter = splitter.MustCreateSplitter(',',
-	splitter.DoubleQuotes, splitter.SingleQuotes)
+var shortcutCommasSplitter = splitter.MustCreateSplitter(',', splitter.DoubleQuotes, splitter.SingleQuotes).
+	AddDefaultOptions(splitter.IgnoreEmpties)
 
 func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string) {
 	if len(repeats) > 0 {
@@ -116,6 +116,29 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 				return
 			}
 			continue
+		} else if after, ok = strings.CutPrefix(token, shortcutIterateCollectedRules); ok {
+			if parts, err := shortcutCommasSplitter.Split(after); err == nil && len(parts) >= 1 {
+				useParts := make([]string, 0, len(parts))
+				for i := 0; i < len(parts); i++ {
+					if strings.HasPrefix(parts[i], shortcutRepeat) {
+						useParts = append(useParts, strings.Join(parts[i:], ","))
+						break
+					} else {
+						useParts = append(useParts, parts[i])
+					}
+				}
+				perms := make([]int, 0, len(c.settings.CollectedRules))
+				for p := range c.settings.CollectedRules {
+					perms = append(perms, p)
+				}
+				slices.Sort(perms)
+				for i, perm := range perms {
+					if r, err := logic.NewRuleFromPermutation(perm); err == nil {
+						c.setRule(r)
+						c.runUserShortcut(useParts, append(repeats, i), nameFmt)
+					}
+				}
+			}
 		}
 		if len(nameFmt) == 0 {
 			now := time.Now()
@@ -730,6 +753,7 @@ const (
 	shortcutRemoveCollectedRule   = "remove-collected-rule"
 	shortcutPreviousCollectedRule = "previous-collected-rule"
 	shortcutNextCollectedRule     = "next-collected-rule"
+	shortcutIterateCollectedRules = "iterate-collected-rules"
 	shortcutBorders               = "borders"
 	shortcutCellSize              = "cell-size"
 	shortcutCellColorAlive        = "cell-color-alive"

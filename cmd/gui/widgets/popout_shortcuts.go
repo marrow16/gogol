@@ -67,7 +67,7 @@ func (p *shortcutsPopout) isAllowedKey(k string) bool {
 	if len(k) == 1 {
 		return true
 	}
-	return len(k) == 2 && strings.Contains("F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11,F12,", k+",")
+	return strings.Contains("F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11,F12,", k+",")
 }
 
 func (p *shortcutsPopout) keyChanged(s string) {
