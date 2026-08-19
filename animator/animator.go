@@ -11,12 +11,26 @@ import (
 	"os/exec"
 )
 
+var ffmpegChecked = false
+var ffmpegAvailable = false
+
 const (
 	// palette colors...
 	deadColor   = 0
 	aliveColor  = 1
 	borderColor = 2
 )
+
+func Mp4Available() bool {
+	if !ffmpegChecked {
+		ffmpegChecked = true
+		ffmpegAvailable = false
+		if _, err := exec.LookPath("ffmpeg"); err == nil {
+			ffmpegAvailable = exec.Command("ffmpeg", "-version").Run() == nil
+		}
+	}
+	return ffmpegAvailable
+}
 
 func NewAnimator(cellSize int, alive, dead, border color.NRGBA, borders bool, format string) *Animator {
 	return &Animator{
@@ -47,6 +61,9 @@ type Animator struct {
 func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument) (err error) {
 	if a.animationFormat != "mp4" {
 		return a.animateGif(filename, recorder)
+	}
+	if !Mp4Available() {
+		return errors.New("mp4 (ffmpeg) not available")
 	}
 	const (
 		fps         = "30"

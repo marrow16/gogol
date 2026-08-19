@@ -499,6 +499,17 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 						c.settings.CellBorderColor = clr
 						c.gridHolder.grid.Draw()
 					}
+				case shortcutAnimationFormat:
+					switch parts[1] {
+					case "mp4":
+						if animator.Mp4Available() {
+							c.settings.AnimationFormat = "mp4"
+						} else {
+							c.settings.AnimationFormat = "gif"
+						}
+					default:
+						c.settings.AnimationFormat = "gif"
+					}
 				}
 			}
 		}
@@ -725,4 +736,5 @@ const (
 	shortcutCellColorDead         = "cell-color-dead"
 	shortcutCellColorBorder       = "cell-color-border"
 	shortcutAnimationSave         = "record-animation-save"
+	shortcutAnimationFormat       = "record-animation-format"
 )
