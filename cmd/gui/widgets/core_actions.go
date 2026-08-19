@@ -193,6 +193,7 @@ func (c *Core) clear() {
 func (c *Core) setRule(r logic.Rule) {
 	c.stop()
 	c.gridHolder.grid.SetRule(r)
+	c.resetInstrumentation()
 	c.statusBar.rulesPopup.updateInputs()
 }
 
