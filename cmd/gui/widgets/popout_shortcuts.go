@@ -97,7 +97,7 @@ func (p *shortcutsPopout) layout(gtx layout.Context, theme *material.Theme) layo
 	k := strings.ToUpper(p.key.editor.Text())
 	isAllowedKey := p.isAllowedKey(k)
 	if p.linkHelp.Clicked(gtx) {
-		_ = openURL("https://github.com/marrow16/gogol/tree/main/cmd/gui/SHORTCUTS.md")
+		_ = openURL(shortcutsHelp)
 	}
 	if isAllowedKey {
 		for {

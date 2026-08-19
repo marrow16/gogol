@@ -161,7 +161,7 @@ func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, theme *material.The
 
 func (p *metaRulesPopout) layoutReport(gtx layout.Context, theme *material.Theme) layout.Dimensions {
 	if p.linkHelp.Clicked(gtx) {
-		_ = openURL("https://github.com/marrow16/gogol/blob/main/logic/meta/README.md")
+		_ = openURL(metaRuleHelp)
 	}
 	return layout.Flex{Axis: layout.Horizontal, Gap: 30}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

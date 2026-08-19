@@ -22,6 +22,12 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 	result.menuItems = menuItems{
 		{
 			parent: result,
+			label:  "About",
+			popout: popoutAbout,
+		},
+		{},
+		{
+			parent: result,
 			label:  "Patterns",
 			popout: popoutPatterns,
 		},
@@ -157,6 +163,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		popoutShortcuts:              newShortcutsPopout(result, result.core),
 		popoutMetaRules:              newMetaRulesPopout(result, result.core),
 		popoutCollectedRules:         newCollectedRulesPopout(result, result.core),
+		popoutAbout:                  newAboutPopout(result, result.core),
 	}
 	result.selected = len(result.menuItems) - 1
 	return result
@@ -471,4 +478,5 @@ const (
 	popoutShortcuts
 	popoutMetaRules
 	popoutCollectedRules
+	popoutAbout
 )
