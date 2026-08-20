@@ -3,12 +3,10 @@ package widgets
 import (
 	"gioui.org/layout"
 	"gioui.org/text"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/logic/meta"
-	"image"
 	"slices"
 	"strconv"
 	"strings"
@@ -42,11 +40,11 @@ func newMetaRulesPopout(p *menuPopup, c *Core) *metaRulesPopout {
 	result := &metaRulesPopout{
 		parent:    p,
 		core:      c,
-		btnCreate: newButton(c.theme, "Create"),
-		btnDelete: newButton(c.theme, "Delete"),
-		btnAddAll: newButton(c.theme, "Add all to collected rules"),
+		btnCreate: newButton("Create"),
+		btnDelete: newButton("Delete"),
+		btnAddAll: newButton("Add all to collected rules"),
 	}
-	result.chooser = newChooser[string](c.theme, 38,
+	result.chooser = newChooser[string](38,
 		result.sortedMetaRules(),
 		result.metaRuleSelected,
 		func(name string) string {
@@ -54,13 +52,13 @@ func newMetaRulesPopout(p *menuPopup, c *Core) *metaRulesPopout {
 		},
 	)
 	result.mode = &widget.Enum{Value: metaRuleEdit}
-	result.radioEdit = newRadioButton(c.theme, result.mode, metaRuleEdit, "Edit")
-	result.radioMatches = newRadioButton(c.theme, result.mode, metaRuleMatches, "Matching Rules")
-	result.listMatched = newListControl[logic.Rule](c.theme, []logic.Rule{}, true).
+	result.radioEdit = newRadioButton(result.mode, metaRuleEdit, "Edit")
+	result.radioMatches = newRadioButton(result.mode, metaRuleMatches, "Matching Rules")
+	result.listMatched = newListControl[logic.Rule]([]logic.Rule{}, true).
 		rowRenderer(result.layoutMatchedRule).
 		onItemSelect(func(r logic.Rule) {
 			c.gridHolder.grid.SetRule(r)
-			c.window.Invalidate()
+			window.Invalidate()
 		}).
 		onIsSelected(func(index int, r logic.Rule) bool {
 			return r.Permutation() == c.gridHolder.grid.Rule.Permutation()
@@ -68,7 +66,7 @@ func newMetaRulesPopout(p *menuPopup, c *Core) *metaRulesPopout {
 	return result
 }
 
-func (p *metaRulesPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *metaRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 	selected := p.chooser.currentItem()
 	currName := p.chooser.editor.Text()
 	if p.btnCreate.Clicked(gtx) {
@@ -80,7 +78,7 @@ func (p *metaRulesPopout) layout(gtx layout.Context, theme *material.Theme) layo
 			}
 		}
 	}
-	mt := measureText(gtx, theme, "Xy")
+	mt := measureText(gtx, "Xy")
 	ht := mt.Size.Y * 15
 	editorHt := ht - mt.Size.Y
 	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -98,9 +96,9 @@ func (p *metaRulesPopout) layout(gtx layout.Context, theme *material.Theme) layo
 				gtx.Constraints.Max.X = p.chooser.dims.Size.X
 				if selected != nil {
 					gtx.Constraints.Min.Y = ht
-					return p.layoutMetaRule(gtx, theme, editorHt)
+					return p.layoutMetaRule(gtx, editorHt)
 				} else if currName == "" {
-					return label(theme, "No meta rule selected (select or enter new name)")(gtx)
+					return label("No meta rule selected (select or enter new name)")(gtx)
 				} else {
 					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 						layout.Rigid(p.btnCreate.Layout),
@@ -113,7 +111,7 @@ func (p *metaRulesPopout) layout(gtx layout.Context, theme *material.Theme) layo
 	})
 }
 
-func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, theme *material.Theme, editorHt int) layout.Dimensions {
+func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, editorHt int) layout.Dimensions {
 	if p.btnDelete.Clicked(gtx) {
 		name := p.chooser.editor.Text()
 		delete(p.core.settings.MetaRules, name)
@@ -123,16 +121,11 @@ func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, theme *material.The
 	p.mode.Update(gtx)
 	p.updateEditor(gtx)
 	return layout.Flex{Axis: layout.Vertical, Gap: 10}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(p.btnDelete.Layout),
-				layout.Rigid(p.radioEdit.Layout),
-				layout.Rigid(p.radioMatches.Layout),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Dimensions{Size: image.Point{X: 100}}
-				}),
-			)
-		}),
+		layout.Rigid(flexHorizontal(20,
+			layout.Rigid(p.btnDelete.Layout),
+			layout.Rigid(p.radioEdit.Layout),
+			layout.Rigid(p.radioMatches.Layout),
+		)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = editorHt
 			gtx.Constraints.Min.Y = editorHt
@@ -140,38 +133,36 @@ func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, theme *material.The
 			gtx.Constraints.Min.X = p.chooser.dims.Size.X
 			switch p.mode.Value {
 			case metaRuleMatches:
-				return p.layoutMatchedRules(gtx, theme, editorHt)
+				return p.layoutMatchedRules(gtx, editorHt)
 			default:
-				return p.layoutEditor(gtx, theme, editorHt)
+				return p.layoutEditor(gtx, editorHt)
 			}
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			switch {
 			case p.parseError != nil:
-				return errorLabel(theme, p.parseError)(gtx)
+				return errorLabel(p.parseError)(gtx)
 			case p.mode.Value == metaRuleMatches && p.currentRule != nil:
-				return p.layoutNavButtons(gtx, theme)
+				return p.layoutNavButtons(gtx)
 			case p.currentRule != nil:
-				return p.layoutReport(gtx, theme)
+				return p.layoutReport(gtx)
 			}
 			return layout.Dimensions{}
 		}),
 	)
 }
 
-func (p *metaRulesPopout) layoutReport(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *metaRulesPopout) layoutReport(gtx layout.Context) layout.Dimensions {
 	if p.linkHelp.Clicked(gtx) {
 		_ = openURL(metaRuleHelp)
 	}
 	return layout.Flex{Axis: layout.Horizontal, Gap: 30}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Clickable(gtx, &p.linkHelp, linkLabel(theme, "(see help)"))
-		}),
-		layout.Rigid(label(theme, "Matched rules: "+strconv.Itoa(len(p.matched)))),
+		layout.Rigid(linkLabel(&p.linkHelp, "(see help)")),
+		rigidLabel("Matched rules: "+strconv.Itoa(len(p.matched)), 0, 0, 0),
 	)
 }
 
-func (p *metaRulesPopout) layoutNavButtons(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *metaRulesPopout) layoutNavButtons(gtx layout.Context) layout.Dimensions {
 	if len(p.matched) > 0 {
 		if p.btnAddAll.Clicked(gtx) {
 			for perm := range p.currentRule.MatchingPermutations() {
@@ -182,31 +173,22 @@ func (p *metaRulesPopout) layoutNavButtons(gtx layout.Context, theme *material.T
 			layout.Rigid(p.btnAddAll.Layout),
 		)
 	} else {
-		return label(theme, "No matched rules found")(gtx)
+		return label("No matched rules found")(gtx)
 	}
 }
 
-func (p *metaRulesPopout) layoutEditor(gtx layout.Context, theme *material.Theme, editorHt int) layout.Dimensions {
+func (p *metaRulesPopout) layoutEditor(gtx layout.Context, editorHt int) layout.Dimensions {
 	gtx.Constraints.Max.Y = editorHt
 	gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
 	gtx.Constraints.Min.X = p.chooser.dims.Size.X
 	style := material.Editor(theme, &p.editor, "")
-	borderColor := popupBorder
-	borderThickness := unit.Dp(1)
-	if gtx.Focused(&p.editor) {
-		borderColor = popupBorderFocused
-		borderThickness = unit.Dp(2)
-	}
-	return widget.Border{
-		Color:        borderColor,
-		CornerRadius: 3,
-		Width:        borderThickness,
-	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	bc, bt := focusedBorder(gtx.Focused(&p.editor))
+	return widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, style.Layout)
 	})
 }
 
-func (p *metaRulesPopout) layoutMatchedRules(gtx layout.Context, theme *material.Theme, editorHt int) layout.Dimensions {
+func (p *metaRulesPopout) layoutMatchedRules(gtx layout.Context, editorHt int) layout.Dimensions {
 	gtx.Constraints.Max.Y = editorHt
 	gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
 	gtx.Constraints.Min.X = p.chooser.dims.Size.X
@@ -214,7 +196,7 @@ func (p *metaRulesPopout) layoutMatchedRules(gtx layout.Context, theme *material
 	if p.parseError != nil || p.currentRule == nil {
 		return widget.Border{Color: popupBorder, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return label(theme, "Error - No matching rules")(gtx)
+				return label("Error - No matching rules")(gtx)
 			})
 		})
 	}
@@ -222,7 +204,7 @@ func (p *metaRulesPopout) layoutMatchedRules(gtx layout.Context, theme *material
 	if count == 0 {
 		return widget.Border{Color: popupBorder, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return label(theme, "No matching rules")(gtx)
+				return label("No matching rules")(gtx)
 			})
 		})
 	}
@@ -237,13 +219,13 @@ func (p *metaRulesPopout) layoutMatchedRule(gtx layout.Context, index int, r log
 	return layout.Inset{Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Gap: 32}.Layout(gtx,
 			layout.Flexed(3.5, func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(p.core.theme, p.core.theme.TextSize, name+" ("+strconv.Itoa(r.Permutation())+")")
+				lbl := material.Label(theme, theme.TextSize, name+" ("+strconv.Itoa(r.Permutation())+")")
 				lbl.Alignment = text.Start
 				lbl.MaxLines = 1
 				return lbl.Layout(gtx)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(p.core.theme, p.core.theme.TextSize, strconv.Itoa(index+1))
+				lbl := material.Label(theme, theme.TextSize, strconv.Itoa(index+1))
 				lbl.Alignment = text.End
 				lbl.MaxLines = 1
 				return lbl.Layout(gtx)

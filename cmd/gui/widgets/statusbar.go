@@ -194,7 +194,6 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 	paint.FillShape(gtx.Ops, popupBackground, clip.Rect(r).Op())
 	paint.FillShape(gtx.Ops, popupBorder, clip.Rect(image.Rect(0, 0, size.X, 1)).Op())
 	gtx.Constraints = layout.Exact(size)
-	theme := sb.core.theme
 	layout.Flex{
 		Axis:      layout.Horizontal,
 		Alignment: layout.Middle,
@@ -206,15 +205,15 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 				if pst := sb.core.shortcutStatus.Load(); pst != nil {
 					st = " " + *pst
 				}
-				sb.stepDims = sb.label(gtx, theme, "Running Shortcut"+st, text.Start)
+				sb.stepDims = sb.label(gtx, "Running Shortcut"+st, text.Start)
 			case sb.core.status != "":
-				sb.stepDims = sb.label(gtx, theme, sb.core.status, text.Start)
+				sb.stepDims = sb.label(gtx, sb.core.status, text.Start)
 			case sb.core.mode != noMode:
-				sb.stepDims = sb.label(gtx, theme, sb.core.modeDisplay(), text.Start)
+				sb.stepDims = sb.label(gtx, sb.core.modeDisplay(), text.Start)
 			case sb.core.instrumentRepeat != nil && sb.core.instrumentRepeat.Found:
-				sb.stepDims = sb.label(gtx, theme, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" Repeat Found!", text.Start)
+				sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" Repeat Found!", text.Start)
 			default:
-				sb.stepDims = sb.label(gtx, theme, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10)), text.Start)
+				sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10)), text.Start)
 			}
 			return sb.stepDims
 		}),
@@ -223,7 +222,7 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 				sb.showHidePopup(popupRule)
 			}
 			return sb.ruleClickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				sb.ruleDims = sb.label(gtx, theme, "Rule: "+sb.core.gridHolder.grid.Rule.Name(), text.Middle)
+				sb.ruleDims = sb.label(gtx, "Rule: "+sb.core.gridHolder.grid.Rule.Name(), text.Middle)
 				return sb.ruleDims
 			})
 		}),
@@ -250,11 +249,8 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 	return layout.Dimensions{Size: size}
 }
 
-func (sb *statusBar) label(gtx layout.Context, theme *material.Theme, s string, align text.Alignment) layout.Dimensions {
-	return layout.Inset{
-		Left:  unit.Dp(8),
-		Right: unit.Dp(8),
-	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+func (sb *statusBar) label(gtx layout.Context, s string, align text.Alignment) layout.Dimensions {
+	return layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		size := gtx.Constraints.Max
 		sb.drawInsetRect(gtx, image.Rect(0, 0, size.X, size.Y))
 		lbl := material.Label(theme, theme.TextSize, s)
@@ -263,11 +259,7 @@ func (sb *statusBar) label(gtx layout.Context, theme *material.Theme, s string, 
 		lbl.MaxLines = 1
 		gtx.Constraints.Min.Y = size.Y
 		gtx.Constraints.Max.Y = size.Y
-		return layout.Inset{
-			Left:  unit.Dp(6),
-			Right: unit.Dp(6),
-			Top:   unit.Dp(3),
-		}.Layout(gtx, lbl.Layout)
+		return layout.Inset{Left: 6, Right: 6, Top: 3}.Layout(gtx, lbl.Layout)
 	})
 }
 
@@ -308,10 +300,7 @@ func (b *statusBarButton) useImage() image.Image {
 }
 
 func (b *statusBarButton) layout(gtx layout.Context) layout.Dimensions {
-	return layout.Inset{
-		Top:    unit.Dp(3),
-		Bottom: unit.Dp(3),
-	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layout.Inset{Top: 3, Bottom: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		wh := gtx.Constraints.Max.Y
 		if wh > gtx.Constraints.Max.X {
 			wh = gtx.Constraints.Max.X

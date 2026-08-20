@@ -6,7 +6,7 @@ import (
 	"gioui.org/widget/material"
 )
 
-func newButton(theme *material.Theme, label string) *button {
+func newButton(label string) *button {
 	b := &button{}
 	s := material.Button(theme, &b.clickable, label)
 	s.Inset = layout.Inset{Bottom: 2, Left: 4, Right: 4}
@@ -32,7 +32,7 @@ func (b *button) isFocused(gtx layout.Context) bool {
 	return gtx.Focused(&b.clickable)
 }
 
-func newPathButton(theme *material.Theme) *pathButton {
+func newPathButton() *pathButton {
 	b := &pathButton{}
 	s := material.Button(theme, &b.clickable, "…")
 	s.Inset = layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}
@@ -63,7 +63,7 @@ func (b *pathButton) isFocused(gtx layout.Context) bool {
 	return gtx.Focused(&b.clickable)
 }
 
-func newRadioButton(theme *material.Theme, enum *widget.Enum, key string, label string) *radioButton {
+func newRadioButton(enum *widget.Enum, key string, label string) *radioButton {
 	s := material.RadioButton(theme, enum, key, label)
 	s.Size = 18
 	s.TextSize = theme.TextSize
@@ -80,7 +80,7 @@ func (b *radioButton) Layout(gtx layout.Context) layout.Dimensions {
 	return b.style.Layout(gtx)
 }
 
-func newCheckBox(theme *material.Theme, label string, initial bool) *checkbox {
+func newCheckBox(label string, initial bool) *checkbox {
 	v := &widget.Bool{Value: initial}
 	s := material.CheckBox(theme, v, label)
 	s.TextSize = theme.TextSize

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"gioui.org/font"
 	"gioui.org/layout"
-	"gioui.org/unit"
+	"gioui.org/text"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/cmd/gui/settings"
 	"os"
@@ -26,9 +26,9 @@ func newLoadPatternsPopout(p *menuPopup, c *Core) *loadPatternsPopout {
 	result := &loadPatternsPopout{
 		parent:  p,
 		core:    c,
-		path:    newInput(c.theme, "", 256, nil).maximumWidth(30),
-		btnLoad: newButton(c.theme, "Load"),
-		btnPath: newPathButton(c.theme),
+		path:    newInput("", 256, nil).maximumWidth(30),
+		btnLoad: newButton("Load"),
+		btnPath: newPathButton(),
 	}
 	result.path.onChangeFn = result.clearError
 	return result
@@ -67,7 +67,7 @@ func (p *loadPatternsPopout) loadPatterns() {
 	}
 }
 
-func (p *loadPatternsPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *loadPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnLoad.Clicked(gtx) {
 		p.loadPatterns()
 	}
@@ -78,45 +78,34 @@ func (p *loadPatternsPopout) layout(gtx layout.Context, theme *material.Theme) l
 
 		})
 	}
-	labelMax := measureMaxText(gtx, theme, font.Normal, "Path: ").Size.X
-	return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8), Top: unit.Dp(8), Bottom: unit.Dp(4)}.
-		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, material.Label(theme, theme.TextSize-2, "Enter pattern filename or directory (for library)...").Layout)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-							layout.Rigid(rightAlignedLabel(theme, "Path: ", labelMax)),
-							layout.Flexed(1, p.path.layout),
-							layout.Rigid(p.btnPath.Layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.X = labelMax
-								return layout.Dimensions{Size: gtx.Constraints.Min}
-							}),
-							layout.Rigid(p.btnLoad.Layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					switch {
-					case p.error != nil:
-						return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, errorLabel(theme, p.error))
-					case p.loaded != nil:
-						return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, label(theme, fmt.Sprintf("Successfully loaded %d pattern(s)", *p.loaded)))
-					default:
-						return layout.Dimensions{}
-					}
-				}),
-			)
-		})
+	labelMax := measureMaxText(gtx, font.Normal, "Path: ").Size.X
+	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 4}.Layout(gtx, flexVertical(8,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Bottom: 4}.Layout(gtx, material.Label(theme, theme.TextSize-2, "Enter pattern filename or directory (for library)...").Layout)
+		}),
+		layout.Rigid(flexHorizontal(0,
+			rigidLabel("Path: ", text.End, 0, labelMax),
+			layout.Flexed(1, p.path.layout),
+			layout.Rigid(p.btnPath.Layout),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = labelMax
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}),
+			layout.Rigid(p.btnLoad.Layout),
+		)),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			switch {
+			case p.error != nil:
+				return layout.Inset{Bottom: 4}.Layout(gtx, errorLabel(p.error))
+			case p.loaded != nil:
+				return layout.Inset{Bottom: 4}.Layout(gtx, label(fmt.Sprintf("Successfully loaded %d pattern(s)", *p.loaded)))
+			default:
+				return layout.Dimensions{}
+			}
+		}),
+	))
 }
 
 func (p *loadPatternsPopout) hasFocus(gtx layout.Context) bool {

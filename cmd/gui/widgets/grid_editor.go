@@ -143,7 +143,7 @@ func (e *editor) handleKeys(gtx layout.Context, kev key.Event) (handled bool) {
 			e.handleSpecialKeys(gtx, kev)
 		} else {
 			e.endMarking(false)
-			e.drawLetter(gtx, kev)
+			e.drawLetter(kev)
 		}
 	}
 	return handled
@@ -239,7 +239,7 @@ func (e *editor) handleShortcutKeys(gtx layout.Context, kev key.Event) (handled 
 	return handled
 }
 
-func (e *editor) drawLetter(gtx layout.Context, kev key.Event) {
+func (e *editor) drawLetter(kev key.Event) {
 	ch := string(kev.Name)
 	if (ch >= "A" && ch <= "Z") && kev.Modifiers != key.ModShift {
 		ch = strings.ToLower(ch)
@@ -634,7 +634,7 @@ func (e *editor) start() {
 			case <-ticker.C:
 				e.blink = !e.blink
 				e.dirty = true
-				e.g.core.window.Invalidate()
+				window.Invalidate()
 			case <-e.stop:
 				return
 			}
@@ -660,7 +660,7 @@ func (e *editor) end() {
 	}
 	e.g.grid.StepCount.Store(0)
 	e.g.core.resetInstrumentation()
-	e.g.core.window.Invalidate()
+	window.Invalidate()
 }
 
 func (e *editor) clearMarking() {

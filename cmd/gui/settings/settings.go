@@ -364,14 +364,12 @@ func (s *Settings) fromPrefs(p prefs) {
 			s.CapturedPatterns = append(s.CapturedPatterns, &pattern)
 		}
 	}
-	go func() {
-		for _, path := range s.PatternLibraries {
-			_, _ = LoadPatternsLibrary(path)
-		}
-		for _, path := range s.Patterns {
-			_ = LoadPattern(path)
-		}
-	}()
+	for _, path := range s.PatternLibraries {
+		_, _ = LoadPatternsLibrary(path)
+	}
+	for _, path := range s.Patterns {
+		_ = LoadPattern(path)
+	}
 }
 
 type prefs struct {

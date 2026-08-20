@@ -6,7 +6,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 )
@@ -21,7 +20,7 @@ type input struct {
 	maxWidth   int
 }
 
-func newInput(theme *material.Theme, filter any, maxLen int, fn func(text string)) *input {
+func newInput(filter any, maxLen int, fn func(text string)) *input {
 	result := &input{
 		onChangeFn: fn,
 		editor: widget.Editor{
@@ -70,7 +69,7 @@ func (i *input) isFocused(gtx layout.Context) bool {
 func (i *input) layout(gtx layout.Context) layout.Dimensions {
 	i.update(gtx)
 	if i.maxWidth > 0 {
-		maxChWd := measureText(gtx, i.theme, "M")
+		maxChWd := measureText(gtx, "M")
 		maxWidth := maxChWd.Size.X * i.maxWidth
 		if maxWidth < gtx.Constraints.Max.X {
 			gtx.Constraints.Max.X = maxWidth
@@ -79,7 +78,7 @@ func (i *input) layout(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		}
 	} else if i.editor.MaxLen > 0 {
-		maxChWd := measureText(gtx, i.theme, "M")
+		maxChWd := measureText(gtx, "M")
 		maxWidth := maxChWd.Size.X * i.editor.MaxLen
 		if maxWidth < gtx.Constraints.Max.X {
 			gtx.Constraints.Max.X = maxWidth
@@ -88,17 +87,8 @@ func (i *input) layout(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		}
 	}
-	borderColor := popupBorder
-	borderThickness := unit.Dp(1)
-	if i.isFocused(gtx) {
-		borderColor = popupBorderFocused
-		borderThickness = unit.Dp(2)
-	}
-	return widget.Border{
-		Color:        borderColor,
-		CornerRadius: 3,
-		Width:        borderThickness,
-	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	bc, bt := focusedBorder(i.isFocused(gtx))
+	return widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, i.style.Layout)
 	})
 }

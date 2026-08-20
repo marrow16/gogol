@@ -3,7 +3,6 @@ package widgets
 import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
-	"gioui.org/widget/material"
 	"strconv"
 )
 
@@ -17,7 +16,7 @@ type numberInput[T int | uint | float64] struct {
 	precision  int
 }
 
-func newNumberInput[T int | uint | float64](theme *material.Theme, maxLen int, minValue, maxValue T, pagingSize T, onChangeFn func(v T)) *numberInput[T] {
+func newNumberInput[T int | uint | float64](maxLen int, minValue, maxValue T, pagingSize T, onChangeFn func(v T)) *numberInput[T] {
 	result := &numberInput[T]{
 		onChangeFn: onChangeFn,
 		minValue:   minValue,
@@ -26,7 +25,7 @@ func newNumberInput[T int | uint | float64](theme *material.Theme, maxLen int, m
 		pagingSize: pagingSize,
 		precision:  -1,
 	}
-	result.input = newInput(theme, filterFromType(minValue), maxLen, func(text string) {
+	result.input = newInput(filterFromType(minValue), maxLen, func(text string) {
 		if v, err := result.fromString(text); err == nil {
 			if result.onChangeFn != nil {
 				result.onChangeFn(v)

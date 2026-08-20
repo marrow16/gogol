@@ -20,26 +20,32 @@ import (
 	"time"
 )
 
+var (
+	core   *Core
+	theme  *material.Theme
+	window *app.Window
+)
+
 func NewCore(s *settings.Settings) (*Core, error) {
-	c := &Core{
+	theme = material.NewTheme()
+	core = &Core{
 		settings: s,
-		theme:    material.NewTheme(),
 	}
 	var err error
-	c.gridHolder, err = newGridHolder(c)
-	c.statusBar = newStatusBar(c)
+	core.gridHolder, err = newGridHolder(core)
+	core.statusBar = newStatusBar(core)
 	if s.Recording {
-		c.instrumentRecord = logic.NewRecordInstrument(c.gridHolder.grid)
+		core.instrumentRecord = logic.NewRecordInstrument(core.gridHolder.grid)
 	}
 	if s.RepeatDetection {
-		c.instrumentRepeat = logic.NewRepeatInstrument(c.gridHolder.grid)
+		core.instrumentRepeat = logic.NewRepeatInstrument(core.gridHolder.grid)
 	}
 	if s.HeatMappingType != "" {
-		c.heatMapperType = heatMapperTypeFrom(s.HeatMappingType)
-		c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid, s.HeatMappingHalfLife)
+		core.heatMapperType = heatMapperTypeFrom(s.HeatMappingType)
+		core.instrumentHeatMap = core.heatMapperType.newHeatMapper(core.gridHolder.grid, s.HeatMappingHalfLife)
 	}
-	c.updateInstrumentation()
-	return c, err
+	core.updateInstrumentation()
+	return core, err
 }
 
 type mode int
@@ -65,9 +71,7 @@ func (m mode) String() string {
 
 type Core struct {
 	settings    *settings.Settings
-	window      *app.Window
 	windowRect  clip.Rect
-	theme       *material.Theme
 	gridHolder  *gridHolder
 	statusBar   *statusBar
 	gridRecipes *gridRecipesPopout
@@ -101,10 +105,10 @@ type Core struct {
 	placePatternRotation             patterns.Rotation
 }
 
-func (c *Core) Run(window *app.Window) error {
-	c.window = window
+func (c *Core) Run(w *app.Window) error {
+	window = w
 	for {
-		switch e := window.Event().(type) {
+		switch e := w.Event().(type) {
 		case app.DestroyEvent:
 			c.stop()
 			c.settings.Recording = c.instrumentRecord != nil

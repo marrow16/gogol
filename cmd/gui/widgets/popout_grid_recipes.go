@@ -3,8 +3,6 @@ package widgets
 import (
 	"errors"
 	"gioui.org/layout"
-	"gioui.org/unit"
-	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/recipes"
 	"slices"
 	"sort"
@@ -25,11 +23,11 @@ func newGridRecipesPopout(p *menuPopup, c *Core) *gridRecipesPopout {
 	result := &gridRecipesPopout{
 		parent:     p,
 		core:       c,
-		btnPath:    newPathButton(c.theme),
-		btnRun:     newButton(c.theme, "Run"),
-		btnSaveRle: newButton(c.theme, "Save as RLE"),
+		btnPath:    newPathButton(),
+		btnRun:     newButton("Run"),
+		btnSaveRle: newButton("Save as RLE"),
 	}
-	result.chooser = newChooser[string](c.theme, 38,
+	result.chooser = newChooser[string](38,
 		result.sortedRecipes(),
 		result.recipeSelected,
 		func(recipe string) string {
@@ -92,7 +90,7 @@ func (p *gridRecipesPopout) runRecipe() {
 			p.core.settings.Height, p.core.settings.Width, p.core.settings.WrapMode, p.core.settings.BoundaryMode = grid.Height, grid.Width, grid.WrapMode, grid.BoundaryMode
 			p.core.gridHolder.replaceGrid(grid)
 			p.core.resetInstrumentation()
-			p.core.window.Invalidate()
+			window.Invalidate()
 		} else {
 			p.core.resetInstrumentation()
 		}
@@ -105,7 +103,7 @@ func (p *gridRecipesPopout) saveRecipeRle() {
 	}
 }
 
-func (p *gridRecipesPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *gridRecipesPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnPath.Clicked(gtx) {
 		filePicker(func(filename string) {
 			path := strings.TrimSpace(string(filename))
@@ -120,10 +118,7 @@ func (p *gridRecipesPopout) layout(gtx layout.Context, theme *material.Theme) la
 	if p.btnSaveRle.Clicked(gtx) {
 		p.saveRecipeRle()
 	}
-	return layout.Inset{
-		Left: unit.Dp(8), Right: unit.Dp(8),
-		Top: unit.Dp(8), Bottom: unit.Dp(8),
-	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		var chooserDims layout.Dimensions
 		dims := layout.Flex{Axis: layout.Vertical, Gap: 10}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -143,9 +138,9 @@ func (p *gridRecipesPopout) layout(gtx layout.Context, theme *material.Theme) la
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						switch {
 						case p.error != nil:
-							return errorLabel(theme, p.error)(gtx)
+							return errorLabel(p.error)(gtx)
 						case p.chooser.currentItem() != nil:
-							return label(theme, "(Press "+modKeyName+"G to run)")(gtx)
+							return label("(Press " + modKeyName + "G to run)")(gtx)
 						default:
 							return layout.Dimensions{}
 						}

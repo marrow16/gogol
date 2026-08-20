@@ -3,17 +3,10 @@ package widgets
 import (
 	"gioui.org/font"
 	"gioui.org/layout"
-	"gioui.org/unit"
-	"gioui.org/widget/material"
+	"gioui.org/text"
 	"github.com/marrow16/gogol/cmd/gui/settings"
 	"image/color"
 )
-
-type popout interface {
-	layout(gtx layout.Context, theme *material.Theme) layout.Dimensions
-	hasFocus(gtx layout.Context) bool
-	reset()
-}
 
 type colorsPopout struct {
 	parent     *menuPopup
@@ -35,33 +28,33 @@ func newColorsPopout(p *menuPopup, c *Core) *colorsPopout {
 	result := &colorsPopout{
 		parent:     p,
 		core:       c,
-		chkBorders: newCheckBox(c.theme, "Show Borders", c.settings.CellBorders),
+		chkBorders: newCheckBox("Show Borders", c.settings.CellBorders),
 	}
-	result.aliveR = newNumberInput(c.theme, 3, 0, 255, 16, func(v int) {
+	result.aliveR = newNumberInput(3, 0, 255, 16, func(v int) {
 		result.colorChanged(0, 0, v)
 	}).setValue(int(c.settings.CellAliveColor.R))
-	result.aliveG = newNumberInput(c.theme, 3, 0, 255, 16, func(v int) {
+	result.aliveG = newNumberInput(3, 0, 255, 16, func(v int) {
 		result.colorChanged(0, 1, v)
 	}).setValue(int(c.settings.CellAliveColor.G))
-	result.aliveB = newNumberInput(c.theme, 3, 0, 255, 16, func(v int) {
+	result.aliveB = newNumberInput(3, 0, 255, 16, func(v int) {
 		result.colorChanged(0, 2, v)
 	}).setValue(int(c.settings.CellAliveColor.B))
-	result.deadR = newNumberInput(c.theme, 3, 0, 255, 16, func(v int) {
+	result.deadR = newNumberInput(3, 0, 255, 16, func(v int) {
 		result.colorChanged(1, 0, v)
 	}).setValue(int(c.settings.CellDeadColor.R))
-	result.deadG = newNumberInput(c.theme, 3, 0, 255, 16, func(v int) {
+	result.deadG = newNumberInput(3, 0, 255, 16, func(v int) {
 		result.colorChanged(1, 1, v)
 	}).setValue(int(c.settings.CellDeadColor.G))
-	result.deadB = newNumberInput(c.theme, 3, 0, 255, 16, func(v int) {
+	result.deadB = newNumberInput(3, 0, 255, 16, func(v int) {
 		result.colorChanged(1, 2, v)
 	}).setValue(int(c.settings.CellDeadColor.B))
-	result.borderR = newNumberInput(c.theme, 3, 0, 255, 16, func(v int) {
+	result.borderR = newNumberInput(3, 0, 255, 16, func(v int) {
 		result.colorChanged(2, 0, v)
 	}).setValue(int(c.settings.CellBorderColor.R))
-	result.borderG = newNumberInput(c.theme, 3, 0, 255, 16, func(v int) {
+	result.borderG = newNumberInput(3, 0, 255, 16, func(v int) {
 		result.colorChanged(2, 1, v)
 	}).setValue(int(c.settings.CellBorderColor.G))
-	result.borderB = newNumberInput(c.theme, 3, 0, 255, 16, func(v int) {
+	result.borderB = newNumberInput(3, 0, 255, 16, func(v int) {
 		result.colorChanged(2, 2, v)
 	}).setValue(int(c.settings.CellBorderColor.B))
 	result.inputs = []*numberInput[int]{
@@ -142,57 +135,42 @@ func (p *colorsPopout) hasFocus(gtx layout.Context) bool {
 		p.borderR.isFocused(gtx) || p.borderG.isFocused(gtx) || p.borderB.isFocused(gtx)
 }
 
-func (p *colorsPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *colorsPopout) layout(gtx layout.Context) layout.Dimensions {
 	for _, inp := range p.inputs {
 		inp.update(gtx)
 	}
 	if ok := p.chkBorders.Update(gtx); ok {
 		p.core.setCellBorders(p.chkBorders.Checked())
 	}
-	labelMax := measureMaxText(gtx, theme, font.Normal, "Alive cells", "Dead cells", "Cell Border").Size.X
-	return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8), Top: unit.Dp(8), Bottom: unit.Dp(4)}.
-		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(rightAlignedLabel(theme, "Alive cells", labelMax)),
-							layout.Rigid(label(theme, "R:")),
-							layout.Flexed(1, p.aliveR.layout),
-							layout.Rigid(label(theme, "G:")),
-							layout.Flexed(1, p.aliveG.layout),
-							layout.Rigid(label(theme, "B:")),
-							layout.Flexed(1, p.aliveB.layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(rightAlignedLabel(theme, "Dead cells", labelMax)),
-							layout.Rigid(label(theme, "R:")),
-							layout.Flexed(1, p.deadR.layout),
-							layout.Rigid(label(theme, "G:")),
-							layout.Flexed(1, p.deadG.layout),
-							layout.Rigid(label(theme, "B:")),
-							layout.Flexed(1, p.deadB.layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(rightAlignedLabel(theme, "Cell Border", labelMax)),
-							layout.Rigid(label(theme, "R:")),
-							layout.Flexed(1, p.borderR.layout),
-							layout.Rigid(label(theme, "G:")),
-							layout.Flexed(1, p.borderG.layout),
-							layout.Rigid(label(theme, "B:")),
-							layout.Flexed(1, p.borderB.layout),
-						)
-					})
-				}),
-				layout.Rigid(p.chkBorders.Layout),
-			)
-		})
+	labelMax := measureMaxText(gtx, font.Normal, "Alive cells", "Dead cells", "Cell Border").Size.X
+	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 4}.Layout(gtx, flexVertical(4,
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Alive cells", text.End, 0, labelMax),
+			rigidLabel("R:", 0, 0, 0),
+			layout.Flexed(1, p.aliveR.layout),
+			rigidLabel("G:", 0, 0, 0),
+			layout.Flexed(1, p.aliveG.layout),
+			rigidLabel("B:", 0, 0, 0),
+			layout.Flexed(1, p.aliveB.layout),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Dead cells", text.End, 0, labelMax),
+			rigidLabel("R:", 0, 0, 0),
+			layout.Flexed(1, p.deadR.layout),
+			rigidLabel("G:", 0, 0, 0),
+			layout.Flexed(1, p.deadG.layout),
+			rigidLabel("B:", 0, 0, 0),
+			layout.Flexed(1, p.deadB.layout),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Cell Border", text.End, 0, labelMax),
+			rigidLabel("R:", 0, 0, 0),
+			layout.Flexed(1, p.borderR.layout),
+			rigidLabel("G:", 0, 0, 0),
+			layout.Flexed(1, p.borderG.layout),
+			rigidLabel("B:", 0, 0, 0),
+			layout.Flexed(1, p.borderB.layout),
+		)),
+		layout.Rigid(p.chkBorders.Layout),
+	))
 }
