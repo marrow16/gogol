@@ -1,9 +1,10 @@
 package widgets
 
 import (
+	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
-	"gioui.org/unit"
+	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/go-andiamo/splitter"
@@ -16,7 +17,7 @@ func newShortcutsPopout(p *menuPopup, c *Core) *shortcutsPopout {
 		parent: p,
 		core:   c,
 	}
-	result.key = newInput(c.theme, "", 3, result.keyChanged).upDownSupport(result.keyUpDown).maximumWidth(3)
+	result.key = newInput("", 3, result.keyChanged).upDownSupport(result.keyUpDown).maximumWidth(3)
 	return result
 }
 
@@ -67,7 +68,7 @@ func (p *shortcutsPopout) isAllowedKey(k string) bool {
 	if len(k) == 1 {
 		return true
 	}
-	return strings.Contains("F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11,F12,", k+",")
+	return len(k) > 1 && strings.Contains("F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11,F12,", k+",")
 }
 
 func (p *shortcutsPopout) keyChanged(s string) {
@@ -89,10 +90,10 @@ func (p *shortcutsPopout) keyChanged(s string) {
 
 var lineSplitter = splitter.MustCreateSplitter('\n').AddDefaultOptions(splitter.TrimSpaces, splitter.IgnoreEmpties)
 
-func (p *shortcutsPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	kw := measureText(gtx, theme, "Key: ")
+func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
+	kw := measureText(gtx, "Key: ")
 	ht := kw.Size.Y * 16
-	m := measureText(gtx, theme, "M")
+	m := measureText(gtx, "M")
 	ew := m.Size.X * 30
 	k := strings.ToUpper(p.key.editor.Text())
 	isAllowedKey := p.isAllowedKey(k)
@@ -121,30 +122,24 @@ func (p *shortcutsPopout) layout(gtx layout.Context, theme *material.Theme) layo
 		gtx.Constraints.Min.X = ew
 		gtx.Constraints.Min.Y = ht
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(flexHorizontal(20,
+				rigidLabel("Key:", text.End, font.Bold, kw.Size.X),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = m.Size.X * 2
+					return p.key.layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !isAllowedKey {
+						return layout.Dimensions{}
+					}
+					return label(altKeyName + k)(gtx)
+				}),
+			)),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-					layout.Rigid(rightAlignedBoldLabel(theme, "Key:", kw.Size.X)),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						gtx.Constraints.Min.X = m.Size.X * 2
-						return p.key.layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if !isAllowedKey {
-							return layout.Dimensions{}
-						}
-						return label(theme, altKeyName+k)(gtx)
-					}),
-				)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Bottom: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-						layout.Rigid(label(theme, "Actions:")),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Clickable(gtx, &p.linkHelp, linkLabel(theme, "(see help)"))
-						}),
-					)
-				})
+				return layout.Inset{Bottom: 3}.Layout(gtx, flexHorizontal(20,
+					rigidLabel("Actions:", 0, 0, 0),
+					layout.Rigid(linkLabel(&p.linkHelp, "(see help)")),
+				))
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if !isAllowedKey {
@@ -154,23 +149,9 @@ func (p *shortcutsPopout) layout(gtx layout.Context, theme *material.Theme) layo
 				gtx.Constraints.Max.Y = ht - kw.Size.Y*2
 				gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
 				style := material.Editor(theme, &p.editor, "")
-				borderColor := popupBorder
-				borderThickness := unit.Dp(1)
-				if gtx.Focused(&p.editor) {
-					borderColor = popupBorderFocused
-					borderThickness = unit.Dp(2)
-				}
-				return widget.Border{
-					Color:        borderColor,
-					CornerRadius: 3,
-					Width:        borderThickness,
-				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{
-						Top:    2,
-						Bottom: 2,
-						Left:   4,
-						Right:  4,
-					}.Layout(gtx, style.Layout)
+				bc, bt := focusedBorder(gtx.Focused(&p.editor))
+				return widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, style.Layout)
 				})
 			}),
 		)

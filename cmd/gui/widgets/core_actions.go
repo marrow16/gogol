@@ -51,16 +51,16 @@ func (c *Core) start() {
 			if !c.gridHolder.grid.StepWithInstrumentation(c.instrumentation) {
 				time.Sleep(50 * time.Millisecond)
 				c.gridHolder.dirty = true
-				c.window.Invalidate()
+				window.Invalidate()
 				return
 			}
 			if !ignoreRepeat && c.instrumentRepeat != nil && c.instrumentRepeat.Found {
 				time.Sleep(50 * time.Millisecond)
 				c.gridHolder.dirty = true
-				c.window.Invalidate()
+				window.Invalidate()
 				return
 			}
-			c.window.Invalidate()
+			window.Invalidate()
 			if sleep := delay - time.Since(start); sleep > 0 {
 				timer := time.NewTimer(sleep)
 				select {
@@ -83,7 +83,7 @@ func (c *Core) stop() {
 		c.stopRun = nil
 	}
 	c.running = false
-	c.window.Invalidate()
+	window.Invalidate()
 }
 
 func (c *Core) stopRunning() {
@@ -92,7 +92,7 @@ func (c *Core) stopRunning() {
 		c.stopRun = nil
 	}
 	c.running = false
-	c.window.Invalidate()
+	window.Invalidate()
 }
 
 func (c *Core) step() {
@@ -101,7 +101,7 @@ func (c *Core) step() {
 	defer c.mutex.Unlock()
 	c.stopRunning()
 	c.gridHolder.grid.StepWithInstrumentation(c.instrumentation)
-	c.window.Invalidate()
+	window.Invalidate()
 }
 
 func (c *Core) stepAhead() {
@@ -123,7 +123,7 @@ func (c *Core) stepAhead() {
 	go func() {
 		c.gridHolder.grid.StepAheadWithInstrumentation(c.settings.StepAheadBy, nil, c.instrumentation)
 		c.gridHolder.grid.Draw()
-		c.window.Invalidate()
+		window.Invalidate()
 		c.stepAheadQueued = false
 		c.status = ""
 	}()
@@ -136,7 +136,7 @@ func (c *Core) stepAheadBy(n int) {
 	c.stopRunning()
 	c.gridHolder.grid.StepAheadWithInstrumentation(n, nil, c.instrumentation)
 	c.gridHolder.grid.Draw()
-	c.window.Invalidate()
+	window.Invalidate()
 }
 
 func (c *Core) stepBack() {
@@ -147,7 +147,7 @@ func (c *Core) stepBack() {
 	if c.instrumentRecord != nil {
 		c.instrumentRecord.Undo()
 		c.gridHolder.grid.Draw()
-		c.window.Invalidate()
+		window.Invalidate()
 	}
 }
 
@@ -165,7 +165,7 @@ func (c *Core) skipBack() {
 		go func() {
 			c.instrumentRecord.Undos(c.settings.SkipBackBy)
 			c.gridHolder.grid.Draw()
-			c.window.Invalidate()
+			window.Invalidate()
 			c.skipBackQueued = false
 			c.status = ""
 		}()
@@ -177,7 +177,7 @@ func (c *Core) skipBackBy(n int) {
 	if c.instrumentRecord != nil {
 		c.instrumentRecord.Undos(n)
 		c.gridHolder.grid.Draw()
-		c.window.Invalidate()
+		window.Invalidate()
 	}
 }
 
@@ -455,7 +455,7 @@ func (c *Core) setCellBorders(on bool) {
 		c.gridHolder.rebuild()
 		c.gridHolder.grid.Draw()
 		c.settingsChanged()
-		c.window.Invalidate()
+		window.Invalidate()
 	}
 }
 
@@ -465,7 +465,7 @@ func (c *Core) toggleCellBorders() {
 	c.gridHolder.rebuild()
 	c.gridHolder.grid.Draw()
 	c.settingsChanged()
-	c.window.Invalidate()
+	window.Invalidate()
 }
 
 func (c *Core) showMenu() {
@@ -601,11 +601,11 @@ func (c *Core) runRecipe(filename string) {
 			c.settings.Height, c.settings.Width, c.settings.WrapMode, c.settings.BoundaryMode = grid.Height, grid.Width, grid.WrapMode, grid.BoundaryMode
 			c.gridHolder.replaceGrid(grid)
 			c.resetInstrumentation()
-			c.window.Invalidate()
+			window.Invalidate()
 		} else {
 			c.resetInstrumentation()
 			c.gridHolder.grid.Draw()
-			c.window.Invalidate()
+			window.Invalidate()
 		}
 	}
 }

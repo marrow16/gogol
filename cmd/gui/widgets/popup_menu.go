@@ -13,6 +13,12 @@ import (
 	"image"
 )
 
+type popout interface {
+	layout(gtx layout.Context) layout.Dimensions
+	hasFocus(gtx layout.Context) bool
+	reset()
+}
+
 func newMenuPopup(parent *statusBar) *menuPopup {
 	result := &menuPopup{
 		core:   parent.core,
@@ -163,7 +169,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		popoutShortcuts:              newShortcutsPopout(result, result.core),
 		popoutMetaRules:              newMetaRulesPopout(result, result.core),
 		popoutCollectedRules:         newCollectedRulesPopout(result, result.core),
-		popoutAbout:                  newAboutPopout(result, result.core),
+		popoutAbout:                  newAboutPopout(result),
 	}
 	result.selected = len(result.menuItems) - 1
 	return result
@@ -213,24 +219,24 @@ func (p *menuPopup) layout(gtx layout.Context) layout.Dimensions {
 	p.bottom = gtx.Constraints.Max.Y
 	p.handleKeys(gtx)
 	if p.itemWidth == 0 {
-		p.itemWidth = p.menuItems.measureWidth(gtx, p.core.theme)
+		p.itemWidth = p.menuItems.measureWidth(gtx)
 	}
 	macro := op.Record(gtx.Ops)
 	dims := layout.Inset{Top: 2, Left: 2, Bottom: 2, Right: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{
 			Axis: layout.Vertical,
-		}.Layout(gtx, p.menuItems.layout(p.core.theme, p.itemWidth)...)
+		}.Layout(gtx, p.menuItems.layout(p.itemWidth)...)
 	})
 	p.width = dims.Size.X
 	call := macro.Stop()
 	paint.FillShape(gtx.Ops, popupBackground, clip.Rect{Max: dims.Size}.Op())
 	border(gtx, dims, true, true, false, false)
 	call.Add(gtx.Ops)
-	p.layoutPopouts(gtx, p.core.theme)
+	p.layoutPopouts(gtx)
 	return dims
 }
 
-func (p *menuPopup) layoutPopouts(gtx layout.Context, theme *material.Theme) {
+func (p *menuPopup) layoutPopouts(gtx layout.Context) {
 	if !p.poppedOut {
 		return
 	}
@@ -243,7 +249,7 @@ func (p *menuPopup) layoutPopouts(gtx layout.Context, theme *material.Theme) {
 		return
 	}
 	macro := op.Record(gtx.Ops)
-	dims := pop.layout(gtx, theme)
+	dims := pop.layout(gtx)
 	call := macro.Stop()
 	x := -dims.Size.X
 	y := p.selectedItemY()
@@ -351,7 +357,7 @@ func (p *menuPopup) handleKeys(gtx layout.Context) {
 
 type menuItems []menuItem
 
-func (m menuItems) layout(theme *material.Theme, width int) []layout.FlexChild {
+func (m menuItems) layout(width int) []layout.FlexChild {
 	result := make([]layout.FlexChild, 0, len(m))
 	for idx := range m {
 		item := &m[idx]
@@ -359,13 +365,13 @@ func (m menuItems) layout(theme *material.Theme, width int) []layout.FlexChild {
 			item.index = idx
 		}
 		result = append(result, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return item.layout(gtx, theme, width)
+			return item.layout(gtx, width)
 		}))
 	}
 	return result
 }
 
-func (m menuItems) measureWidth(gtx layout.Context, theme *material.Theme) int {
+func (m menuItems) measureWidth(gtx layout.Context) int {
 	lbls := make([]string, 0, len(m))
 	addSpaceFor := " " + modKeyName + "WWWW"
 	for _, item := range m {
@@ -375,7 +381,7 @@ func (m menuItems) measureWidth(gtx layout.Context, theme *material.Theme) int {
 			lbls = append(lbls, "<< "+item.label)
 		}
 	}
-	dims := measureMaxText(gtx, theme, font.Normal, lbls...)
+	dims := measureMaxText(gtx, font.Normal, lbls...)
 	return dims.Size.X
 }
 
@@ -390,9 +396,9 @@ type menuItem struct {
 	height    int
 }
 
-func (i *menuItem) layout(gtx layout.Context, theme *material.Theme, width int) layout.Dimensions {
+func (i *menuItem) layout(gtx layout.Context, width int) layout.Dimensions {
 	if i.label == "" {
-		dims := measureText(gtx, theme, "-")
+		dims := measureText(gtx, "-")
 		dims.Size.X = width
 		dims.Size.Y = (dims.Size.Y * 2) / 3
 		i.height = dims.Size.Y
@@ -418,19 +424,14 @@ func (i *menuItem) layout(gtx layout.Context, theme *material.Theme, width int) 
 		return material.Clickable(gtx, &i.clickable, func(gtx layout.Context) layout.Dimensions {
 			extra := unit.Dp(0)
 			if len(i.key) == 0 {
-				sz1 := measureText(gtx, theme, "C")
-				sz2 := measureText(gtx, theme, modKeyName)
+				sz1 := measureText(gtx, "C")
+				sz2 := measureText(gtx, modKeyName)
 				extra = gtx.Metric.PxToDp(max(sz1.Size.Y, sz2.Size.Y) - min(sz1.Size.Y, sz2.Size.Y))
 			}
 			gtx.Constraints.Min.X = width
 			gtx.Constraints.Max.X = width
 			macro := op.Record(gtx.Ops)
-			dims := layout.Inset{
-				Top:    unit.Dp(2),
-				Left:   unit.Dp(4),
-				Right:  unit.Dp(4),
-				Bottom: unit.Dp(2 + extra),
-			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			dims := layout.Inset{Top: 2, Left: 4, Right: 4, Bottom: 2 + extra}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if i.popout == popoutNone {
@@ -438,7 +439,7 @@ func (i *menuItem) layout(gtx layout.Context, theme *material.Theme, width int) 
 						}
 						return material.Label(theme, theme.TextSize, "< ").Layout(gtx)
 					}),
-					layout.Flexed(1, label(theme, i.label)),
+					layout.Flexed(1, label(i.label)),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if i.key == "" {
 							return layout.Dimensions{}

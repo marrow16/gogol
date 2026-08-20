@@ -31,11 +31,11 @@ func (c *Core) userShortcutKeys(kn key.Name) bool {
 	c.shortcutRunning = true
 	c.shortcutCollectFiles = false
 	c.shortcutStatus.Store(nil)
-	c.window.Invalidate()
+	window.Invalidate()
 	go func() {
 		defer func() {
 			c.shortcutRunning = false
-			c.window.Invalidate()
+			window.Invalidate()
 		}()
 		c.runUserShortcut(shortcut, nil, "")
 		if c.shortcutCollectFiles && len(c.shortcutFiles) > 0 {
@@ -235,7 +235,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 			if c.heatMapperType != noHeatMapper && c.instrumentHeatMap != nil {
 				c.gridHolder.buildHeatMap(c.instrumentHeatMap)
 				c.mode = heatMapMode
-				c.window.Invalidate()
+				window.Invalidate()
 			}
 		case shortcutRepeatDetectSave:
 			c.stop()

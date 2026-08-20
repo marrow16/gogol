@@ -7,7 +7,6 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"image"
@@ -27,7 +26,7 @@ type listControl[T any] struct {
 	isSelectedFn  func(index int, item T) bool
 }
 
-func newListControl[T any](theme *material.Theme, items []T, border bool) *listControl[T] {
+func newListControl[T any](items []T, border bool) *listControl[T] {
 	result := &listControl[T]{
 		border: border,
 		theme:  theme,
@@ -160,17 +159,8 @@ func (l *listControl[T]) Layout(gtx layout.Context) layout.Dimensions {
 	macro := op.Record(gtx.Ops)
 	var dims layout.Dimensions
 	if l.border {
-		clr := popupBorder
-		bw := unit.Dp(1)
-		if l.focused {
-			clr = popupBorderFocused
-			bw = unit.Dp(2)
-		}
-		dims = widget.Border{
-			Color:        clr,
-			Width:        bw,
-			CornerRadius: unit.Dp(3),
-		}.Layout(gtx, l.layoutList)
+		bc, bt := focusedBorder(l.focused)
+		dims = widget.Border{Color: bc, Width: bt, CornerRadius: 3}.Layout(gtx, l.layoutList)
 	} else {
 		dims = l.layoutList(gtx)
 	}
@@ -184,7 +174,7 @@ func (l *listControl[T]) Layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (l *listControl[T]) layoutList(gtx layout.Context) layout.Dimensions {
-	rowDims := measureText(gtx, l.theme, "Xy")
+	rowDims := measureText(gtx, "Xy")
 	return material.List(l.theme, &l.list).Layout(
 		gtx,
 		len(l.items),

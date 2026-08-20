@@ -6,7 +6,6 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/logic"
@@ -41,13 +40,13 @@ func newPatternsPopout(p *menuPopup, c *Core) *patternsPopout {
 		parent:               p,
 		core:                 c,
 		previewMode:          &widget.Enum{Value: previewImage},
-		chkFilterCurrentRule: newCheckBox(c.theme, "Filter current rule", false),
-		btnPlace:             newButton(c.theme, "Place"),
-		chkInterlaced:        newCheckBox(c.theme, "Interlaced", false),
+		chkFilterCurrentRule: newCheckBox("Filter current rule", false),
+		btnPlace:             newButton("Place"),
+		chkInterlaced:        newCheckBox("Interlaced", false),
 	}
-	result.radioPreview = newRadioButton(c.theme, result.previewMode, previewImage, "Preview")
-	result.radioMetadata = newRadioButton(c.theme, result.previewMode, previewMetadata, "Metadata")
-	result.chooser = newChooser[patterns.Pattern](c.theme, 38,
+	result.radioPreview = newRadioButton(result.previewMode, previewImage, "Preview")
+	result.radioMetadata = newRadioButton(result.previewMode, previewMetadata, "Metadata")
+	result.chooser = newChooser[patterns.Pattern](38,
 		result.sortedPatterns(),
 		result.patternSelected,
 		func(pattern patterns.Pattern) string {
@@ -94,7 +93,7 @@ func (p *patternsPopout) currentPattern() (patt *patterns.Pattern, interlaced bo
 	return p.chooser.currentItem(), p.chkInterlaced.Checked()
 }
 
-func (p *patternsPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *patternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnPlace.Clicked(gtx) {
 		if pattern := p.chooser.currentItem(); pattern != nil {
 			p.core.startPatternPlace(gtx, pattern, p.chkInterlaced.Checked())
@@ -106,12 +105,10 @@ func (p *patternsPopout) layout(gtx layout.Context, theme *material.Theme) layou
 	if ok := p.chkFilterCurrentRule.Update(gtx); ok {
 		p.chooser.resetItems(p.sortedPatterns())
 	}
-	chd := measureText(gtx, p.core.theme, "M")
+	chd := measureText(gtx, "M")
 	gtx.Constraints.Min.Y = chd.Size.Y * 20
 	return layout.Inset{
-		Left: unit.Dp(8), Right: unit.Dp(8),
-		Top: unit.Dp(8), Bottom: unit.Dp(4),
-	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		Left: 8, Right: 8, Top: 8, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		var chooserDims layout.Dimensions
 		dims := layout.Flex{Axis: layout.Vertical, Gap: 10}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -134,7 +131,7 @@ func (p *patternsPopout) layout(gtx layout.Context, theme *material.Theme) layou
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = int(float32(chd.Size.Y) * 15.5)
 				gtx.Constraints.Max.X = p.chooser.dims.Size.X
-				return p.layoutPreview(gtx, theme, p.chooser.dims.Size.X, chd.Size.Y*15)
+				return p.layoutPreview(gtx, p.chooser.dims.Size.X, chd.Size.Y*15)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if p.chooser.currentItem() != nil {
@@ -152,7 +149,7 @@ func (p *patternsPopout) layout(gtx layout.Context, theme *material.Theme) layou
 	})
 }
 
-func (p *patternsPopout) layoutPreview(gtx layout.Context, theme *material.Theme, maxWd, maxHt int) layout.Dimensions {
+func (p *patternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt int) layout.Dimensions {
 	currentPattern := p.chooser.currentItem()
 	switch {
 	case currentPattern == nil:
@@ -166,49 +163,39 @@ func (p *patternsPopout) layoutPreview(gtx layout.Context, theme *material.Theme
 			}),
 		)
 	case p.previewMode.Value == previewMetadata:
-		return p.layoutPreviewMetadata(*currentPattern, gtx, theme)
+		return p.layoutPreviewMetadata(*currentPattern, gtx)
 	default:
-		return p.layoutPreviewImage(*currentPattern, gtx, theme, maxWd, maxHt)
+		return p.layoutPreviewImage(*currentPattern, gtx, maxWd, maxHt)
 	}
 }
 
-func (p *patternsPopout) layoutPreviewMetadata(pattern patterns.Pattern, gtx layout.Context, theme *material.Theme) layout.Dimensions {
-	labelMax := measureMaxText(gtx, theme, font.Bold, "Size: ", "Filename: ", "Origin: ", "Comment: ").Size.X
+func (p *patternsPopout) layoutPreviewMetadata(pattern patterns.Pattern, gtx layout.Context) layout.Dimensions {
+	labelMax := measureMaxText(gtx, font.Bold, "Size: ", "Filename: ", "Origin: ", "Comment: ").Size.X
 	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(rightAlignedBoldLabel(theme, "Size:", labelMax)),
-				layout.Flexed(1, label(theme, strconv.Itoa(pattern.Width)+"w X "+strconv.Itoa(pattern.Height)+"h")),
-			)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(rightAlignedBoldLabel(theme, "Rule:", labelMax)),
-				layout.Flexed(1, label(theme, pattern.Rule.Name())),
-			)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(rightAlignedBoldLabel(theme, "Filename:", labelMax)),
-				layout.Flexed(1, label(theme, pattern.Filename)),
-			)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(rightAlignedBoldLabel(theme, "Origin:", labelMax)),
-				layout.Flexed(1, label(theme, pattern.Origination)),
-			)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-				layout.Rigid(rightAlignedBoldLabel(theme, "Comment:", labelMax)),
-				layout.Flexed(1, material.Label(theme, theme.TextSize, strings.Join(pattern.Comments, "\n")).Layout),
-			)
-		}),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Size:", text.End, font.Bold, labelMax),
+			layout.Flexed(1, label(strconv.Itoa(pattern.Width)+"w X "+strconv.Itoa(pattern.Height)+"h")),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Rule:", text.End, font.Bold, labelMax),
+			layout.Flexed(1, label(pattern.Rule.Name())),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Filename:", text.End, font.Bold, labelMax),
+			layout.Flexed(1, label(pattern.Filename)),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Origin:", text.End, font.Bold, labelMax),
+			layout.Flexed(1, label(pattern.Origination)),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Comment:", text.End, font.Bold, labelMax),
+			layout.Flexed(1, material.Label(theme, theme.TextSize, strings.Join(pattern.Comments, "\n")).Layout),
+		)),
 	)
 }
 
-func (p *patternsPopout) layoutPreviewImage(pattern patterns.Pattern, gtx layout.Context, theme *material.Theme, maxWd, maxHt int) layout.Dimensions {
+func (p *patternsPopout) layoutPreviewImage(pattern patterns.Pattern, gtx layout.Context, maxWd, maxHt int) layout.Dimensions {
 	cellSize := min(maxWd/pattern.Width, maxHt/pattern.Height)
 	rect := image.Rect(0, 0, cellSize*pattern.Width, cellSize*pattern.Height)
 	canvas := image.NewNRGBA(rect)

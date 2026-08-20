@@ -3,9 +3,8 @@ package widgets
 import (
 	"gioui.org/font"
 	"gioui.org/layout"
-	"gioui.org/unit"
+	"gioui.org/text"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/logic"
 )
 
@@ -33,28 +32,28 @@ func newSizingPopout(p *menuPopup, c *Core) *sizingPopout {
 	result := &sizingPopout{
 		parent:       p,
 		core:         c,
-		btnResize:    newButton(c.theme, "Resize"),
-		btnFitScreen: newButton(c.theme, "Fit screen"),
+		btnResize:    newButton("Resize"),
+		btnFitScreen: newButton("Fit screen"),
 	}
-	result.height = newNumberInput(c.theme, 4, 2, 999, 10, nil).setValue(int(c.settings.Height))
-	result.width = newNumberInput(c.theme, 4, 2, 999, 10, nil).setValue(int(c.settings.Width))
-	result.cellSize = newNumberInput(c.theme, 3, 3, 32, 1, func(v int) {
+	result.height = newNumberInput(4, 2, 999, 10, nil).setValue(int(c.settings.Height))
+	result.width = newNumberInput(4, 2, 999, 10, nil).setValue(int(c.settings.Width))
+	result.cellSize = newNumberInput(3, 3, 32, 1, func(v int) {
 		result.core.setCellSize(v)
 	}).setValue(int(c.settings.CellSize))
-	result.randomize = newNumberInput(c.theme, 3, 0, 100, 10, func(v int) {
+	result.randomize = newNumberInput(3, 0, 100, 10, func(v int) {
 		result.core.setRandomization(v)
 	}).setValue(int(c.settings.Randomization))
 	result.inputs = []*numberInput[int]{
 		result.height, result.width, result.cellSize, result.randomize,
 	}
 	result.wrapMode = &widget.Enum{Value: p.core.gridHolder.grid.WrapMode.String()}
-	result.radioWrapNone = newRadioButton(c.theme, result.wrapMode, logic.WrapNone.String(), "None")
-	result.radioWrapHorizontal = newRadioButton(c.theme, result.wrapMode, logic.WrapHorizontal.String(), "Horizontal")
-	result.radioWrapVertical = newRadioButton(c.theme, result.wrapMode, logic.WrapVertical.String(), "Vertical")
-	result.radioWrapAll = newRadioButton(c.theme, result.wrapMode, logic.WrapAll.String(), "Toroidal")
+	result.radioWrapNone = newRadioButton(result.wrapMode, logic.WrapNone.String(), "None")
+	result.radioWrapHorizontal = newRadioButton(result.wrapMode, logic.WrapHorizontal.String(), "Horizontal")
+	result.radioWrapVertical = newRadioButton(result.wrapMode, logic.WrapVertical.String(), "Vertical")
+	result.radioWrapAll = newRadioButton(result.wrapMode, logic.WrapAll.String(), "Toroidal")
 	result.boundaryMode = &widget.Enum{Value: p.core.gridHolder.grid.BoundaryMode.String()}
-	result.radioBoundaryDead = newRadioButton(c.theme, result.boundaryMode, logic.DeadBoundary.String(), "Dead cells")
-	result.radioBoundaryAlive = newRadioButton(c.theme, result.boundaryMode, logic.AliveBoundary.String(), "Alive cells")
+	result.radioBoundaryDead = newRadioButton(result.boundaryMode, logic.DeadBoundary.String(), "Dead cells")
+	result.radioBoundaryAlive = newRadioButton(result.boundaryMode, logic.AliveBoundary.String(), "Alive cells")
 	return result
 }
 
@@ -101,7 +100,7 @@ func (p *sizingPopout) resize() {
 	p.width.setValue(p.core.settings.Width)
 }
 
-func (p *sizingPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *sizingPopout) layout(gtx layout.Context) layout.Dimensions {
 	for _, inp := range p.inputs {
 		inp.update(gtx)
 	}
@@ -117,71 +116,44 @@ func (p *sizingPopout) layout(gtx layout.Context, theme *material.Theme) layout.
 	if p.boundaryMode.Update(gtx) {
 		p.core.setBoundaryMode(logic.BoundaryModeFromString(p.boundaryMode.Value, p.core.gridHolder.grid.BoundaryMode))
 	}
-	labelMax := measureMaxText(gtx, theme, font.Normal, "Grid size: ", "Cell size: ", "Wrapping mode: ", "Boundary mode: ", "Randomize %: ").Size.X
-	return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8), Top: unit.Dp(8), Bottom: unit.Dp(4)}.
-		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(rightAlignedLabel(theme, "Grid size:", labelMax)),
-							layout.Rigid(label(theme, "Width:")),
-							layout.Flexed(1, p.width.layout),
-							layout.Rigid(label(theme, "x Height:")),
-							layout.Flexed(1, p.height.layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.X = labelMax
-								return layout.Dimensions{Size: gtx.Constraints.Min}
-							}),
-							layout.Rigid(p.btnResize.Layout),
-							layout.Rigid(p.btnFitScreen.Layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(rightAlignedLabel(theme, "Wrapping mode:", labelMax)),
-							layout.Rigid(p.radioWrapNone.Layout),
-							layout.Rigid(p.radioWrapHorizontal.Layout),
-							layout.Rigid(p.radioWrapVertical.Layout),
-							layout.Rigid(p.radioWrapAll.Layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(rightAlignedLabel(theme, "Boundary mode:", labelMax)),
-							layout.Rigid(p.radioBoundaryDead.Layout),
-							layout.Rigid(p.radioBoundaryAlive.Layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(rightAlignedLabel(theme, "Cell size:", labelMax)),
-							layout.Flexed(1, p.cellSize.layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(rightAlignedLabel(theme, "Randomize %:", labelMax)),
-							layout.Flexed(1, p.randomize.layout),
-						)
-					})
-				}),
-			)
-		})
+	labelMax := measureMaxText(gtx, font.Normal, "Grid size: ", "Cell size: ", "Wrapping mode: ", "Boundary mode: ", "Randomize %: ").Size.X
+	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 4}.Layout(gtx, flexVertical(8,
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Grid size:", text.End, 0, labelMax),
+			rigidLabel("Width:", 0, 0, 0),
+			layout.Flexed(1, p.width.layout),
+			rigidLabel("x Height:", 0, 0, 0),
+			layout.Flexed(1, p.height.layout),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = labelMax
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}),
+			layout.Rigid(p.btnResize.Layout),
+			layout.Rigid(p.btnFitScreen.Layout),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Wrapping mode:", text.End, 0, labelMax),
+			layout.Rigid(p.radioWrapNone.Layout),
+			layout.Rigid(p.radioWrapHorizontal.Layout),
+			layout.Rigid(p.radioWrapVertical.Layout),
+			layout.Rigid(p.radioWrapAll.Layout),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Boundary mode:", text.End, 0, labelMax),
+			layout.Rigid(p.radioBoundaryDead.Layout),
+			layout.Rigid(p.radioBoundaryAlive.Layout),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Cell size:", text.End, 0, labelMax),
+			layout.Flexed(1, p.cellSize.layout),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			rigidLabel("Randomize %:", text.End, 0, labelMax),
+			layout.Flexed(1, p.randomize.layout),
+		)),
+	))
 }
 
 func (p *sizingPopout) hasFocus(gtx layout.Context) bool {

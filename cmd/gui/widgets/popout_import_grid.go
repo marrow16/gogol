@@ -4,8 +4,7 @@ import (
 	"errors"
 	"gioui.org/font"
 	"gioui.org/layout"
-	"gioui.org/unit"
-	"gioui.org/widget/material"
+	"gioui.org/text"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
 	"io/fs"
@@ -28,10 +27,10 @@ func newImportGridPopout(p *menuPopup, c *Core) *importGridPopout {
 	result := &importGridPopout{
 		parent:    p,
 		core:      c,
-		path:      newInput(c.theme, "", 256, nil).maximumWidth(30),
-		btnImport: newButton(c.theme, "Import"),
-		btnPath:   newPathButton(c.theme),
-		chkResize: newCheckBox(c.theme, "Resize grid", true),
+		path:      newInput("", 256, nil).maximumWidth(30),
+		btnImport: newButton("Import"),
+		btnPath:   newPathButton(),
+		chkResize: newCheckBox("Resize grid", true),
 	}
 	result.path.onChangeFn = result.clearError
 	return result
@@ -90,7 +89,7 @@ func (p *importGridPopout) importGrid() {
 	}
 }
 
-func (p *importGridPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *importGridPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnImport.Clicked(gtx) {
 		p.importGrid()
 	}
@@ -99,39 +98,28 @@ func (p *importGridPopout) layout(gtx layout.Context, theme *material.Theme) lay
 			p.path.setText(strings.TrimSpace(string(filename)))
 		})
 	}
-	labelMax := measureMaxText(gtx, theme, font.Normal, "Path: ").Size.X
-	return layout.Inset{Left: unit.Dp(8), Right: unit.Dp(8), Top: unit.Dp(8), Bottom: unit.Dp(4)}.
-		Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-							layout.Rigid(rightAlignedLabel(theme, "Path: ", labelMax)),
-							layout.Flexed(1, p.path.layout),
-							layout.Rigid(p.btnPath.Layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.X = labelMax
-								return layout.Dimensions{Size: gtx.Constraints.Min}
-							}),
-							layout.Rigid(p.chkResize.Layout),
-							layout.Rigid(p.btnImport.Layout),
-						)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.error == nil {
-						return layout.Dimensions{}
-					}
-					return layout.Inset{Bottom: unit.Dp(4)}.Layout(gtx, errorLabel(theme, p.error))
-				}),
-			)
-		})
+	labelMax := measureMaxText(gtx, font.Normal, "Path: ").Size.X
+	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 4}.Layout(gtx, flexVertical(8,
+		layout.Rigid(flexHorizontal(0,
+			rigidLabel("Path: ", text.End, 0, labelMax),
+			layout.Flexed(1, p.path.layout),
+			layout.Rigid(p.btnPath.Layout),
+		)),
+		layout.Rigid(flexHorizontal(20,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = labelMax
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}),
+			layout.Rigid(p.chkResize.Layout),
+			layout.Rigid(p.btnImport.Layout),
+		)),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.error == nil {
+				return layout.Dimensions{}
+			}
+			return layout.Inset{Bottom: 4}.Layout(gtx, errorLabel(p.error))
+		}),
+	))
 }
 
 func (p *importGridPopout) hasFocus(gtx layout.Context) bool {

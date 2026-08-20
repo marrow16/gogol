@@ -22,11 +22,11 @@ func newRulesPopup(parent *statusBar) *rulesPopup {
 		core:   parent.core,
 		parent: parent,
 	}
-	p.rleInput = newInput(parent.core.theme, "sbSB/012345678", 21, p.rleChanged)
-	p.permInput = newNumberInput[int](p.core.theme, 6, 0, (1<<18)-1, 1<<9, p.permChanged)
-	p.intInput = newNumberInput[int](p.core.theme, 6, 0, (1<<18)-1, 1<<9, p.intChanged)
-	p.nameInput = newInput(parent.core.theme, "", 21, p.nameChanged)
-	p.btnSaveName = newButton(parent.core.theme, "Save")
+	p.rleInput = newInput("sbSB/012345678", 21, p.rleChanged)
+	p.permInput = newNumberInput[int](6, 0, (1<<18)-1, 1<<9, p.permChanged)
+	p.intInput = newNumberInput[int](6, 0, (1<<18)-1, 1<<9, p.intChanged)
+	p.nameInput = newInput("", 40, p.nameChanged).maximumWidth(21)
+	p.btnSaveName = newButton("Save")
 	p.refreshRules()
 	return p
 }
@@ -160,7 +160,7 @@ func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
 		p.saveRuleName()
 	}
 	p.handleEvents(gtx)
-	rowDims := measureText(gtx, p.core.theme, "Xy")
+	rowDims := measureText(gtx, "Xy")
 	macro := op.Record(gtx.Ops)
 	dims := layout.Inset{Top: 1, Left: 1, Bottom: 1, Right: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{
@@ -186,7 +186,7 @@ func (p *rulesPopup) layoutDetails() layout.FlexChild {
 	custom := p.core.gridHolder.grid.Rule.IsCustom()
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		paint.FillShape(gtx.Ops, popupBorder, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X, 1)).Op())
-		maxText := measureMaxText(gtx, p.core.theme, font.Bold, "Rule: ", "Perm.: ", "Name: ", "Integer: ").Size.X
+		maxText := measureMaxText(gtx, font.Bold, "Rule: ", "Perm.: ", "Name: ", "Integer: ").Size.X
 		return layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{
 				Axis: layout.Vertical,
@@ -195,7 +195,7 @@ func (p *rulesPopup) layoutDetails() layout.FlexChild {
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal}.Layout(
 						gtx,
-						layout.Rigid(rightAlignedBoldLabel(p.core.theme, "Name: ", maxText)),
+						rigidLabel("Name: ", text.End, font.Bold, maxText),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 							if custom {
 								return p.nameInput.layout(gtx)
@@ -205,7 +205,7 @@ func (p *rulesPopup) layoutDetails() layout.FlexChild {
 									CornerRadius: 3,
 									Width:        1,
 								}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, label(p.core.theme, p.core.gridHolder.grid.Rule.Name()))
+									return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, label(p.core.gridHolder.grid.Rule.Name()))
 								})
 							}
 						}),
@@ -217,9 +217,9 @@ func (p *rulesPopup) layoutDetails() layout.FlexChild {
 						}),
 					)
 				}),
-				row(p.core.theme, maxText, "Rule: ", p.rleInput.layout),
-				row(p.core.theme, maxText, "Perm.: ", p.permInput.layout),
-				row(p.core.theme, maxText, "Integer: ", p.intInput.layout),
+				row(maxText, "Rule: ", p.rleInput.layout),
+				row(maxText, "Perm.: ", p.permInput.layout),
+				row(maxText, "Integer: ", p.intInput.layout),
 			)
 		})
 	})
@@ -240,7 +240,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 		if !ok {
 			idx = -1
 		}
-		return material.List(p.core.theme, &p.list).Layout(
+		return material.List(theme, &p.list).Layout(
 			pgtx,
 			len(p.sortedRules),
 			func(gtx layout.Context, index int) layout.Dimensions {
@@ -249,7 +249,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 					p.core.stop()
 					p.core.gridHolder.grid.SetRule(p.sortedRules[index])
 					p.refreshInputs()
-					p.core.window.Invalidate()
+					window.Invalidate()
 				}
 				return p.ruleClicks[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					if index == idx {
@@ -267,7 +267,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 					r := p.sortedRules[index]
 					return layout.Flex{Axis: layout.Horizontal, Gap: 32}.Layout(gtx,
 						layout.Flexed(1.5, func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Label(p.core.theme, p.core.theme.TextSize, r.Name())
+							lbl := material.Label(theme, theme.TextSize, r.Name())
 							lbl.Alignment = text.Start
 							lbl.MaxLines = 1
 							return lbl.Layout(gtx)
@@ -277,7 +277,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 							if len(s) < 6 {
 								s = strings.Repeat("\u2007", 6-len(s)) + s
 							}
-							lbl := material.Label(p.core.theme, p.core.theme.TextSize, r.Rle()+"  "+s)
+							lbl := material.Label(theme, theme.TextSize, r.Rle()+"  "+s)
 							lbl.Alignment = text.End
 							lbl.MaxLines = 1
 							return lbl.Layout(gtx)
@@ -386,7 +386,7 @@ func (p *rulesPopup) handleEvents(gtx layout.Context) {
 			}
 			p.core.gridHolder.grid.SetRule(p.sortedRules[p.selectedIndex])
 			p.refreshInputs()
-			p.core.window.Invalidate()
+			window.Invalidate()
 		}
 	}
 }

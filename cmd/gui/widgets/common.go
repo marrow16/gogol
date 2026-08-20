@@ -9,6 +9,8 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
+	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"image"
 	"image/color"
@@ -53,7 +55,16 @@ var (
 	popupHighlightColor            = popupSelectedFocusedBackground
 	popupLinkColor                 = color.NRGBA{R: 102, G: 128, B: 230, A: 255}
 	errorColor                     = color.NRGBA{R: 200, G: 0, B: 0, A: 255}
+	borderThicknessNormal          = unit.Dp(1)
+	borderThicknessFocused         = unit.Dp(2)
 )
+
+func focusedBorder(focused bool) (color.NRGBA, unit.Dp) {
+	if focused {
+		return popupBorderFocused, borderThicknessFocused
+	}
+	return popupBorder, borderThicknessNormal
+}
 
 func commas(s string) string {
 	for i := len(s) - 3; i > 0; i -= 3 {
@@ -190,17 +201,17 @@ func border(gtx layout.Context, dims layout.Dimensions, top, left, bottom, right
 	}
 }
 
-func row(theme *material.Theme, leftWidth int, label string, value layout.Widget) layout.FlexChild {
+func row(leftWidth int, label string, value layout.Widget) layout.FlexChild {
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal}.Layout(
 			gtx,
-			layout.Rigid(rightAlignedBoldLabel(theme, label, leftWidth)),
+			rigidLabel(label, text.End, font.Bold, leftWidth),
 			layout.Flexed(1, value),
 		)
 	})
 }
 
-func errorLabel(theme *material.Theme, err error) layout.Widget {
+func errorLabel(err error) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		lbl := material.Label(theme, theme.TextSize, err.Error())
 		lbl.MaxLines = 1
@@ -209,7 +220,7 @@ func errorLabel(theme *material.Theme, err error) layout.Widget {
 	}
 }
 
-func insetErrorLabel(theme *material.Theme, err error) layout.Widget {
+func insetErrorLabel(err error) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		lbl := material.Label(theme, theme.TextSize, err.Error())
 		lbl.MaxLines = 1
@@ -218,7 +229,7 @@ func insetErrorLabel(theme *material.Theme, err error) layout.Widget {
 	}
 }
 
-func label(theme *material.Theme, s string) layout.Widget {
+func label(s string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		lbl := material.Label(theme, theme.TextSize, s)
 		lbl.MaxLines = 1
@@ -226,7 +237,7 @@ func label(theme *material.Theme, s string) layout.Widget {
 	}
 }
 
-func insetLabel(theme *material.Theme, s string) layout.Widget {
+func insetLabel(s string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		lbl := material.Label(theme, theme.TextSize, s)
 		lbl.MaxLines = 1
@@ -234,54 +245,77 @@ func insetLabel(theme *material.Theme, s string) layout.Widget {
 	}
 }
 
-func rightAlignedLabel(theme *material.Theme, s string, width int) layout.Widget {
+func linkLabel(btn *widget.Clickable, s string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Min.X = width
-		lbl := material.Label(theme, theme.TextSize, s)
-		lbl.Alignment = text.End
+		return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
+			return layout.Stack{}.Layout(gtx,
+				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+					lbl := material.Label(theme, theme.TextSize, s)
+					lbl.MaxLines = 1
+					lbl.Color = popupLinkColor
+					return lbl.Layout(gtx)
+				}),
+				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+					thickness := gtx.Dp(1)
+					rect := image.Rect(
+						0,
+						gtx.Constraints.Min.Y-thickness,
+						gtx.Constraints.Min.X,
+						gtx.Constraints.Min.Y,
+					)
+					defer clip.Rect(rect).Push(gtx.Ops).Pop()
+					paint.ColorOp{Color: popupLinkColor}.Add(gtx.Ops)
+					paint.PaintOp{}.Add(gtx.Ops)
+					return layout.Dimensions{Size: gtx.Constraints.Min}
+				}),
+			)
+		})
+	}
+}
+
+func rigidLabel(label string, align text.Alignment, weight font.Weight, fixedWidth int) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		if fixedWidth > 0 {
+			gtx.Constraints.Min.X = fixedWidth
+			gtx.Constraints.Max.X = fixedWidth
+		}
+		lbl := material.Label(theme, theme.TextSize, label)
 		lbl.MaxLines = 1
+		lbl.Alignment = align
+		lbl.Font.Weight = weight
 		return lbl.Layout(gtx)
-	}
+	})
 }
 
-func rightAlignedBoldLabel(theme *material.Theme, s string, width int) layout.Widget {
+func rigidFixedWidth(widget layout.Widget, width int, direction layout.Direction) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		if width > 0 {
+			gtx.Constraints.Min.X = width
+			gtx.Constraints.Max.X = width
+		}
+		return direction.Layout(gtx, widget)
+	})
+}
+
+func rigidSpacerVertical(ht int) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Dimensions{Size: image.Point{Y: ht}}
+	})
+}
+
+func flexVertical(gap int, children ...layout.FlexChild) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Min.X = width
-		lbl := material.Label(theme, theme.TextSize, s)
-		lbl.Alignment = text.End
-		lbl.Font.Weight = font.Bold
-		lbl.MaxLines = 1
-		return lbl.Layout(gtx)
+		return layout.Flex{Axis: layout.Vertical, Gap: gap}.Layout(gtx, children...)
 	}
 }
 
-func linkLabel(theme *material.Theme, s string) layout.Widget {
+func flexHorizontal(gap int, children ...layout.FlexChild) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		return layout.Stack{}.Layout(gtx,
-			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(theme, theme.TextSize, s)
-				lbl.MaxLines = 1
-				lbl.Color = popupLinkColor
-				return lbl.Layout(gtx)
-			}),
-			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-				thickness := gtx.Dp(1)
-				rect := image.Rect(
-					0,
-					gtx.Constraints.Min.Y-thickness,
-					gtx.Constraints.Min.X,
-					gtx.Constraints.Min.Y,
-				)
-				defer clip.Rect(rect).Push(gtx.Ops).Pop()
-				paint.ColorOp{Color: popupLinkColor}.Add(gtx.Ops)
-				paint.PaintOp{}.Add(gtx.Ops)
-				return layout.Dimensions{Size: gtx.Constraints.Min}
-			}),
-		)
+		return layout.Flex{Axis: layout.Horizontal, Gap: gap}.Layout(gtx, children...)
 	}
 }
 
-func measureText(gtx layout.Context, theme *material.Theme, text string) layout.Dimensions {
+func measureText(gtx layout.Context, text string) layout.Dimensions {
 	gtx.Constraints.Min = image.Point{}
 	gtx.Constraints.Max = image.Pt(1e6, 1e6)
 	macro := op.Record(gtx.Ops)
@@ -290,7 +324,7 @@ func measureText(gtx layout.Context, theme *material.Theme, text string) layout.
 	return dims
 }
 
-func measureMaxText(gtx layout.Context, theme *material.Theme, weight font.Weight, text ...string) layout.Dimensions {
+func measureMaxText(gtx layout.Context, weight font.Weight, text ...string) layout.Dimensions {
 	mx := layout.Dimensions{}
 	macro := op.Record(gtx.Ops)
 	for _, t := range text {

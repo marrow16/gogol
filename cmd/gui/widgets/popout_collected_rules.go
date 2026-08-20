@@ -2,7 +2,6 @@ package widgets
 
 import (
 	"gioui.org/layout"
-	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/logic/meta"
 	"maps"
@@ -28,16 +27,16 @@ func newCollectedRulesPopout(p *menuPopup, c *Core) *collectedRulesPopout {
 	result := &collectedRulesPopout{
 		parent:           p,
 		core:             c,
-		btnClear:         newButton(c.theme, "Clear"),
-		btnAddCurrent:    newButton(c.theme, "Add Current"),
-		btnRemoveCurrent: newButton(c.theme, "Remove Current"),
+		btnClear:         newButton("Clear"),
+		btnAddCurrent:    newButton("Add Current"),
+		btnRemoveCurrent: newButton("Remove Current"),
 	}
-	result.commonEdit = newInput(c.theme, nil, 256, func(text string) {}).maximumWidth(20).onSubmit(result.submitCommonality)
-	result.rulesList = newListControl[logic.Rule](c.theme, result.rules, true).
+	result.commonEdit = newInput(nil, 256, func(text string) {}).maximumWidth(20).onSubmit(result.submitCommonality)
+	result.rulesList = newListControl[logic.Rule](result.rules, true).
 		rowRenderer(result.layoutRule).
 		onItemSelect(func(r logic.Rule) {
 			c.gridHolder.grid.SetRule(r)
-			c.window.Invalidate()
+			window.Invalidate()
 		}).
 		onIsSelected(func(index int, r logic.Rule) bool {
 			return r.Permutation() == c.gridHolder.grid.Rule.Permutation()
@@ -54,9 +53,9 @@ func (p *collectedRulesPopout) submitCommonality(text string) {
 	}
 }
 
-func (p *collectedRulesPopout) layout(gtx layout.Context, theme *material.Theme) layout.Dimensions {
+func (p *collectedRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 	p.checkFoundRulesChanged()
-	m := measureText(gtx, theme, "M")
+	m := measureText(gtx, "M")
 	ht := m.Size.Y * 16
 	wd := m.Size.X * 40
 	if p.btnClear.Clicked(gtx) {
@@ -69,36 +68,30 @@ func (p *collectedRulesPopout) layout(gtx layout.Context, theme *material.Theme)
 	if p.btnRemoveCurrent.Clicked(gtx) {
 		delete(p.core.settings.CollectedRules, curr)
 	}
-	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Min.X = wd
-		gtx.Constraints.Min.Y = ht
-		return layout.Flex{Axis: layout.Vertical, Gap: 10}.Layout(gtx,
+	gtx.Constraints.Min.X = wd
+	gtx.Constraints.Min.Y = ht
+	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, flexVertical(10,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			rowHt := measureText(gtx, "Xy").Size.Y
+			gtx.Constraints.Min.Y = rowHt * 14
+			gtx.Constraints.Max.Y = rowHt * 14
+			return p.rulesList.Layout(gtx)
+		}),
+		layout.Rigid(flexHorizontal(30,
+			layout.Rigid(p.btnClear.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				rowHt := measureText(gtx, theme, "Xy").Size.Y
-				gtx.Constraints.Min.Y = rowHt * 14
-				gtx.Constraints.Max.Y = rowHt * 14
-				return p.rulesList.Layout(gtx)
+				if p.core.settings.CollectedRules[curr] {
+					return p.btnRemoveCurrent.Layout(gtx)
+				}
+				return p.btnAddCurrent.Layout(gtx)
 			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Gap: 30}.Layout(gtx,
-					layout.Rigid(p.btnClear.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if p.core.settings.CollectedRules[curr] {
-							return p.btnRemoveCurrent.Layout(gtx)
-						}
-						return p.btnAddCurrent.Layout(gtx)
-					}),
-				)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Gap: 10}.Layout(gtx,
-					layout.Rigid(label(theme, "Commonality:")),
-					layout.Flexed(1, p.commonEdit.layout),
-					layout.Rigid(label(theme, "("+strconv.Itoa(len(p.rules))+"/"+strconv.Itoa(p.commonCount)+")")),
-				)
-			}),
-		)
-	})
+		)),
+		layout.Rigid(flexHorizontal(10,
+			rigidLabel("Commonality:", 0, 0, 0),
+			layout.Flexed(1, p.commonEdit.layout),
+			rigidLabel("("+strconv.Itoa(len(p.rules))+"/"+strconv.Itoa(p.commonCount)+")", 0, 0, 0),
+		)),
+	))
 }
 
 func (p *collectedRulesPopout) layoutRule(gtx layout.Context, index int, r logic.Rule) layout.Dimensions {
@@ -106,7 +99,7 @@ func (p *collectedRulesPopout) layoutRule(gtx layout.Context, index int, r logic
 	if !r.IsCustom() {
 		name += ` "` + r.Name() + `"`
 	}
-	return layout.Inset{Left: 4, Right: 4}.Layout(gtx, label(p.core.theme, name+" ("+strconv.Itoa(r.Permutation())+")"))
+	return layout.Inset{Left: 4, Right: 4}.Layout(gtx, label(name+" ("+strconv.Itoa(r.Permutation())+")"))
 }
 
 func (p *collectedRulesPopout) checkFoundRulesChanged() {

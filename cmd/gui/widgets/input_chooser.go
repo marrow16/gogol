@@ -18,7 +18,6 @@ import (
 
 type chooser[T any] struct {
 	labeller       func(T) string
-	theme          *material.Theme
 	dropdownRows   int
 	maxWidth       int
 	editor         widget.Editor
@@ -47,7 +46,7 @@ func defaultLabeller(item any) string {
 	}
 }
 
-func newChooser[T any](theme *material.Theme, maxWidth int, items []T, onChange func(item *T), labeller func(T) string) *chooser[T] {
+func newChooser[T any](maxWidth int, items []T, onChange func(item *T), labeller func(T) string) *chooser[T] {
 	result := &chooser[T]{
 		labeller: labeller,
 		editor: widget.Editor{
@@ -55,7 +54,6 @@ func newChooser[T any](theme *material.Theme, maxWidth int, items []T, onChange 
 			SingleLine: true,
 			Submit:     true,
 		},
-		theme:         theme,
 		dropdownRows:  10,
 		maxWidth:      maxWidth,
 		items:         items,
@@ -93,21 +91,12 @@ func (i *chooser[T]) resetItems(items []T) {
 
 func (i *chooser[T]) layout(gtx layout.Context) layout.Dimensions {
 	i.update(gtx)
-	borderColor := popupBorder
-	borderThickness := unit.Dp(1)
-	if i.isFocused(gtx) {
-		borderColor = popupBorderFocused
-		borderThickness = 2
-	}
-	i.dims = widget.Border{
-		Color:        borderColor,
-		CornerRadius: 3,
-		Width:        borderThickness,
-	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	bc, bt := focusedBorder(i.isFocused(gtx))
+	i.dims = widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					maxChWd := measureText(gtx, i.theme, "M")
+					maxChWd := measureText(gtx, "M")
 					maxWidth := maxChWd.Size.X * i.maxWidth
 					if maxWidth < gtx.Constraints.Max.X {
 						gtx.Constraints.Max.X = maxWidth
@@ -115,14 +104,14 @@ func (i *chooser[T]) layout(gtx layout.Context) layout.Dimensions {
 					if gtx.Constraints.Min.X > gtx.Constraints.Max.X {
 						gtx.Constraints.Min.X = gtx.Constraints.Max.X
 					}
-					return material.Editor(i.theme, &i.editor, "").Layout(gtx)
+					return material.Editor(theme, &i.editor, "").Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					ch := "▼"
 					if i.opened {
 						ch = "▲"
 					}
-					btn := material.Button(i.theme, &i.button, ch)
+					btn := material.Button(theme, &i.button, ch)
 					btn.Inset = layout.Inset{Top: 3, Bottom: 3, Left: 3, Right: 3}
 					btn.Background = popupBackground
 					btn.Color = popupForeground
@@ -349,7 +338,7 @@ func (i *chooser[T]) changed() {
 func (i *chooser[T]) layoutDropdown(gtx layout.Context, dims layout.Dimensions) {
 	if i.opened && len(i.filteredItems) > 0 {
 		stack := op.Offset(image.Pt(0, dims.Size.Y)).Push(gtx.Ops)
-		rowDims := measureText(gtx, i.theme, "Xy")
+		rowDims := measureText(gtx, "Xy")
 		showRows := i.dropdownRows
 		if len(i.filteredItems) < showRows {
 			showRows = len(i.filteredItems)
@@ -399,9 +388,9 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context, dims layout.Dimensions) 
 						gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 						return layout.Inset{Left: 3, Right: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							if i.middleEllipsis {
-								return label(i.theme, middleEllipsis(gtx, i.theme, lbl, gtx.Constraints.Max.X))(gtx)
+								return label(middleEllipsis(gtx, lbl, gtx.Constraints.Max.X))(gtx)
 							} else {
-								return label(i.theme, lbl)(gtx)
+								return label(lbl)(gtx)
 							}
 						})
 					})
@@ -417,8 +406,8 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context, dims layout.Dimensions) 
 	}
 }
 
-func middleEllipsis(gtx layout.Context, theme *material.Theme, s string, maxWidth int) string {
-	if measureText(gtx, theme, s).Size.X <= maxWidth {
+func middleEllipsis(gtx layout.Context, s string, maxWidth int) string {
+	if measureText(gtx, s).Size.X <= maxWidth {
 		return s
 	}
 	r := []rune(s)
@@ -433,7 +422,7 @@ func middleEllipsis(gtx layout.Context, theme *material.Theme, s string, maxWidt
 		}
 
 		t := string(r[:left]) + "…" + string(r[right:])
-		if measureText(gtx, theme, t).Size.X <= maxWidth {
+		if measureText(gtx, t).Size.X <= maxWidth {
 			return t
 		}
 	}
