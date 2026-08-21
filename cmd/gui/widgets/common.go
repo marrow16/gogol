@@ -161,58 +161,31 @@ func openInBrowser(filename string) {
 func border(gtx layout.Context, dims layout.Dimensions, top, left, bottom, right bool) {
 	if top {
 		paint.FillShape(gtx.Ops, popupBorder,
-			clip.Rect(image.Rect(
-				0,
-				0,
-				dims.Size.X,
-				1,
-			)).Op(),
+			clip.Rect(image.Rect(0, 0, dims.Size.X, 1)).Op(),
 		)
 	}
 	if left {
 		paint.FillShape(gtx.Ops, popupBorder,
-			clip.Rect(image.Rect(
-				0,
-				0,
-				1,
-				dims.Size.Y,
-			)).Op(),
+			clip.Rect(image.Rect(0, 0, 1, dims.Size.Y)).Op(),
 		)
 	}
 	if bottom {
 		paint.FillShape(gtx.Ops, popupBorder,
-			clip.Rect(image.Rect(
-				0,
-				dims.Size.Y-1,
-				dims.Size.X,
-				dims.Size.Y,
-			)).Op(),
+			clip.Rect(image.Rect(0, dims.Size.Y-1, dims.Size.X, dims.Size.Y)).Op(),
 		)
 	}
 	if right {
 		paint.FillShape(gtx.Ops, popupBorder,
-			clip.Rect(image.Rect(
-				dims.Size.X-1,
-				0,
-				dims.Size.X,
-				dims.Size.Y,
-			)).Op(),
+			clip.Rect(image.Rect(dims.Size.X-1, 0, dims.Size.X, dims.Size.Y)).Op(),
 		)
 	}
 }
 
-func row(leftWidth int, label string, value layout.Widget) layout.FlexChild {
-	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Horizontal}.Layout(
-			gtx,
-			rigidLabel(label, text.End, font.Bold, leftWidth),
-			layout.Flexed(1, value),
-		)
-	})
-}
-
 func errorLabel(err error) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
+		if err == nil {
+			return layout.Dimensions{}
+		}
 		lbl := material.Label(theme, theme.TextSize, err.Error())
 		lbl.MaxLines = 1
 		lbl.Color = errorColor
@@ -222,6 +195,9 @@ func errorLabel(err error) layout.Widget {
 
 func insetErrorLabel(err error) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
+		if err == nil {
+			return layout.Dimensions{}
+		}
 		lbl := material.Label(theme, theme.TextSize, err.Error())
 		lbl.MaxLines = 1
 		lbl.Color = errorColor
@@ -230,8 +206,19 @@ func insetErrorLabel(err error) layout.Widget {
 }
 
 func label(s string) layout.Widget {
+	lbl := material.Label(theme, theme.TextSize, s)
+	lbl.MaxLines = 1
+	return lbl.Layout
+}
+
+func textLabel(s string) layout.Widget {
+	return material.Label(theme, theme.TextSize, s).Layout
+}
+
+func labelRight(s string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		lbl := material.Label(theme, theme.TextSize, s)
+		lbl.Alignment = text.End
 		lbl.MaxLines = 1
 		return lbl.Layout(gtx)
 	}
@@ -273,6 +260,73 @@ func linkLabel(btn *widget.Clickable, s string) layout.Widget {
 	}
 }
 
+func inset(top, bottom, left, right unit.Dp, w layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: top, Bottom: bottom, Left: left, Right: right}.Layout(gtx, w)
+	}
+}
+
+func borderedInset(top, bottom, left, right unit.Dp, w layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return widget.Border{
+			Color:        popupBorder,
+			CornerRadius: 3,
+			Width:        borderThicknessNormal,
+		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: top, Bottom: bottom, Left: left, Right: right}.Layout(gtx, w)
+		})
+	}
+}
+
+func flexed(w layout.Widget, weighted ...float32) layout.FlexChild {
+	weight := float32(1.0)
+	if len(weighted) > 0 {
+		weight = weighted[0]
+	}
+	return layout.Flexed(weight, func(gtx layout.Context) layout.Dimensions {
+		return w(gtx)
+	})
+}
+
+func conditionalFlexed(cond bool, w1, w2 layout.Widget) layout.FlexChild {
+	return layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		if cond {
+			return w1(gtx)
+		} else if w2 != nil {
+			return w2(gtx)
+		}
+		return layout.Dimensions{}
+	})
+}
+
+func conditionalRigid(cond bool, w1, w2 layout.Widget) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		if cond {
+			return w1(gtx)
+		} else if w2 != nil {
+			return w2(gtx)
+		}
+		return layout.Dimensions{}
+	})
+}
+
+func rigid(w layout.Widget) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return w(gtx)
+	})
+}
+
+func rigidImage(img *image.NRGBA) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		size := img.Bounds().Size()
+		stack := clip.Rect{Max: size}.Push(gtx.Ops)
+		defer stack.Pop()
+		paint.NewImageOp(img).Add(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
+		return layout.Dimensions{Size: size}
+	})
+}
+
 func rigidLabel(label string, align text.Alignment, weight font.Weight, fixedWidth int) layout.FlexChild {
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		if fixedWidth > 0 {
@@ -287,13 +341,19 @@ func rigidLabel(label string, align text.Alignment, weight font.Weight, fixedWid
 	})
 }
 
-func rigidFixedWidth(widget layout.Widget, width int, direction layout.Direction) layout.FlexChild {
+func rigidFixedWidth(w layout.Widget, width int, direction layout.Direction) layout.FlexChild {
+	if w == nil {
+		return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = width
+			return layout.Dimensions{Size: gtx.Constraints.Min}
+		})
+	}
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		if width > 0 {
 			gtx.Constraints.Min.X = width
 			gtx.Constraints.Max.X = width
 		}
-		return direction.Layout(gtx, widget)
+		return direction.Layout(gtx, w)
 	})
 }
 
@@ -313,6 +373,10 @@ func flexHorizontal(gap int, children ...layout.FlexChild) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Gap: gap}.Layout(gtx, children...)
 	}
+}
+
+func popoutLayout(gtx layout.Context, w layout.Widget) layout.Dimensions {
+	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, w)
 }
 
 func measureText(gtx layout.Context, text string) layout.Dimensions {

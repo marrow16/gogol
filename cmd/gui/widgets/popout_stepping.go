@@ -50,15 +50,15 @@ func (p *steppingPopout) layout(gtx layout.Context) layout.Dimensions {
 		p.core.settings.StepAheadSnapshot = p.chkStepAheadSnapshot.Checked()
 	}
 	labelMax := measureMaxText(gtx, font.Normal, "Step delay (ms): ", "Step ahead size: ").Size.X
-	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 4}.Layout(gtx, flexVertical(8,
-		layout.Rigid(flexHorizontal(20,
+	return popoutLayout(gtx, flexVertical(8,
+		rigid(flexHorizontal(20,
 			rigidLabel("Step delay (ms):", text.End, 0, labelMax),
-			layout.Flexed(1, p.stepDelay.layout),
+			flexed(p.stepDelay.layout),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Step ahead size:", text.End, 0, labelMax),
-			layout.Flexed(1, p.stepAheadSize.layout),
+			flexed(p.stepAheadSize.layout),
 		)),
-		layout.Rigid(p.chkStepAheadSnapshot.Layout),
+		rigid(p.chkStepAheadSnapshot.Layout),
 	))
 }

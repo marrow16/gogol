@@ -2,7 +2,6 @@ package widgets
 
 import (
 	"gioui.org/layout"
-	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/logic"
@@ -81,18 +80,10 @@ func (p *metaRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 	mt := measureText(gtx, "Xy")
 	ht := mt.Size.Y * 15
 	editorHt := ht - mt.Size.Y
-	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		var chooserDims layout.Dimensions
-		dims := layout.Flex{Axis: layout.Vertical, Gap: 10}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						chooserDims = p.chooser.layout(gtx)
-						return chooserDims
-					}),
-				)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
+		dims := flexVertical(10,
+			rigid(p.chooser.layout),
+			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Max.X = p.chooser.dims.Size.X
 				if selected != nil {
 					gtx.Constraints.Min.Y = ht
@@ -100,13 +91,11 @@ func (p *metaRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 				} else if currName == "" {
 					return label("No meta rule selected (select or enter new name)")(gtx)
 				} else {
-					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-						layout.Rigid(p.btnCreate.Layout),
-					)
+					return flexHorizontal(0, rigid(p.btnCreate.Layout))(gtx)
 				}
 			}),
-		)
-		p.chooser.layoutDropdown(gtx, chooserDims)
+		)(gtx)
+		p.chooser.layoutDropdown(gtx)
 		return dims
 	})
 }
@@ -120,16 +109,15 @@ func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, editorHt int) layou
 	}
 	p.mode.Update(gtx)
 	p.updateEditor(gtx)
-	return layout.Flex{Axis: layout.Vertical, Gap: 10}.Layout(gtx,
-		layout.Rigid(flexHorizontal(20,
-			layout.Rigid(p.btnDelete.Layout),
-			layout.Rigid(p.radioEdit.Layout),
-			layout.Rigid(p.radioMatches.Layout),
+	return flexVertical(10,
+		rigid(flexHorizontal(20,
+			rigid(p.btnDelete.Layout),
+			rigid(p.radioEdit.Layout),
+			rigid(p.radioMatches.Layout),
 		)),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = editorHt
 			gtx.Constraints.Min.Y = editorHt
-			gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
 			gtx.Constraints.Min.X = p.chooser.dims.Size.X
 			switch p.mode.Value {
 			case metaRuleMatches:
@@ -138,7 +126,7 @@ func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, editorHt int) layou
 				return p.layoutEditor(gtx, editorHt)
 			}
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		rigid(func(gtx layout.Context) layout.Dimensions {
 			switch {
 			case p.parseError != nil:
 				return errorLabel(p.parseError)(gtx)
@@ -149,17 +137,17 @@ func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, editorHt int) layou
 			}
 			return layout.Dimensions{}
 		}),
-	)
+	)(gtx)
 }
 
 func (p *metaRulesPopout) layoutReport(gtx layout.Context) layout.Dimensions {
 	if p.linkHelp.Clicked(gtx) {
 		_ = openURL(metaRuleHelp)
 	}
-	return layout.Flex{Axis: layout.Horizontal, Gap: 30}.Layout(gtx,
-		layout.Rigid(linkLabel(&p.linkHelp, "(see help)")),
+	return flexHorizontal(30,
+		rigid(linkLabel(&p.linkHelp, "(see help)")),
 		rigidLabel("Matched rules: "+strconv.Itoa(len(p.matched)), 0, 0, 0),
-	)
+	)(gtx)
 }
 
 func (p *metaRulesPopout) layoutNavButtons(gtx layout.Context) layout.Dimensions {
@@ -169,9 +157,7 @@ func (p *metaRulesPopout) layoutNavButtons(gtx layout.Context) layout.Dimensions
 				p.core.settings.CollectedRules[int(perm)] = true
 			}
 		}
-		return layout.Flex{Axis: layout.Horizontal, Gap: 30}.Layout(gtx,
-			layout.Rigid(p.btnAddAll.Layout),
-		)
+		return flexHorizontal(0, rigid(p.btnAddAll.Layout))(gtx)
 	} else {
 		return label("No matched rules found")(gtx)
 	}
@@ -216,22 +202,10 @@ func (p *metaRulesPopout) layoutMatchedRule(gtx layout.Context, index int, r log
 	if !r.IsCustom() {
 		name += ` "` + r.Name() + `"`
 	}
-	return layout.Inset{Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Horizontal, Gap: 32}.Layout(gtx,
-			layout.Flexed(3.5, func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(theme, theme.TextSize, name+" ("+strconv.Itoa(r.Permutation())+")")
-				lbl.Alignment = text.Start
-				lbl.MaxLines = 1
-				return lbl.Layout(gtx)
-			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(theme, theme.TextSize, strconv.Itoa(index+1))
-				lbl.Alignment = text.End
-				lbl.MaxLines = 1
-				return lbl.Layout(gtx)
-			}),
-		)
-	})
+	return inset(0, 0, 4, 4, flexHorizontal(32,
+		flexed(label(name+" ("+strconv.Itoa(r.Permutation())+")"), 3.5),
+		flexed(labelRight(strconv.Itoa(index+1))),
+	))(gtx)
 }
 
 func (p *metaRulesPopout) parseCurrent() {

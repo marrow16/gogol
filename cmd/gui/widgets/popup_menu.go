@@ -433,19 +433,9 @@ func (i *menuItem) layout(gtx layout.Context, width int) layout.Dimensions {
 			macro := op.Record(gtx.Ops)
 			dims := layout.Inset{Top: 2, Left: 4, Right: 4, Bottom: 2 + extra}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if i.popout == popoutNone {
-							return layout.Dimensions{}
-						}
-						return material.Label(theme, theme.TextSize, "< ").Layout(gtx)
-					}),
-					layout.Flexed(1, label(i.label)),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if i.key == "" {
-							return layout.Dimensions{}
-						}
-						return material.Label(theme, theme.TextSize, modKeyName+i.key).Layout(gtx)
-					}),
+					conditionalRigid(i.popout != popoutNone, label("< "), nil),
+					flexed(label(i.label)),
+					conditionalRigid(i.key != "", label(modKeyName+i.key), nil),
 				)
 			})
 			call := macro.Stop()

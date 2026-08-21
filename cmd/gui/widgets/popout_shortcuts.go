@@ -118,30 +118,23 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 			}
 		}
 	}
-	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = ew
 		gtx.Constraints.Min.Y = ht
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-			layout.Rigid(flexHorizontal(20,
+		return flexVertical(0,
+			rigid(flexHorizontal(20,
 				rigidLabel("Key:", text.End, font.Bold, kw.Size.X),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = m.Size.X * 2
 					return p.key.layout(gtx)
 				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if !isAllowedKey {
-						return layout.Dimensions{}
-					}
-					return label(altKeyName + k)(gtx)
-				}),
+				conditionalRigid(isAllowedKey, label(altKeyName+k), nil),
 			)),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Bottom: 3}.Layout(gtx, flexHorizontal(20,
-					rigidLabel("Actions:", 0, 0, 0),
-					layout.Rigid(linkLabel(&p.linkHelp, "(see help)")),
-				))
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			rigid(inset(0, 3, 0, 0, flexHorizontal(20,
+				rigidLabel("Actions:", 0, 0, 0),
+				rigid(linkLabel(&p.linkHelp, "(see help)")),
+			))),
+			rigid(func(gtx layout.Context) layout.Dimensions {
 				if !isAllowedKey {
 					return layout.Dimensions{}
 				}
@@ -154,7 +147,7 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, style.Layout)
 				})
 			}),
-		)
+		)(gtx)
 	})
 }
 

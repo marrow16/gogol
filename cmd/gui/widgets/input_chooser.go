@@ -335,16 +335,16 @@ func (i *chooser[T]) changed() {
 	}
 }
 
-func (i *chooser[T]) layoutDropdown(gtx layout.Context, dims layout.Dimensions) {
+func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 	if i.opened && len(i.filteredItems) > 0 {
-		stack := op.Offset(image.Pt(0, dims.Size.Y)).Push(gtx.Ops)
+		stack := op.Offset(image.Pt(0, i.dims.Size.Y)).Push(gtx.Ops)
 		rowDims := measureText(gtx, "Xy")
 		showRows := i.dropdownRows
 		if len(i.filteredItems) < showRows {
 			showRows = len(i.filteredItems)
 		}
 		height := rowDims.Size.Y * showRows
-		width := dims.Size.X
+		width := i.dims.Size.X
 		layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				pgtx := gtx

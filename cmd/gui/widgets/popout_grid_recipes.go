@@ -118,37 +118,20 @@ func (p *gridRecipesPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnSaveRle.Clicked(gtx) {
 		p.saveRecipeRle()
 	}
-	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		var chooserDims layout.Dimensions
-		dims := layout.Flex{Axis: layout.Vertical, Gap: 10}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						chooserDims = p.chooser.layout(gtx)
-						return chooserDims
-					}),
-					layout.Rigid(p.btnPath.Layout),
-				)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Max.X = p.chooser.dims.Size.X
-				return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-					layout.Rigid(p.btnRun.Layout),
-					layout.Rigid(p.btnSaveRle.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						switch {
-						case p.error != nil:
-							return errorLabel(p.error)(gtx)
-						case p.chooser.currentItem() != nil:
-							return label("(Press " + modKeyName + "G to run)")(gtx)
-						default:
-							return layout.Dimensions{}
-						}
-					}),
-				)
-			}),
-		)
-		p.chooser.layoutDropdown(gtx, chooserDims)
+	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
+		dims := flexVertical(10,
+			rigid(flexHorizontal(0,
+				rigid(p.chooser.layout),
+				rigid(p.btnPath.Layout),
+			)),
+			rigid(flexHorizontal(20,
+				rigid(p.btnRun.Layout),
+				rigid(p.btnSaveRle.Layout),
+				rigid(errorLabel(p.error)),
+				conditionalRigid(p.error == nil && p.chooser.currentItem() != nil, label("(Press "+modKeyName+"G to run)"), nil),
+			)),
+		)(gtx)
+		p.chooser.layoutDropdown(gtx)
 		return dims
 	})
 }
