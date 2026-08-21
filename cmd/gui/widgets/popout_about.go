@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	gogolGuiVersion = "1.0.36"
+	gogolGuiVersion = "1.0.37"
 	gogolRepo       = "https://github.com/marrow16/gogol"
 	helpLink        = "https://github.com/marrow16/gogol/blob/main/HELP_GUI.md"
 	shortcutsHelp   = "https://github.com/marrow16/gogol/blob/main/cmd/gui/SHORTCUTS.md"
@@ -17,9 +17,17 @@ const (
 )
 
 func newAboutPopout(p *menuPopup) *aboutPopout {
-	return &aboutPopout{
+	result := &aboutPopout{
 		parent: p,
 	}
+	result.links = map[*widget.Clickable]string{
+		&result.linkRepo:        gogolRepo,
+		&result.linkHelp:        helpLink,
+		&result.linkShortcuts:   shortcutsHelp,
+		&result.linkMetaRule:    metaRuleHelp,
+		&result.linkGridRecipes: gridRecipesHelp,
+	}
+	return result
 }
 
 type aboutPopout struct {
@@ -29,27 +37,18 @@ type aboutPopout struct {
 	linkShortcuts   widget.Clickable
 	linkMetaRule    widget.Clickable
 	linkGridRecipes widget.Clickable
+	links           map[*widget.Clickable]string
 }
 
 func (p *aboutPopout) layout(gtx layout.Context) layout.Dimensions {
 	m := measureText(gtx, "M")
 	minX := m.Size.X * 30
-	if p.linkRepo.Clicked(gtx) {
-		_ = openURL(gogolRepo)
+	for c, l := range p.links {
+		if c.Clicked(gtx) {
+			_ = openURL(l)
+		}
 	}
-	if p.linkHelp.Clicked(gtx) {
-		_ = openURL(helpLink)
-	}
-	if p.linkShortcuts.Clicked(gtx) {
-		_ = openURL(shortcutsHelp)
-	}
-	if p.linkMetaRule.Clicked(gtx) {
-		_ = openURL(metaRuleHelp)
-	}
-	if p.linkGridRecipes.Clicked(gtx) {
-		_ = openURL(gridRecipesHelp)
-	}
-	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, flexVertical(0,
+	return popoutLayout(gtx, flexVertical(0,
 		rigidLabel("GoGoL", text.Middle, font.Bold, minX),
 		rigidLabel("Version: "+gogolGuiVersion, text.Middle, 0, minX),
 		rigidSpacerVertical(m.Size.Y/2),

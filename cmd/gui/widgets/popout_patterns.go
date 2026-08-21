@@ -3,14 +3,13 @@ package widgets
 import (
 	"gioui.org/font"
 	"gioui.org/layout"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
 	"image"
+	"image/color"
 	"image/draw"
 	"slices"
 	"strconv"
@@ -28,6 +27,8 @@ type patternsPopout struct {
 	currentRule          logic.Rule
 	btnPlace             *button
 	chkInterlaced        *checkbox
+	cachedPattern        *patterns.Pattern
+	cachedImage          *image.NRGBA
 }
 
 const (
@@ -107,44 +108,25 @@ func (p *patternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	}
 	chd := measureText(gtx, "M")
 	gtx.Constraints.Min.Y = chd.Size.Y * 20
-	return layout.Inset{
-		Left: 8, Right: 8, Top: 8, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		var chooserDims layout.Dimensions
-		dims := layout.Flex{Axis: layout.Vertical, Gap: 10}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				chooserDims = p.chooser.layout(gtx)
-				return chooserDims
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Gap: 10}.Layout(gtx,
-					layout.Rigid(p.radioPreview.Layout),
-					layout.Rigid(p.radioMetadata.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{
-							Size:     image.Point{X: gtx.Dp(100)},
-							Baseline: 0,
-						}
-					}),
-					layout.Rigid(p.chkFilterCurrentRule.Layout),
-				)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
+		dims := flexVertical(10,
+			rigid(p.chooser.layout),
+			rigid(flexHorizontal(10,
+				rigid(p.radioPreview.Layout),
+				rigid(p.radioMetadata.Layout),
+				rigidFixedWidth(nil, 100, 0),
+				rigid(p.chkFilterCurrentRule.Layout),
+			)),
+			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = int(float32(chd.Size.Y) * 15.5)
 				gtx.Constraints.Max.X = p.chooser.dims.Size.X
 				return p.layoutPreview(gtx, p.chooser.dims.Size.X, chd.Size.Y*15)
 			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if p.chooser.currentItem() != nil {
-					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-						layout.Rigid(p.btnPlace.Layout),
-						layout.Rigid(p.chkInterlaced.Layout),
-					)
-				} else {
-					return layout.Dimensions{}
-				}
-			}),
-		)
-		p.chooser.layoutDropdown(gtx, chooserDims)
+			conditionalRigid(p.chooser.currentItem() != nil, flexHorizontal(20,
+				rigid(p.btnPlace.Layout),
+				rigid(p.chkInterlaced.Layout)), nil),
+		)(gtx)
+		p.chooser.layoutDropdown(gtx)
 		return dims
 	})
 }
@@ -154,96 +136,131 @@ func (p *patternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt int) lay
 	switch {
 	case currentPattern == nil:
 		return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceAround}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Constraints.Max.X
-				lbl := material.Label(theme, theme.TextSize, "(select a pattern)")
-				lbl.MaxLines = 1
-				lbl.Alignment = text.Middle
-				return lbl.Layout(gtx)
-			}),
+			rigidFixedWidth(label("(select a pattern)"), gtx.Constraints.Max.X, layout.Center),
 		)
 	case p.previewMode.Value == previewMetadata:
 		return p.layoutPreviewMetadata(*currentPattern, gtx)
 	default:
-		return p.layoutPreviewImage(*currentPattern, gtx, maxWd, maxHt)
+		return p.layoutPreviewImage(currentPattern, gtx, maxWd, maxHt)
 	}
 }
 
 func (p *patternsPopout) layoutPreviewMetadata(pattern patterns.Pattern, gtx layout.Context) layout.Dimensions {
 	labelMax := measureMaxText(gtx, font.Bold, "Size: ", "Filename: ", "Origin: ", "Comment: ").Size.X
-	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx,
-		layout.Rigid(flexHorizontal(20,
+	return flexVertical(0,
+		rigid(flexHorizontal(20,
 			rigidLabel("Size:", text.End, font.Bold, labelMax),
-			layout.Flexed(1, label(strconv.Itoa(pattern.Width)+"w X "+strconv.Itoa(pattern.Height)+"h")),
+			flexed(label(strconv.Itoa(pattern.Width)+"w X "+strconv.Itoa(pattern.Height)+"h")),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Rule:", text.End, font.Bold, labelMax),
-			layout.Flexed(1, label(pattern.Rule.Name())),
+			flexed(label(pattern.Rule.Name())),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Filename:", text.End, font.Bold, labelMax),
-			layout.Flexed(1, label(pattern.Filename)),
+			flexed(label(pattern.Filename)),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Origin:", text.End, font.Bold, labelMax),
-			layout.Flexed(1, label(pattern.Origination)),
+			flexed(label(pattern.Origination)),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Comment:", text.End, font.Bold, labelMax),
-			layout.Flexed(1, material.Label(theme, theme.TextSize, strings.Join(pattern.Comments, "\n")).Layout),
+			flexed(material.Label(theme, theme.TextSize, strings.Join(pattern.Comments, "\n")).Layout),
 		)),
-	)
+	)(gtx)
 }
 
-func (p *patternsPopout) layoutPreviewImage(pattern patterns.Pattern, gtx layout.Context, maxWd, maxHt int) layout.Dimensions {
-	cellSize := min(maxWd/pattern.Width, maxHt/pattern.Height)
-	rect := image.Rect(0, 0, cellSize*pattern.Width, cellSize*pattern.Height)
-	canvas := image.NewNRGBA(rect)
-	draw.Draw(canvas, rect, &image.Uniform{p.core.settings.CellDeadColor}, image.Point{}, draw.Src)
-	offset := 0
-	if cellSize > 3 {
-		offset = 1
-		for y := 0; y <= pattern.Height; y++ {
-			yy := y * cellSize
-			draw.Draw(
-				canvas,
-				image.Rect(0, yy, pattern.Width*cellSize, yy+1),
-				&image.Uniform{p.core.settings.CellBorderColor},
-				image.Point{},
-				draw.Src,
-			)
-		}
-		for x := 0; x <= pattern.Width; x++ {
-			xx := x * cellSize
-			draw.Draw(
-				canvas,
-				image.Rect(xx, 0, xx+1, pattern.Height*cellSize),
-				&image.Uniform{p.core.settings.CellBorderColor},
-				image.Point{},
-				draw.Src,
-			)
+func scaleSparse(src *image.Paletted, scale float32) *image.NRGBA {
+	sb := src.Bounds()
+	w := max(1, int(float32(sb.Dx())*scale))
+	h := max(1, int(float32(sb.Dy())*scale))
+	dst := image.NewNRGBA(image.Rect(0, 0, w, h))
+	const background = uint8(0)
+	bg := src.Palette[background]
+	draw.Draw(dst, dst.Bounds(), &image.Uniform{C: bg}, image.Point{}, draw.Src)
+	for y := sb.Min.Y; y < sb.Max.Y; y++ {
+		for x := sb.Min.X; x < sb.Max.X; x++ {
+			i := src.ColorIndexAt(x, y)
+			if i == background {
+				continue
+			}
+			dx := int(float32(x-sb.Min.X) * scale)
+			dy := int(float32(y-sb.Min.Y) * scale)
+			if dx >= w {
+				dx = w - 1
+			}
+			if dy >= h {
+				dy = h - 1
+			}
+			dst.Set(dx, dy, src.Palette[i])
 		}
 	}
-	pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
-		if alive {
-			draw.Draw(canvas, image.Rect(
-				(col*cellSize)+offset,
-				(row*cellSize)+offset,
-				(col+1)*cellSize,
-				(row+1)*cellSize),
-				&image.Uniform{p.core.settings.CellAliveColor}, image.Point{}, draw.Src)
+	return dst
+}
+
+func (p *patternsPopout) layoutPreviewImage(pattern *patterns.Pattern, gtx layout.Context, maxWd, maxHt int) layout.Dimensions {
+	if pattern != p.cachedPattern {
+		const minCellSize = 10
+		p.cachedPattern = pattern
+		if pattern.Width > maxWd || pattern.Height > maxHt {
+			scale := min(float32(maxWd)/float32(pattern.Width), float32(maxHt)/float32(pattern.Height))
+			rect := image.Rect(0, 0, pattern.Width, pattern.Height)
+			img := image.NewPaletted(rect, color.Palette{
+				0: p.core.settings.CellDeadColor,
+				1: p.core.settings.CellAliveColor})
+			pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
+				if alive {
+					img.Pix[img.PixOffset(col, row)] = 1
+				}
+			})
+			p.cachedImage = scaleSparse(img, scale)
+		} else {
+			offset := 0
+			cellSize := min((maxWd-1)/pattern.Width, (maxHt-1)/pattern.Height)
+			if cellSize > minCellSize {
+				offset = 1
+			}
+			rect := image.Rect(0, 0, (cellSize*pattern.Width)+offset, (cellSize*pattern.Height)+offset)
+			p.cachedImage = image.NewNRGBA(rect)
+			draw.Draw(p.cachedImage, rect, &image.Uniform{p.core.settings.CellDeadColor}, image.Point{}, draw.Src)
+			if cellSize > minCellSize {
+				for y := 0; y <= pattern.Height; y++ {
+					yy := y * cellSize
+					draw.Draw(
+						p.cachedImage,
+						image.Rect(0, yy, pattern.Width*cellSize, yy+1),
+						&image.Uniform{p.core.settings.CellBorderColor},
+						image.Point{},
+						draw.Src,
+					)
+				}
+				for x := 0; x <= pattern.Width; x++ {
+					xx := x * cellSize
+					draw.Draw(
+						p.cachedImage,
+						image.Rect(xx, 0, xx+1, pattern.Height*cellSize),
+						&image.Uniform{p.core.settings.CellBorderColor},
+						image.Point{},
+						draw.Src,
+					)
+				}
+			}
+			pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
+				if alive {
+					draw.Draw(p.cachedImage, image.Rect(
+						(col*cellSize)+offset,
+						(row*cellSize)+offset,
+						(col+1)*cellSize,
+						(row+1)*cellSize),
+						&image.Uniform{p.core.settings.CellAliveColor}, image.Point{}, draw.Src)
+				}
+			})
 		}
-	})
-	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			size := canvas.Bounds().Size()
-			stack := clip.Rect{Max: size}.Push(gtx.Ops)
-			defer stack.Pop()
-			paint.NewImageOp(canvas).Add(gtx.Ops)
-			paint.PaintOp{}.Add(gtx.Ops)
-			return layout.Dimensions{Size: size}
-		}),
-	)
+	}
+	return flexVertical(0,
+		rigidImage(p.cachedImage),
+	)(gtx)
 }
 
 func (p *patternsPopout) reset() {

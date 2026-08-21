@@ -107,12 +107,9 @@ func (p *instrumentationPopout) reset() {
 func (p *instrumentationPopout) layout(gtx layout.Context) layout.Dimensions {
 	p.update(gtx)
 	width := measureText(gtx, "When enabled, will stop stepping (and step ahead) extra").Size.X
-	return layout.Inset{Left: 4, Right: 4, Top: 4, Bottom: 4}.Layout(gtx, flexVertical(0,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
-			return p.chkRepeatDetect.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return popoutLayout(gtx, flexVertical(0,
+		rigidFixedWidth(p.chkRepeatDetect.Layout, width, 0),
+		rigid(func(gtx layout.Context) layout.Dimensions {
 			if !p.chkRepeatDetect.Checked() {
 				gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
 				desc := material.Label(theme, theme.TextSize, "When enabled, will stop stepping (and step ahead) when the grid repeats.\nInformation about repeats will be shown here.")
@@ -123,18 +120,15 @@ func (p *instrumentationPopout) layout(gtx layout.Context) layout.Dimensions {
 				return p.layoutRepeat(gtx)
 			}
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
 			paint.FillShape(gtx.Ops, popupBorder,
 				clip.Rect(image.Rect(0, 0, width, 1)).Op(),
 			)
 			return layout.Dimensions{Size: image.Point{X: width, Y: 1}}
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
-			return p.chkRecord.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		rigidFixedWidth(p.chkRecord.Layout, width, 0),
+		rigid(func(gtx layout.Context) layout.Dimensions {
 			if !p.chkRecord.Checked() {
 				gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
 				desc := material.Label(theme, theme.TextSize, "Records every generation, enabling backward stepping and animation export.")
@@ -147,18 +141,15 @@ func (p *instrumentationPopout) layout(gtx layout.Context) layout.Dimensions {
 				return layout.Dimensions{}
 			}
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
 			paint.FillShape(gtx.Ops, popupBorder,
 				clip.Rect(image.Rect(0, 0, width, 1)).Op(),
 			)
 			return layout.Dimensions{Size: image.Point{X: width, Y: 1}}
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
-			return p.chkHeatMap.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		rigidFixedWidth(p.chkHeatMap.Layout, width, 0),
+		rigid(func(gtx layout.Context) layout.Dimensions {
 			if !p.chkHeatMap.Checked() {
 				gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
 				desc := material.Label(theme, theme.TextSize, "Accumulates various types of grid activity for later display as a visual heat map.")
@@ -256,33 +247,29 @@ func (p *instrumentationPopout) foundLabel(lblFound, lblNotFound string) string 
 func (p *instrumentationPopout) layoutRepeat(gtx layout.Context) layout.Dimensions {
 	labelMax := measureMaxText(gtx, font.Bold, "Examined: ", "Found: ", "First: ", "Repeat: ", "Period: ").Size.X
 	return layout.Inset{Left: 16, Bottom: 4}.Layout(gtx, flexVertical(0,
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Examined:", text.End, 0, labelMax),
 			rigidLabel(commas(strconv.FormatUint(p.core.instrumentRepeat.Steps, 10)), 0, 0, 0),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Found:", text.End, 0, labelMax),
 			rigidLabel(p.foundLabel("Yes", "No"), 0, 0, 0),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("First:", text.End, 0, labelMax),
 			rigidLabel(p.foundLabel(commas(strconv.FormatUint(p.core.instrumentRepeat.FirstStep, 10)), "--"), 0, 0, 0),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Repeat:", text.End, 0, labelMax),
 			rigidLabel(p.foundLabel(commas(strconv.FormatUint(p.core.instrumentRepeat.RepeatStep, 10)), "--"), 0, 0, 0),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Period:", text.End, 0, labelMax),
 			rigidLabel(p.foundLabel(commas(strconv.FormatUint(p.core.instrumentRepeat.Period, 10)), "--"), 0, 0, 0),
 		)),
-		layout.Rigid(flexHorizontal(20,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnRepeatReset.Layout)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnRepeatSave.Layout)
-			}),
+		rigid(flexHorizontal(20,
+			rigid(inset(4, 4, 0, 0, p.btnRepeatReset.Layout)),
+			rigid(inset(4, 4, 0, 0, p.btnRepeatSave.Layout)),
 		)),
 	))
 }
@@ -294,46 +281,28 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context) layout.Dimensio
 		p.core.settings.AnimationFormat = p.animationFormat.Value
 	}
 	return layout.Inset{Left: 16, Bottom: 4}.Layout(gtx, flexVertical(0,
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Steps recorded:", text.End, 0, labelMax),
 			rigidLabel(commas(strconv.Itoa(p.core.instrumentRecord.FramesCount())), 0, 0, 0),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Skip back by:", text.End, 0, labelMax),
-			layout.Flexed(1, p.skipBackBy.layout),
+			flexed(p.skipBackBy.layout),
 		)),
-		layout.Rigid(flexHorizontal(20,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnRecordReset.Layout)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if canSave {
-					return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnSaveAnimation.Layout)
-				}
-				return layout.Dimensions{}
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if canSave {
-					return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.radioGif.Layout)
-				}
-				return layout.Dimensions{}
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if canSave {
-					return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.radioMp4.Layout)
-				}
-				return layout.Dimensions{}
-			}),
+		rigid(flexHorizontal(20,
+			rigid(inset(4, 4, 0, 0, p.btnRecordReset.Layout)),
+			conditionalRigid(canSave, inset(4, 4, 0, 0, p.btnSaveAnimation.Layout), nil),
+			conditionalRigid(canSave, inset(4, 4, 0, 0, p.radioGif.Layout), nil),
+			conditionalRigid(canSave, inset(4, 4, 0, 0, p.radioMp4.Layout), nil),
 		)),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.animationSaving {
 				return label("Saving animation - please wait...")(gtx)
 			} else if p.animationResult != nil {
 				if p.animationResult.err == nil {
-					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
+					return flexHorizontal(20,
 						rigidLabel("Saved to:", 0, 0, 0),
-						layout.Rigid(linkLabel(&p.linkAnimation, filepath.Base(p.animationResult.filename))),
-					)
+						rigid(linkLabel(&p.linkAnimation, filepath.Base(p.animationResult.filename))))(gtx)
 				} else {
 					return errorLabel(p.animationResult.err)(gtx)
 				}
@@ -370,39 +339,33 @@ func (p *instrumentationPopout) saveAnimation() {
 func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context) layout.Dimensions {
 	labelMax := measureMaxText(gtx, font.Bold, "Steps: ", "Type: ", "Maximum: ").Size.X
 	return layout.Inset{Left: 16, Bottom: 4}.Layout(gtx, flexVertical(0,
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Type:", text.End, 0, labelMax),
-			layout.Rigid(p.radioActivity.Layout),
-			layout.Rigid(p.radioOccupancy.Layout),
-			layout.Rigid(p.radioBirths.Layout),
+			rigid(p.radioActivity.Layout),
+			rigid(p.radioOccupancy.Layout),
+			rigid(p.radioBirths.Layout),
 		)),
-		layout.Rigid(flexHorizontal(20,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		rigid(flexHorizontal(20,
+			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = labelMax
 				return layout.Dimensions{Size: image.Point{X: labelMax}}
 			}),
-			layout.Rigid(p.radioFreshness.Layout),
-			layout.Rigid(p.radioPhaseParity.Layout),
-			layout.Rigid(p.radioAll.Layout),
+			rigid(p.radioFreshness.Layout),
+			rigid(p.radioPhaseParity.Layout),
+			rigid(p.radioAll.Layout),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Maximum:", text.End, 0, labelMax),
 			rigidLabel(commas(strconv.FormatUint(p.core.instrumentHeatMap.Maximum(), 10)), 0, 0, 0),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Steps:", text.End, 0, labelMax),
 			rigidLabel(commas(strconv.FormatUint(p.core.instrumentHeatMap.StepsCount(), 10)), 0, 0, 0),
 		)),
-		layout.Rigid(flexHorizontal(20,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnHeatMapReset.Layout)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnHeatMapReveal.Layout)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 4, Bottom: 4}.Layout(gtx, p.btnHeatMapSave.Layout)
-			}),
+		rigid(flexHorizontal(20,
+			rigid(inset(4, 4, 0, 0, p.btnHeatMapReset.Layout)),
+			rigid(inset(4, 4, 0, 0, p.btnHeatMapReveal.Layout)),
+			rigid(inset(4, 4, 0, 0, p.btnHeatMapSave.Layout)),
 		)),
 	))
 }

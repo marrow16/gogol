@@ -4,13 +4,12 @@ import (
 	"errors"
 	"gioui.org/font"
 	"gioui.org/layout"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/patterns"
 	"image"
+	"image/color"
 	"image/draw"
 	"slices"
 	"strconv"
@@ -47,6 +46,8 @@ type capturedPatternsPopout struct {
 	identifyFoundCount int
 	identifyFoundClick widget.Clickable
 	index              map[[32]byte][]string
+	cachedPattern      *patterns.Pattern
+	cachedImage        *image.NRGBA
 }
 
 func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
@@ -150,50 +151,21 @@ func (p *capturedPatternsPopout) patternSelected(pattern **patterns.Pattern) {
 	}
 }
 
-func (p *capturedPatternsPopout) layoutNoPatterns(gtx layout.Context, minX int) layout.Dimensions {
-	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical, Gap: 30, Spacing: layout.SpaceSides}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = minX
-				gtx.Constraints.Max.X = minX
-				lbl := material.Label(theme, theme.TextSize, "No patterns captured yet.")
-				lbl.MaxLines = 1
-				lbl.Alignment = text.Middle
-				return lbl.Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							gtx.Constraints.Min.X = minX
-							gtx.Constraints.Max.X = minX
-							lbl := material.Label(theme, theme.TextSize, "To capture patterns:")
-							lbl.Alignment = text.Middle
-							return lbl.Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							gtx.Constraints.Min.X = minX
-							return material.Label(theme, theme.TextSize, "1. Start edit mode ("+modKeyName+"E)").Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							gtx.Constraints.Min.X = minX
-							return material.Label(theme, theme.TextSize, "2. Mark the pattern area\n\u2007  Hold down shift+arrow keys and then hit Return").Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							gtx.Constraints.Min.X = minX
-							return material.Label(theme, theme.TextSize, "3. Come back here to edit/save patterns").Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min.X = minX
-								return material.Label(theme, theme.TextSize, "Note: Multiple patterns can be captured in one edit session").Layout(gtx)
-							})
-						}),
-					)
-				})
-			}),
-		)
-	})
+func (p *capturedPatternsPopout) layoutNoPatterns(gtx layout.Context) layout.Dimensions {
+	const note = "Note: Multiple patterns can be captured in one edit session"
+	minX := measureText(gtx, note).Size.X
+	return popoutLayout(gtx, flexVertical(30,
+		rigidFixedWidth(label("No patterns captured yet."), minX, layout.Center),
+		rigidFixedWidth(flexVertical(0,
+			rigidLabel("To capture patterns:", 0, 0, 0),
+			rigid(inset(0, 0, 8, 0, flexVertical(0,
+				rigid(textLabel("1. Start edit mode ("+modKeyName+"E)")),
+				rigid(textLabel("2. Mark the pattern area\n\u2007  Hold down shift+arrow keys and then hit Return")),
+				rigid(textLabel("3. Come back here to edit/save patterns")),
+			))),
+		), minX, 0),
+		rigidFixedWidth(label(note), minX, layout.Center),
+	))
 }
 
 func (p *capturedPatternsPopout) savePattern(pattern *patterns.Pattern) {
@@ -226,14 +198,11 @@ func (p *capturedPatternsPopout) savePattern(pattern *patterns.Pattern) {
 }
 
 func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
-	chd := measureText(gtx, "M")
-	gtx.Constraints.Min.Y = chd.Size.Y * 20
 	if len(p.core.settings.CapturedPatterns) == 0 {
 		// no patterns captured yet
-		gtx.Constraints.Min.Y = chd.Size.Y * 10
-		gtx.Constraints.Min.X = chd.Size.X * 30
-		return p.layoutNoPatterns(gtx, gtx.Constraints.Min.X)
+		return p.layoutNoPatterns(gtx)
 	}
+	m := measureText(gtx, "M")
 	currentPattern := p.chooser.currentItem()
 	if p.btnSave.Clicked(gtx) {
 		if currentPattern != nil {
@@ -255,53 +224,35 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnClear.Clicked(gtx) {
 		p.core.settings.CapturedPatterns = nil
 	}
-	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		var chooserDims layout.Dimensions
-		dims := layout.Flex{Axis: layout.Vertical, Gap: 10}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				chooserDims = p.chooser.layout(gtx)
-				return chooserDims
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Gap: 10}.Layout(gtx,
-					layout.Rigid(p.radioMetadata.Layout),
-					layout.Rigid(p.radioPreview.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{
-							Size:     image.Point{X: gtx.Dp(100)},
-							Baseline: 0,
-						}
-					}),
-				)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.Y = int(float32(chd.Size.Y) * 15.5)
+	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
+		dims := flexVertical(10,
+			rigid(p.chooser.layout),
+			rigid(flexHorizontal(10,
+				rigid(p.radioMetadata.Layout),
+				rigid(p.radioPreview.Layout),
+			)),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.Y = int(float32(m.Size.Y) * 15.5)
 				gtx.Constraints.Max.X = p.chooser.dims.Size.X
-				return p.layoutPreview(gtx, p.chooser.dims.Size.X, chd.Size.Y*15)
+				return p.layoutPreview(gtx, p.chooser.dims.Size.X, m.Size.Y*15)
 			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			rigid(func(gtx layout.Context) layout.Dimensions {
 				switch {
 				case currentPattern == nil:
 					return layout.Dimensions{}
 				case p.previewMode.Value == previewMetadata:
-					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-						layout.Rigid(p.btnSave.Layout),
-						layout.Rigid(p.chkAddLibrary.Layout),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if p.error != nil {
-								return insetErrorLabel(p.error)(gtx)
-							}
-							return layout.Dimensions{}
-						}),
-						layout.Rigid(p.btnRemove.Layout),
-						layout.Rigid(p.btnClear.Layout),
-					)
+					return flexHorizontal(20,
+						rigid(p.btnSave.Layout),
+						rigid(p.chkAddLibrary.Layout),
+						rigid(insetErrorLabel(p.error)),
+						rigid(p.btnRemove.Layout),
+						rigid(p.btnClear.Layout))(gtx)
 				default:
 					return p.layoutIdentifyControls(gtx, *currentPattern)
 				}
 			}),
-		)
-		p.chooser.layoutDropdown(gtx, chooserDims)
+		)(gtx)
+		p.chooser.layoutDropdown(gtx)
 		return dims
 	})
 }
@@ -311,7 +262,7 @@ func (p *capturedPatternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt 
 	switch {
 	case currentPattern == nil:
 		return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceAround}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Constraints.Max.X
 				lbl := material.Label(theme, theme.TextSize, "(select a pattern)")
 				lbl.MaxLines = 1
@@ -330,19 +281,19 @@ func (p *capturedPatternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern
 	txtDim := measureText(gtx, "My")
 	labelMax := measureMaxText(gtx, font.Bold, "Size: ", "Filename: ", "Origin: ", "Comment: ").Size.X
 	return layout.Flex{Axis: layout.Vertical, Gap: 10, Spacing: layout.SpaceEnd}.Layout(gtx,
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Name:", text.End, font.Bold, labelMax),
-			layout.Flexed(1, p.name.layout),
+			flexed(p.name.layout),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Filename:", text.End, font.Bold, labelMax),
-			layout.Flexed(1, p.filename.layout),
+			flexed(p.filename.layout),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Origin:", text.End, font.Bold, labelMax),
-			layout.Flexed(1, p.origin.layout),
+			flexed(p.origin.layout),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Comment:", text.End, font.Bold, labelMax),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = txtDim.Size.Y * 7
@@ -350,66 +301,79 @@ func (p *capturedPatternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern
 				return p.comment.layout(gtx)
 			}),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Size:", text.End, font.Bold, labelMax),
-			layout.Flexed(1, label(strconv.Itoa(pattern.Width)+"w X "+strconv.Itoa(pattern.Height)+"h")),
+			flexed(label(strconv.Itoa(pattern.Width)+"w X "+strconv.Itoa(pattern.Height)+"h")),
 		)),
-		layout.Rigid(flexHorizontal(20,
+		rigid(flexHorizontal(20,
 			rigidLabel("Rule:", text.End, font.Bold, labelMax),
-			layout.Flexed(1, label(pattern.Rule.Name())),
+			flexed(label(pattern.Rule.Name())),
 		)),
 	)
 }
 
 func (p *capturedPatternsPopout) layoutPreviewImage(pattern *patterns.Pattern, gtx layout.Context, maxWd, maxHt int) layout.Dimensions {
-	cellSize := min(maxWd/pattern.Width, maxHt/pattern.Height)
-	rect := image.Rect(0, 0, cellSize*pattern.Width, cellSize*pattern.Height)
-	canvas := image.NewNRGBA(rect)
-	draw.Draw(canvas, rect, &image.Uniform{p.core.settings.CellDeadColor}, image.Point{}, draw.Src)
-	offset := 0
-	if cellSize > 3 {
-		offset = 1
-		for y := 0; y <= pattern.Height; y++ {
-			yy := y * cellSize
-			draw.Draw(
-				canvas,
-				image.Rect(0, yy, pattern.Width*cellSize, yy+1),
-				&image.Uniform{p.core.settings.CellBorderColor},
-				image.Point{},
-				draw.Src,
-			)
-		}
-		for x := 0; x <= pattern.Width; x++ {
-			xx := x * cellSize
-			draw.Draw(
-				canvas,
-				image.Rect(xx, 0, xx+1, pattern.Height*cellSize),
-				&image.Uniform{p.core.settings.CellBorderColor},
-				image.Point{},
-				draw.Src,
-			)
+	if pattern != p.cachedPattern {
+		const minCellSize = 10
+		p.cachedPattern = pattern
+		if pattern.Width > maxWd || pattern.Height > maxHt {
+			scale := min(float32(maxWd)/float32(pattern.Width), float32(maxHt)/float32(pattern.Height))
+			rect := image.Rect(0, 0, pattern.Width, pattern.Height)
+			img := image.NewPaletted(rect, color.Palette{
+				0: p.core.settings.CellDeadColor,
+				1: p.core.settings.CellAliveColor})
+			pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
+				if alive {
+					img.Pix[img.PixOffset(col, row)] = 1
+				}
+			})
+			p.cachedImage = scaleSparse(img, scale)
+		} else {
+			offset := 0
+			cellSize := min((maxWd-1)/pattern.Width, (maxHt-1)/pattern.Height)
+			if cellSize > minCellSize {
+				offset = 1
+			}
+			rect := image.Rect(0, 0, (cellSize*pattern.Width)+offset, (cellSize*pattern.Height)+offset)
+			p.cachedImage = image.NewNRGBA(rect)
+			draw.Draw(p.cachedImage, rect, &image.Uniform{p.core.settings.CellDeadColor}, image.Point{}, draw.Src)
+			if cellSize > minCellSize {
+				for y := 0; y <= pattern.Height; y++ {
+					yy := y * cellSize
+					draw.Draw(
+						p.cachedImage,
+						image.Rect(0, yy, pattern.Width*cellSize, yy+1),
+						&image.Uniform{p.core.settings.CellBorderColor},
+						image.Point{},
+						draw.Src,
+					)
+				}
+				for x := 0; x <= pattern.Width; x++ {
+					xx := x * cellSize
+					draw.Draw(
+						p.cachedImage,
+						image.Rect(xx, 0, xx+1, pattern.Height*cellSize),
+						&image.Uniform{p.core.settings.CellBorderColor},
+						image.Point{},
+						draw.Src,
+					)
+				}
+			}
+			pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
+				if alive {
+					draw.Draw(p.cachedImage, image.Rect(
+						(col*cellSize)+offset,
+						(row*cellSize)+offset,
+						(col+1)*cellSize,
+						(row+1)*cellSize),
+						&image.Uniform{p.core.settings.CellAliveColor}, image.Point{}, draw.Src)
+				}
+			})
 		}
 	}
-	pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
-		if alive {
-			draw.Draw(canvas, image.Rect(
-				(col*cellSize)+offset,
-				(row*cellSize)+offset,
-				(col+1)*cellSize,
-				(row+1)*cellSize),
-				&image.Uniform{p.core.settings.CellAliveColor}, image.Point{}, draw.Src)
-		}
-	})
-	return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceEnd}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			size := canvas.Bounds().Size()
-			stack := clip.Rect{Max: size}.Push(gtx.Ops)
-			defer stack.Pop()
-			paint.NewImageOp(canvas).Add(gtx.Ops)
-			paint.PaintOp{}.Add(gtx.Ops)
-			return layout.Dimensions{Size: size}
-		}),
-	)
+	return flexVertical(0,
+		rigidImage(p.cachedImage),
+	)(gtx)
 }
 
 const (
@@ -428,10 +392,9 @@ func (p *capturedPatternsPopout) layoutIdentifyControls(gtx layout.Context, patt
 		if p.btnIdentify.Clicked(gtx) {
 			p.identify(pattern, p.chkWithPhases.Checked())
 		}
-		return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-			layout.Rigid(p.btnIdentify.Layout),
-			layout.Rigid(p.chkWithPhases.Layout),
-		)
+		return flexHorizontal(20,
+			rigid(p.btnIdentify.Layout),
+			rigid(p.chkWithPhases.Layout))(gtx)
 	} else if p.identifying != pattern {
 		return insetLabel("(Identification currently busy)")(gtx)
 	}
@@ -446,11 +409,10 @@ func (p *capturedPatternsPopout) layoutIdentifyControls(gtx layout.Context, patt
 		if p.btnIdentify.Clicked(gtx) {
 			p.identify(pattern, p.chkWithPhases.Checked())
 		}
-		return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-			layout.Rigid(p.btnIdentify.Layout),
-			layout.Rigid(p.chkWithPhases.Layout),
-			layout.Rigid(insetLabel("Not found (searched "+strconv.Itoa(p.identifyHashCount)+" hashes)")),
-		)
+		return flexHorizontal(20,
+			rigid(p.btnIdentify.Layout),
+			rigid(p.chkWithPhases.Layout),
+			rigid(insetLabel("Not found (searched "+strconv.Itoa(p.identifyHashCount)+" hashes)")))(gtx)
 	case identifyingFound:
 		if p.btnIdentify.Clicked(gtx) {
 			p.identify(pattern, p.chkWithPhases.Checked())
@@ -458,24 +420,14 @@ func (p *capturedPatternsPopout) layoutIdentifyControls(gtx layout.Context, patt
 		if p.identifyFoundClick.Clicked(gtx) {
 			p.parent.showPattern(p.identifyFound)
 		}
-		return layout.Flex{Axis: layout.Vertical, Gap: 4}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-					layout.Rigid(p.btnIdentify.Layout),
-					layout.Rigid(p.chkWithPhases.Layout),
-					layout.Rigid(insetLabel("Found "+strconv.Itoa(p.identifyFoundCount)+" (searched "+strconv.Itoa(p.identifyHashCount)+" hashes)")),
-				)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						wd := measureText(gtx, " Identify ").Size.X
-						return layout.Dimensions{Size: image.Point{X: wd}}
-					}),
-					layout.Rigid(linkLabel(&p.identifyFoundClick, p.identifyFound)),
-				)
-			}),
-		)
+		return flexVertical(4,
+			rigid(flexHorizontal(20,
+				rigid(p.btnIdentify.Layout),
+				rigid(p.chkWithPhases.Layout),
+				rigid(insetLabel("Found "+strconv.Itoa(p.identifyFoundCount)+" (searched "+strconv.Itoa(p.identifyHashCount)+" hashes)")),
+			)),
+			rigid(linkLabel(&p.identifyFoundClick, p.identifyFound)),
+		)(gtx)
 	}
 	return layout.Dimensions{}
 }

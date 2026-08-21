@@ -184,44 +184,34 @@ func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
 
 func (p *rulesPopup) layoutDetails() layout.FlexChild {
 	custom := p.core.gridHolder.grid.Rule.IsCustom()
+	canSave := false
+	if custom {
+		if name := p.nameInput.editor.Text(); len(name) > 0 && name != p.core.gridHolder.grid.Rule.Name() {
+			canSave = true
+		}
+	}
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		paint.FillShape(gtx.Ops, popupBorder, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X, 1)).Op())
 		maxText := measureMaxText(gtx, font.Bold, "Rule: ", "Perm.: ", "Name: ", "Integer: ").Size.X
-		return layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{
-				Axis: layout.Vertical,
-				Gap:  10,
-			}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal}.Layout(
-						gtx,
-						rigidLabel("Name: ", text.End, font.Bold, maxText),
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							if custom {
-								return p.nameInput.layout(gtx)
-							} else {
-								return widget.Border{
-									Color:        popupBorder,
-									CornerRadius: 3,
-									Width:        1,
-								}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, label(p.core.gridHolder.grid.Rule.Name()))
-								})
-							}
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if !custom {
-								return layout.Dimensions{}
-							}
-							return layout.Inset{Left: 8}.Layout(gtx, p.btnSaveName.Layout)
-						}),
-					)
-				}),
-				row(maxText, "Rule: ", p.rleInput.layout),
-				row(maxText, "Perm.: ", p.permInput.layout),
-				row(maxText, "Integer: ", p.intInput.layout),
-			)
-		})
+		return layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}.Layout(gtx, flexVertical(10,
+			layout.Rigid(flexHorizontal(8,
+				rigidLabel("Name: ", text.End, font.Bold, maxText),
+				conditionalFlexed(custom, p.nameInput.layout, borderedInset(2, 2, 4, 4, label(p.core.gridHolder.grid.Rule.Name()))),
+				conditionalRigid(custom && canSave, p.btnSaveName.Layout, nil),
+			)),
+			layout.Rigid(flexHorizontal(0,
+				rigidLabel("Rule: ", text.End, font.Bold, maxText),
+				flexed(p.rleInput.layout),
+			)),
+			layout.Rigid(flexHorizontal(0,
+				rigidLabel("Perm.: ", text.End, font.Bold, maxText),
+				flexed(p.permInput.layout),
+			)),
+			layout.Rigid(flexHorizontal(0,
+				rigidLabel("Integer: ", text.End, font.Bold, maxText),
+				flexed(p.intInput.layout),
+			)),
+		))
 	})
 }
 

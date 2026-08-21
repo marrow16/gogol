@@ -70,25 +70,20 @@ func (p *collectedRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 	}
 	gtx.Constraints.Min.X = wd
 	gtx.Constraints.Min.Y = ht
-	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, flexVertical(10,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return popoutLayout(gtx, flexVertical(10,
+		rigid(func(gtx layout.Context) layout.Dimensions {
 			rowHt := measureText(gtx, "Xy").Size.Y
 			gtx.Constraints.Min.Y = rowHt * 14
-			gtx.Constraints.Max.Y = rowHt * 14
+			gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
 			return p.rulesList.Layout(gtx)
 		}),
-		layout.Rigid(flexHorizontal(30,
-			layout.Rigid(p.btnClear.Layout),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if p.core.settings.CollectedRules[curr] {
-					return p.btnRemoveCurrent.Layout(gtx)
-				}
-				return p.btnAddCurrent.Layout(gtx)
-			}),
+		rigid(flexHorizontal(30,
+			rigid(p.btnClear.Layout),
+			conditionalRigid(p.core.settings.CollectedRules[curr], p.btnRemoveCurrent.Layout, p.btnAddCurrent.Layout),
 		)),
-		layout.Rigid(flexHorizontal(10,
+		rigid(flexHorizontal(10,
 			rigidLabel("Commonality:", 0, 0, 0),
-			layout.Flexed(1, p.commonEdit.layout),
+			flexed(p.commonEdit.layout),
 			rigidLabel("("+strconv.Itoa(len(p.rules))+"/"+strconv.Itoa(p.commonCount)+")", 0, 0, 0),
 		)),
 	))
@@ -99,7 +94,7 @@ func (p *collectedRulesPopout) layoutRule(gtx layout.Context, index int, r logic
 	if !r.IsCustom() {
 		name += ` "` + r.Name() + `"`
 	}
-	return layout.Inset{Left: 4, Right: 4}.Layout(gtx, label(name+" ("+strconv.Itoa(r.Permutation())+")"))
+	return inset(0, 0, 4, 4, label(name+" ("+strconv.Itoa(r.Permutation())+")"))(gtx)
 }
 
 func (p *collectedRulesPopout) checkFoundRulesChanged() {

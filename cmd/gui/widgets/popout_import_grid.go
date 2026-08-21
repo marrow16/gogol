@@ -99,26 +99,18 @@ func (p *importGridPopout) layout(gtx layout.Context) layout.Dimensions {
 		})
 	}
 	labelMax := measureMaxText(gtx, font.Normal, "Path: ").Size.X
-	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 4}.Layout(gtx, flexVertical(8,
-		layout.Rigid(flexHorizontal(0,
+	return popoutLayout(gtx, flexVertical(8,
+		rigid(flexHorizontal(0,
 			rigidLabel("Path: ", text.End, 0, labelMax),
-			layout.Flexed(1, p.path.layout),
-			layout.Rigid(p.btnPath.Layout),
+			flexed(p.path.layout),
+			rigid(p.btnPath.Layout),
 		)),
-		layout.Rigid(flexHorizontal(20,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = labelMax
-				return layout.Dimensions{Size: gtx.Constraints.Min}
-			}),
-			layout.Rigid(p.chkResize.Layout),
-			layout.Rigid(p.btnImport.Layout),
+		rigid(flexHorizontal(20,
+			rigidFixedWidth(nil, labelMax-20, 0),
+			rigid(p.chkResize.Layout),
+			rigid(p.btnImport.Layout),
 		)),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.error == nil {
-				return layout.Dimensions{}
-			}
-			return layout.Inset{Bottom: 4}.Layout(gtx, errorLabel(p.error))
-		}),
+		rigid(errorLabel(p.error)),
 	))
 }
 
