@@ -158,26 +158,26 @@ func openInBrowser(filename string) {
 	_ = cmd.Start()
 }
 
+func fill(gtx layout.Context, c color.NRGBA, size image.Point) {
+	paint.FillShape(gtx.Ops, c, clip.Rect{Max: size}.Op())
+}
+
+func horizontalLine(gtx layout.Context, c color.NRGBA, width, thickness int) {
+	paint.FillShape(gtx.Ops, c, clip.Rect{Max: image.Point{width, thickness}}.Op())
+}
+
 func border(gtx layout.Context, dims layout.Dimensions, top, left, bottom, right bool) {
 	if top {
-		paint.FillShape(gtx.Ops, popupBorder,
-			clip.Rect(image.Rect(0, 0, dims.Size.X, 1)).Op(),
-		)
+		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Max: image.Point{X: dims.Size.X, Y: 1}}.Op())
 	}
 	if left {
-		paint.FillShape(gtx.Ops, popupBorder,
-			clip.Rect(image.Rect(0, 0, 1, dims.Size.Y)).Op(),
-		)
+		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Max: image.Point{X: 1, Y: dims.Size.Y}}.Op())
 	}
 	if bottom {
-		paint.FillShape(gtx.Ops, popupBorder,
-			clip.Rect(image.Rect(0, dims.Size.Y-1, dims.Size.X, dims.Size.Y)).Op(),
-		)
+		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{0, dims.Size.Y - 1}, Max: image.Point{dims.Size.X, dims.Size.Y}}.Op())
 	}
 	if right {
-		paint.FillShape(gtx.Ops, popupBorder,
-			clip.Rect(image.Rect(dims.Size.X-1, 0, dims.Size.X, dims.Size.Y)).Op(),
-		)
+		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{dims.Size.X - 1, 0}, Max: image.Point{dims.Size.X, dims.Size.Y}}.Op())
 	}
 }
 
@@ -244,13 +244,11 @@ func linkLabel(btn *widget.Clickable, s string) layout.Widget {
 				}),
 				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 					thickness := gtx.Dp(1)
-					rect := image.Rect(
-						0,
-						gtx.Constraints.Min.Y-thickness,
-						gtx.Constraints.Min.X,
-						gtx.Constraints.Min.Y,
-					)
-					defer clip.Rect(rect).Push(gtx.Ops).Pop()
+					rect := clip.Rect{
+						Min: image.Point{0, gtx.Constraints.Min.Y - thickness},
+						Max: image.Point{gtx.Constraints.Min.X, gtx.Constraints.Min.Y},
+					}
+					defer rect.Push(gtx.Ops).Pop()
 					paint.ColorOp{Color: popupLinkColor}.Add(gtx.Ops)
 					paint.PaintOp{}.Add(gtx.Ops)
 					return layout.Dimensions{Size: gtx.Constraints.Min}
@@ -381,7 +379,7 @@ func popoutLayout(gtx layout.Context, w layout.Widget) layout.Dimensions {
 
 func measureText(gtx layout.Context, text string) layout.Dimensions {
 	gtx.Constraints.Min = image.Point{}
-	gtx.Constraints.Max = image.Pt(1e6, 1e6)
+	gtx.Constraints.Max = image.Point{1e6, 1e6}
 	macro := op.Record(gtx.Ops)
 	dims := material.Label(theme, theme.TextSize, text).Layout(gtx)
 	_ = macro.Stop()

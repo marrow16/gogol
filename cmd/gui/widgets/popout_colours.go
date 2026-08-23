@@ -4,7 +4,6 @@ import (
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/text"
-	"github.com/marrow16/gogol/cmd/gui/settings"
 	"image/color"
 )
 
@@ -62,7 +61,7 @@ func newColorsPopout(p *menuPopup, c *Core) *colorsPopout {
 		result.deadR, result.deadG, result.deadB,
 		result.borderR, result.borderG, result.borderB,
 	}
-	c.settingsListen(result.settingsChanged)
+	c.settingsChangeListen(result.reset)
 	return result
 }
 
@@ -76,10 +75,6 @@ func (p *colorsPopout) reset() {
 	p.borderR.setValue(int(p.core.settings.CellBorderColor.R))
 	p.borderG.setValue(int(p.core.settings.CellBorderColor.G))
 	p.borderB.setValue(int(p.core.settings.CellBorderColor.B))
-	p.chkBorders.SetChecked(p.core.settings.CellBorders)
-}
-
-func (p *colorsPopout) settingsChanged(settings *settings.Settings) {
 	p.chkBorders.SetChecked(p.core.settings.CellBorders)
 }
 
@@ -102,7 +97,6 @@ func (p *colorsPopout) colorChanged(c int, component int, v int) {
 		if nc, changed := p.colorComponentChanged(p.core.settings.CellBorderColor, component, v); changed {
 			p.core.settings.CellBorderColor = nc
 			p.core.gridHolder.rebuild()
-			p.core.gridHolder.grid.Draw()
 		}
 	}
 }

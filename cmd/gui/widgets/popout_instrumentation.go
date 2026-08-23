@@ -4,8 +4,6 @@ import (
 	"errors"
 	"gioui.org/font"
 	"gioui.org/layout"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -122,9 +120,7 @@ func (p *instrumentationPopout) layout(gtx layout.Context) layout.Dimensions {
 		}),
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
-			paint.FillShape(gtx.Ops, popupBorder,
-				clip.Rect(image.Rect(0, 0, width, 1)).Op(),
-			)
+			horizontalLine(gtx, popupBorder, width, 1)
 			return layout.Dimensions{Size: image.Point{X: width, Y: 1}}
 		}),
 		rigidFixedWidth(p.chkRecord.Layout, width, 0),
@@ -143,9 +139,7 @@ func (p *instrumentationPopout) layout(gtx layout.Context) layout.Dimensions {
 		}),
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
-			paint.FillShape(gtx.Ops, popupBorder,
-				clip.Rect(image.Rect(0, 0, width, 1)).Op(),
-			)
+			horizontalLine(gtx, popupBorder, width, 1)
 			return layout.Dimensions{Size: image.Point{X: width, Y: 1}}
 		}),
 		rigidFixedWidth(p.chkHeatMap.Layout, width, 0),

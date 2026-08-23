@@ -5,8 +5,6 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -172,11 +170,7 @@ func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
 		)
 	})
 	call := macro.Stop()
-	paint.FillShape(
-		gtx.Ops,
-		popupBackground,
-		clip.Rect{Max: dims.Size}.Op(),
-	)
+	fill(gtx, popupBackground, dims.Size)
 	border(gtx, dims, true, true, false, true)
 	call.Add(gtx.Ops)
 	return dims
@@ -191,7 +185,7 @@ func (p *rulesPopup) layoutDetails() layout.FlexChild {
 		}
 	}
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		paint.FillShape(gtx.Ops, popupBorder, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X, 1)).Op())
+		horizontalLine(gtx, popupBorder, gtx.Constraints.Max.X, 1)
 		maxText := measureMaxText(gtx, font.Bold, "Rule: ", "Perm.: ", "Name: ", "Integer: ").Size.X
 		return layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}.Layout(gtx, flexVertical(10,
 			layout.Rigid(flexHorizontal(8,
@@ -247,11 +241,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 						if !p.rleInput.isFocused(gtx) && !p.permInput.isFocused(gtx) && !p.intInput.isFocused(gtx) && !p.nameInput.isFocused(gtx) {
 							bg = popupSelectedFocusedBackground
 						}
-						paint.FillShape(
-							gtx.Ops,
-							bg,
-							clip.Rect{Max: image.Pt(pgtx.Constraints.Max.X, rowDims.Size.Y)}.Op(),
-						)
+						fill(gtx, bg, image.Point{pgtx.Constraints.Max.X, rowDims.Size.Y})
 					}
 					gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 					r := p.sortedRules[index]

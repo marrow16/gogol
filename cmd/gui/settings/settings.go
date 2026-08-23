@@ -310,7 +310,7 @@ func (s *Settings) fromPrefs(p prefs) {
 		s.CellBorderColor = c
 	}
 	s.CellBorders = p.CellBorders
-	if p.CellSize > 1 {
+	if p.CellSize > 0 {
 		s.CellSize = p.CellSize
 	}
 	if zf := p.Zoom * float32(s.CellSize); zf >= 1.0 {

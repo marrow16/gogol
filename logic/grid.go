@@ -291,6 +291,15 @@ func (g *Grid) Draw() {
 	}
 }
 
+func (g *Grid) DrawTo(render func(row, col int, alive bool)) {
+	for row := 0; row < g.Height; row++ {
+		for col := 0; col < g.Width; col++ {
+			cell := g.Rows[row][col]
+			render(row, col, cell.Alive)
+		}
+	}
+}
+
 func (g *Grid) joinAdjacents() {
 	for r := 0; r < g.Height; r++ {
 		for c := 0; c < g.Width; c++ {

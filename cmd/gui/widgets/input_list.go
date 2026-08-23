@@ -6,7 +6,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"image"
@@ -193,13 +192,7 @@ func (l *listControl[T]) layoutList(gtx layout.Context) layout.Dimensions {
 				if l.focused {
 					bg = popupSelectedFocusedBackground
 				}
-				paint.FillShape(
-					gtx.Ops,
-					bg,
-					clip.Rect{
-						Max: image.Pt(gtx.Constraints.Max.X, rowDims.Size.Y),
-					}.Op(),
-				)
+				fill(gtx, bg, image.Point{gtx.Constraints.Max.X, rowDims.Size.Y})
 			}
 			return btn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return l.rowRenderFn(gtx, index, l.items[index])

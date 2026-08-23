@@ -11,6 +11,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
+	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
 	"image"
@@ -71,8 +72,6 @@ type gridHolder struct {
 	clickable widget.Clickable
 	zoom      float32
 	pan       f32.Point
-	lastPos   f32.Point
-
 	// underlays/overlays (for pattern placing)...
 	underlay *underlay
 	overlay  *overlay
@@ -92,15 +91,13 @@ func (g *gridHolder) replaceGrid(grid *logic.Grid) {
 func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 	size := gtx.Constraints.Max
 	viewport := image.Rectangle{Max: size}
-	canvasSize := image.Pt(
-		int(float32(g.canvas.Bounds().Dx())*g.zoom),
-		int(float32(g.canvas.Bounds().Dy())*g.zoom),
-	)
+	canvasSize := image.Point{
+		int(float32(g.canvas.Bounds().Dx()) * g.zoom),
+		int(float32(g.canvas.Bounds().Dy()) * g.zoom)}
 	g.pan = clampPan(g.pan, canvasSize, size)
 	canvasRect := image.Rectangle{
-		Min: image.Pt(int(g.pan.X), int(g.pan.Y)),
-		Max: image.Pt(int(g.pan.X)+canvasSize.X, int(g.pan.Y)+canvasSize.Y),
-	}
+		Min: image.Point{int(g.pan.X), int(g.pan.Y)},
+		Max: image.Point{int(g.pan.X) + canvasSize.X, int(g.pan.Y) + canvasSize.Y}}
 	eventFilters := []event.Filter{
 		pointer.Filter{
 			Target:  &g.clickable,
@@ -177,8 +174,7 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 	g.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		imgOp := g.imageOp()
 		zoom := op.Affine(
-			f32.Affine2D{}.
-				Scale(f32.Pt(0, 0), f32.Pt(g.zoom, g.zoom)),
+			f32.Affine2D{}.Scale(f32.Point{0, 0}, f32.Point{g.zoom, g.zoom}),
 		).Push(gtx.Ops)
 		imgOp.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
@@ -344,54 +340,57 @@ func (g *gridHolder) resize() {
 }
 
 func (g *gridHolder) rebuild() {
-	g.canvas = image.NewNRGBA(image.Rect(0, 0, g.core.settings.Width*g.core.settings.CellSize, g.core.settings.Height*g.core.settings.CellSize))
-	g.heatMapCanvas = image.NewNRGBA(image.Rect(0, 0, g.core.settings.Width*g.core.settings.CellSize, g.core.settings.Height*g.core.settings.CellSize))
-	draw.Draw(g.canvas, image.Rect(0, 0, g.core.settings.Width*g.core.settings.CellSize, g.core.settings.Height*g.core.settings.CellSize), &image.Uniform{g.core.settings.CellDeadColor}, image.Point{}, draw.Src)
-	g.drawCellBorders(g.canvas)
+	g.canvas = imaging.GridImage(g.grid, imaging.Config{
+		CellSize:    g.core.settings.CellSize,
+		Borders:     g.core.settings.CellBorders,
+		AliveColor:  g.core.settings.CellAliveColor,
+		DeadColor:   g.core.settings.CellDeadColor,
+		BorderColor: g.core.settings.CellBorderColor,
+	})
 	g.dirty = true
 }
 
-func (g *gridHolder) drawCellBorders(img *image.NRGBA) {
-	if g.core.settings.CellBorders {
-		for y := 0; y <= g.core.settings.Height; y++ {
-			yy := y * g.core.settings.CellSize
-			draw.Draw(
-				img,
-				image.Rect(0, yy, g.core.settings.Width*g.core.settings.CellSize, yy+1),
-				&image.Uniform{g.core.settings.CellBorderColor},
-				image.Point{},
-				draw.Src,
-			)
-		}
-		for x := 0; x <= g.core.settings.Width; x++ {
-			xx := x * g.core.settings.CellSize
-			draw.Draw(
-				img,
-				image.Rect(xx, 0, xx+1, g.core.settings.Height*g.core.settings.CellSize),
-				&image.Uniform{g.core.settings.CellBorderColor},
-				image.Point{},
-				draw.Src,
-			)
-		}
-	}
+func (g *gridHolder) buildHeatMap(heatMap logic.HeatMap) {
+	g.heatMapCanvas = imaging.HeatMap(heatMap, g.grid.Height, g.grid.Width, imaging.Config{
+		CellSize:    g.core.settings.CellSize,
+		Borders:     g.core.settings.CellBorders,
+		DeadColor:   g.core.settings.CellDeadColor,
+		AliveColor:  g.core.settings.CellAliveColor,
+		BorderColor: g.core.settings.CellBorderColor,
+	}, nil)
+	// build the pre-prepared image op...
+	g.heatMapImgOp = paint.NewImageOp(g.heatMapCanvas)
 }
+
+var sp image.Point
 
 func (g *gridHolder) renderCell(row, col int, alive, changed bool) {
 	if changed {
-		c := g.core.settings.CellDeadColor
+		clr := g.core.settings.CellDeadColor
 		if alive {
-			c = g.core.settings.CellAliveColor
+			clr = g.core.settings.CellAliveColor
 		}
-		off := 0
-		if g.core.settings.CellBorders {
-			off = 1
+		offset := 0
+		if g.core.settings.CellBorders && g.core.settings.CellSize > 2 {
+			offset = 1
 		}
-		draw.Draw(g.canvas, image.Rect(
-			(col*g.core.settings.CellSize)+off,
-			(row*g.core.settings.CellSize)+off,
-			(col+1)*g.core.settings.CellSize,
-			(row+1)*g.core.settings.CellSize),
-			&image.Uniform{c}, image.Point{}, draw.Src)
+		cellSize := g.core.settings.CellSize
+		xMin := col*cellSize + offset
+		xMax := xMin + cellSize - offset
+		yMin := row*cellSize + offset
+		yMax := yMin + cellSize - offset
+		i := yMin*g.canvas.Stride + xMin*4
+		for y := yMin; y < yMax; y++ {
+			p := i
+			for x := xMin; x < xMax; x++ {
+				g.canvas.Pix[p] = clr.R
+				g.canvas.Pix[p+1] = clr.G
+				g.canvas.Pix[p+2] = clr.B
+				g.canvas.Pix[p+3] = clr.A
+				p += 4
+			}
+			i += g.canvas.Stride
+		}
 		g.dirty = true
 	}
 }
@@ -405,12 +404,10 @@ func (g *gridHolder) renderCellWithColors(row, col int, alive bool, aliveColor, 
 	if g.core.settings.CellBorders {
 		off = 1
 	}
-	draw.Draw(g.canvas, image.Rect(
-		(col*g.core.settings.CellSize)+off,
-		(row*g.core.settings.CellSize)+off,
-		(col+1)*g.core.settings.CellSize,
-		(row+1)*g.core.settings.CellSize),
-		&image.Uniform{c}, image.Point{}, draw.Src)
+	draw.Draw(g.canvas, image.Rectangle{
+		Min: image.Point{X: (col * g.core.settings.CellSize) + off, Y: (row * g.core.settings.CellSize) + off},
+		Max: image.Point{X: (col + 1) * g.core.settings.CellSize, Y: (row + 1) * g.core.settings.CellSize}},
+		&image.Uniform{C: c}, image.Point{}, draw.Src)
 	g.dirty = true
 }
 

@@ -5,8 +5,6 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -337,7 +335,7 @@ func (i *chooser[T]) changed() {
 
 func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 	if i.opened && len(i.filteredItems) > 0 {
-		stack := op.Offset(image.Pt(0, i.dims.Size.Y)).Push(gtx.Ops)
+		stack := op.Offset(image.Point{0, i.dims.Size.Y}).Push(gtx.Ops)
 		rowDims := measureText(gtx, "Xy")
 		showRows := i.dropdownRows
 		if len(i.filteredItems) < showRows {
@@ -352,11 +350,7 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 				pgtx.Constraints.Max.X = width
 				pgtx.Constraints.Min.Y = height
 				pgtx.Constraints.Max.Y = height
-				paint.FillShape(
-					pgtx.Ops,
-					popupBackground,
-					clip.Rect{Max: image.Pt(width, height)}.Op(),
-				)
+				fill(gtx, popupBackground, image.Point{width, height})
 				i.list.Axis = layout.Vertical
 				if len(i.rowClicks) != len(i.filteredItems) {
 					i.rowClicks = make([]widget.Clickable, len(i.filteredItems))
@@ -379,11 +373,7 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 					}
 					return i.rowClicks[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if lbl == i.editor.Text() {
-							paint.FillShape(
-								gtx.Ops,
-								popupSelectedBackground,
-								clip.Rect{Max: image.Pt(width-fillAdj, rowDims.Size.Y)}.Op(),
-							)
+							fill(gtx, popupSelectedBackground, image.Point{width - fillAdj, rowDims.Size.Y})
 						}
 						gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 						return layout.Inset{Left: 3, Right: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
