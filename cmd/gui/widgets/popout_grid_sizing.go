@@ -37,7 +37,7 @@ func newSizingPopout(p *menuPopup, c *Core) *sizingPopout {
 	}
 	result.height = newNumberInput(4, 2, 999, 10, nil).setValue(int(c.settings.Height))
 	result.width = newNumberInput(4, 2, 999, 10, nil).setValue(int(c.settings.Width))
-	result.cellSize = newNumberInput(3, 3, 32, 1, func(v int) {
+	result.cellSize = newNumberInput(3, 1, 32, 1, func(v int) {
 		result.core.setCellSize(v)
 	}).setValue(int(c.settings.CellSize))
 	result.randomize = newNumberInput(3, 0, 100, 10, func(v int) {
@@ -54,6 +54,7 @@ func newSizingPopout(p *menuPopup, c *Core) *sizingPopout {
 	result.boundaryMode = &widget.Enum{Value: p.core.gridHolder.grid.BoundaryMode.String()}
 	result.radioBoundaryDead = newRadioButton(result.boundaryMode, logic.DeadBoundary.String(), "Dead cells")
 	result.radioBoundaryAlive = newRadioButton(result.boundaryMode, logic.AliveBoundary.String(), "Alive cells")
+	c.settingsChangeListen(result.reset)
 	return result
 }
 

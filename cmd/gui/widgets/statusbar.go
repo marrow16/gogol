@@ -158,28 +158,21 @@ func (sb *statusBar) showPopups(gtx layout.Context) {
 	case popupRule:
 		x := sb.stepDims.Size.X + gtx.Dp(unit.Dp(6)) + 3
 		pgtx := gtx
-		pgtx.Constraints = layout.Constraints{
-			Max: image.Pt(
-				sb.ruleDims.Size.X-gtx.Dp(unit.Dp(12))-3,
-				sb.top,
-			),
-		}
+		pgtx.Constraints = layout.Constraints{Max: image.Point{sb.ruleDims.Size.X - gtx.Dp(unit.Dp(12)) - 3, sb.top}}
 		macro := op.Record(gtx.Ops)
 		dims := sb.rulesPopup.layout(pgtx)
 		call := macro.Stop()
-		stack := op.Offset(image.Pt(x, sb.top-dims.Size.Y)).Push(gtx.Ops)
+		stack := op.Offset(image.Point{x, sb.top - dims.Size.Y}).Push(gtx.Ops)
 		call.Add(gtx.Ops)
 		stack.Pop()
 	case popupMenu:
 		pgtx := gtx
-		pgtx.Constraints = layout.Constraints{
-			Max: image.Pt(sb.right, sb.top),
-		}
+		pgtx.Constraints = layout.Constraints{Max: image.Point{sb.right, sb.top}}
 		macro := op.Record(gtx.Ops)
 		dims := sb.menuPopup.layout(pgtx)
 		x := sb.right - dims.Size.X
 		call := macro.Stop()
-		stack := op.Offset(image.Pt(x, sb.top-dims.Size.Y)).Push(gtx.Ops)
+		stack := op.Offset(image.Point{x, sb.top - dims.Size.Y}).Push(gtx.Ops)
 		call.Add(gtx.Ops)
 		stack.Pop()
 	}
@@ -187,12 +180,11 @@ func (sb *statusBar) showPopups(gtx layout.Context) {
 
 func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dimensions {
 	height := gtx.Dp(sb.height)
-	size := image.Pt(gtx.Constraints.Max.X, height)
+	size := image.Point{gtx.Constraints.Max.X, height}
 	sb.top = windowRect.Max.Y - height
 	sb.right = windowRect.Max.X
-	r := image.Rectangle{Max: size}
-	paint.FillShape(gtx.Ops, popupBackground, clip.Rect(r).Op())
-	paint.FillShape(gtx.Ops, popupBorder, clip.Rect(image.Rect(0, 0, size.X, 1)).Op())
+	fill(gtx, popupBackground, size)
+	horizontalLine(gtx, errorColor, size.X, 1)
 	gtx.Constraints = layout.Exact(size)
 	layout.Flex{
 		Axis:      layout.Horizontal,
@@ -252,7 +244,7 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 func (sb *statusBar) label(gtx layout.Context, s string, align text.Alignment) layout.Dimensions {
 	return layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		size := gtx.Constraints.Max
-		sb.drawInsetRect(gtx, image.Rect(0, 0, size.X, size.Y))
+		drawInsetBorder(gtx, image.Rectangle{Max: image.Point{size.X, size.Y}})
 		lbl := material.Label(theme, theme.TextSize, s)
 		lbl.Color = popupForeground
 		lbl.Alignment = align
@@ -261,6 +253,17 @@ func (sb *statusBar) label(gtx layout.Context, s string, align text.Alignment) l
 		gtx.Constraints.Max.Y = size.Y
 		return layout.Inset{Left: 6, Right: 6, Top: 3}.Layout(gtx, lbl.Layout)
 	})
+}
+
+func drawInsetBorder(gtx layout.Context, r image.Rectangle) {
+	// top
+	paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{r.Min.X, r.Min.Y + 4}, Max: image.Point{r.Max.X, r.Min.Y + 5}}.Op())
+	// left
+	paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{r.Min.X, r.Min.Y + 4}, Max: image.Point{r.Min.X + 1, r.Max.Y - 5}}.Op())
+	// bottom
+	paint.FillShape(gtx.Ops, popupBorderLight, clip.Rect{Min: image.Point{r.Min.X, r.Max.Y - 4}, Max: image.Point{r.Max.X, r.Max.Y - 5}}.Op())
+	// right
+	paint.FillShape(gtx.Ops, popupBorderLight, clip.Rect{Min: image.Point{r.Max.X - 1, r.Min.Y + 4}, Max: image.Point{r.Max.X, r.Max.Y - 5}}.Op())
 }
 
 type statusBarButton struct {
@@ -305,7 +308,7 @@ func (b *statusBarButton) layout(gtx layout.Context) layout.Dimensions {
 		if wh > gtx.Constraints.Max.X {
 			wh = gtx.Constraints.Max.X
 		}
-		size := image.Pt(wh, wh)
+		size := image.Point{wh, wh}
 		for b.clickable.Clicked(gtx) {
 			if b.isAlt && b.altCheck() {
 				b.altFn()
@@ -317,63 +320,16 @@ func (b *statusBarButton) layout(gtx layout.Context) layout.Dimensions {
 			useImg := b.useImage()
 			r := useImg.Bounds()
 			if b.hltCheck != nil && b.hltCheck() {
-				paint.FillShape(
-					gtx.Ops,
-					popupHighlightColor,
-					clip.UniformRRect(image.Rectangle{Max: size}, 4).Op(gtx.Ops),
-				)
+				paint.FillShape(gtx.Ops, popupHighlightColor, clip.UniformRRect(image.Rectangle{Max: size}, 4).Op(gtx.Ops))
 			}
 			defer op.Affine(
 				f32.Affine2D{}.Scale(
-					f32.Pt(0, 0),
-					f32.Pt(
-						float32(size.X)/float32(r.Dx()),
-						float32(size.Y)/float32(r.Dy()),
-					),
-				),
+					f32.Point{0, 0},
+					f32.Point{float32(size.X) / float32(r.Dx()), float32(size.Y) / float32(r.Dy())}),
 			).Push(gtx.Ops).Pop()
 			paint.NewImageOp(useImg).Add(gtx.Ops)
 			paint.PaintOp{}.Add(gtx.Ops)
 			return layout.Dimensions{Size: size}
 		})
 	})
-}
-
-func (sb *statusBar) drawInsetRect(gtx layout.Context, r image.Rectangle) {
-	// top
-	paint.FillShape(gtx.Ops, popupBorder,
-		clip.Rect(image.Rect(
-			r.Min.X,
-			r.Min.Y+4,
-			r.Max.X,
-			r.Min.Y+5,
-		)).Op(),
-	)
-	// left
-	paint.FillShape(gtx.Ops, popupBorder,
-		clip.Rect(image.Rect(
-			r.Min.X,
-			r.Min.Y+4,
-			r.Min.X+1,
-			r.Max.Y-5,
-		)).Op(),
-	)
-	// bottom
-	paint.FillShape(gtx.Ops, popupBorderLight,
-		clip.Rect(image.Rect(
-			r.Min.X,
-			r.Max.Y-4,
-			r.Max.X,
-			r.Max.Y-5,
-		)).Op(),
-	)
-	// right
-	paint.FillShape(gtx.Ops, popupBorderLight,
-		clip.Rect(image.Rect(
-			r.Max.X-1,
-			r.Min.Y+4,
-			r.Max.X,
-			r.Max.Y-5,
-		)).Op(),
-	)
 }

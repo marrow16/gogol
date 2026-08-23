@@ -83,7 +83,7 @@ type Core struct {
 	stepAheadQueued   bool
 	skipBackQueued    bool
 	mutex             sync.Mutex
-	settingsListeners []func(*settings.Settings)
+	settingsListeners []func()
 
 	snapshots     []patterns.Pattern
 	snapshotsStep []uint64
@@ -136,13 +136,13 @@ func (c *Core) Run(w *app.Window) error {
 	}
 }
 
-func (c *Core) settingsListen(fn func(*settings.Settings)) {
+func (c *Core) settingsChangeListen(fn func()) {
 	c.settingsListeners = append(c.settingsListeners, fn)
 }
 
 func (c *Core) settingsChanged() {
 	for _, fn := range c.settingsListeners {
-		fn(c.settings)
+		fn()
 	}
 }
 

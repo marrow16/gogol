@@ -155,9 +155,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 			_ = c.export()
 		case shortcutExportImage:
 			c.stop()
-			if p, err := c.settings.PatternFromGrid(c.gridHolder.grid); err == nil {
-				_ = c.exportImage(p)
-			}
+			_ = c.exportImage()
 		case shortcutClear:
 			c.clear()
 		case shortcutSnapshot:

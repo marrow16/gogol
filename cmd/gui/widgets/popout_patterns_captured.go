@@ -7,10 +7,9 @@ import (
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/patterns"
 	"image"
-	"image/color"
-	"image/draw"
 	"slices"
 	"strconv"
 	"strings"
@@ -317,57 +316,23 @@ func (p *capturedPatternsPopout) layoutPreviewImage(pattern *patterns.Pattern, g
 		const minCellSize = 10
 		p.cachedPattern = pattern
 		if pattern.Width > maxWd || pattern.Height > maxHt {
-			scale := min(float32(maxWd)/float32(pattern.Width), float32(maxHt)/float32(pattern.Height))
-			rect := image.Rect(0, 0, pattern.Width, pattern.Height)
-			img := image.NewPaletted(rect, color.Palette{
-				0: p.core.settings.CellDeadColor,
-				1: p.core.settings.CellAliveColor})
-			pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
-				if alive {
-					img.Pix[img.PixOffset(col, row)] = 1
-				}
+			img := imaging.PatternImagePaletted(*pattern, imaging.Config{
+				CellSize:   1,
+				Borders:    false,
+				AliveColor: p.core.settings.CellAliveColor,
+				DeadColor:  p.core.settings.CellDeadColor,
 			})
-			p.cachedImage = scaleSparse(img, scale)
+			scale := min(float32(maxWd)/float32(pattern.Width), float32(maxHt)/float32(pattern.Height))
+			p.cachedImage = imaging.ScaleSparse(img, scale)
 		} else {
-			offset := 0
 			cellSize := min((maxWd-1)/pattern.Width, (maxHt-1)/pattern.Height)
-			if cellSize > minCellSize {
-				offset = 1
-			}
-			rect := image.Rect(0, 0, (cellSize*pattern.Width)+offset, (cellSize*pattern.Height)+offset)
-			p.cachedImage = image.NewNRGBA(rect)
-			draw.Draw(p.cachedImage, rect, &image.Uniform{p.core.settings.CellDeadColor}, image.Point{}, draw.Src)
-			if cellSize > minCellSize {
-				for y := 0; y <= pattern.Height; y++ {
-					yy := y * cellSize
-					draw.Draw(
-						p.cachedImage,
-						image.Rect(0, yy, pattern.Width*cellSize, yy+1),
-						&image.Uniform{p.core.settings.CellBorderColor},
-						image.Point{},
-						draw.Src,
-					)
-				}
-				for x := 0; x <= pattern.Width; x++ {
-					xx := x * cellSize
-					draw.Draw(
-						p.cachedImage,
-						image.Rect(xx, 0, xx+1, pattern.Height*cellSize),
-						&image.Uniform{p.core.settings.CellBorderColor},
-						image.Point{},
-						draw.Src,
-					)
-				}
-			}
-			pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
-				if alive {
-					draw.Draw(p.cachedImage, image.Rect(
-						(col*cellSize)+offset,
-						(row*cellSize)+offset,
-						(col+1)*cellSize,
-						(row+1)*cellSize),
-						&image.Uniform{p.core.settings.CellAliveColor}, image.Point{}, draw.Src)
-				}
+			borders := cellSize > minCellSize
+			p.cachedImage = imaging.PatternImage(*pattern, imaging.Config{
+				CellSize:    cellSize,
+				Borders:     borders,
+				AliveColor:  p.core.settings.CellAliveColor,
+				DeadColor:   p.core.settings.CellDeadColor,
+				BorderColor: p.core.settings.CellBorderColor,
 			})
 		}
 	}

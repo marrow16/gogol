@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
 	"github.com/marrow16/gogol/recipes"
-	"image"
-	"image/color"
 	"image/png"
 	"os"
 	"strconv"
@@ -361,6 +360,7 @@ func (c *Core) gridResize(height, width int) {
 		c.settings.Height = height
 		c.gridHolder.resize()
 		c.resetInstrumentation()
+		c.settingsChanged()
 	}
 }
 
@@ -370,6 +370,7 @@ func (c *Core) decreaseGridWidth() {
 		c.settings.Width--
 		c.gridHolder.resize()
 		c.resetInstrumentation()
+		c.settingsChanged()
 	}
 }
 
@@ -378,6 +379,7 @@ func (c *Core) increaseGridWidth() {
 	c.settings.Width++
 	c.gridHolder.resize()
 	c.resetInstrumentation()
+	c.settingsChanged()
 }
 
 func (c *Core) decreaseGridHeight() {
@@ -441,10 +443,9 @@ func (c *Core) setRandomization(v int) {
 
 func (c *Core) setCellSize(size int) {
 	c.stop()
-	if size != c.settings.CellSize && size >= 3 {
+	if size != c.settings.CellSize && size > 0 {
 		c.settings.CellSize = size
 		c.gridHolder.rebuild()
-		c.gridHolder.grid.Draw()
 	}
 }
 
@@ -453,7 +454,6 @@ func (c *Core) setCellBorders(on bool) {
 	if on != c.settings.CellBorders {
 		c.settings.CellBorders = on
 		c.gridHolder.rebuild()
-		c.gridHolder.grid.Draw()
 		c.settingsChanged()
 		window.Invalidate()
 	}
@@ -463,7 +463,6 @@ func (c *Core) toggleCellBorders() {
 	c.stop()
 	c.settings.CellBorders = !c.settings.CellBorders
 	c.gridHolder.rebuild()
-	c.gridHolder.grid.Draw()
 	c.settingsChanged()
 	window.Invalidate()
 }
@@ -529,13 +528,13 @@ func (c *Core) export() (err error) {
 			err = patterns.PatternRleEncode(p, f)
 		}
 		if c.settings.ExportImage {
-			_ = c.exportImage(p)
+			_ = c.exportImage()
 		}
 	}
 	return err
 }
 
-func (c *Core) exportImage(pattern patterns.Pattern) (err error) {
+func (c *Core) exportImage() (err error) {
 	c.stop()
 	filename := c.nowFilename("Grid Export", ".png")
 	var f *os.File
@@ -543,46 +542,13 @@ func (c *Core) exportImage(pattern patterns.Pattern) (err error) {
 		defer func() {
 			_ = f.Close()
 		}()
-		wd, ht := pattern.Width*c.settings.CellSize, pattern.Height*c.settings.CellSize
-		offset := 0
-		if c.settings.CellBorders {
-			offset = 1
-		}
-		img := image.NewPaletted(image.Rect(0, 0, wd+offset, ht+offset), color.Palette{
-			0: c.settings.CellDeadColor,
-			1: c.settings.CellAliveColor,
-			2: c.settings.CellBorderColor,
-		})
-		if c.settings.CellBorders {
-			// horizontal borders...
-			for y := 0; y <= ht; y += c.settings.CellSize {
-				off := img.PixOffset(0, y)
-				r := img.Pix[off : off+wd]
-				for i := range r {
-					r[i] = 2
-				}
-			}
-			// vertical borders...
-			for x := 0; x <= wd; x += c.settings.CellSize {
-				for y := 0; y < ht; y++ {
-					img.Pix[img.PixOffset(x, y)] = 2
-				}
-			}
-		}
-		pattern.DrawTo(patterns.Rotate0, func(row, col int, alive bool) {
-			if alive {
-				x0 := (col * c.settings.CellSize) + offset
-				y0 := (row * c.settings.CellSize) + offset
-				x1 := x0 + c.settings.CellSize - offset
-				y1 := y0 + c.settings.CellSize - offset
-				for y := y0; y < y1; y++ {
-					off := img.PixOffset(x0, y)
-					r := img.Pix[off : off+(x1-x0)]
-					for i := range r {
-						r[i] = 1
-					}
-				}
-			}
+		img := imaging.Grid(c.gridHolder.grid, imaging.Config{
+			CellSize:    c.settings.CellSize,
+			Borders:     c.settings.CellBorders,
+			AliveColor:  c.settings.CellAliveColor,
+			DeadColor:   c.settings.CellDeadColor,
+			BorderColor: c.settings.CellBorderColor,
+			Paletted:    true,
 		})
 		err = png.Encode(f, img)
 	}
@@ -665,8 +631,13 @@ func (c *Core) saveHeatMapImage() {
 					defer func() {
 						_ = f.Close()
 					}()
-					img := image.NewNRGBA(image.Rect(0, 0, c.settings.Width*c.settings.CellSize, c.settings.Height*c.settings.CellSize))
-					c.gridHolder.drawHeatMap(img, hm)
+					img := imaging.HeatMap(hm, c.settings.Height, c.settings.Width, imaging.Config{
+						CellSize:    c.settings.CellSize,
+						Borders:     c.settings.CellBorders,
+						AliveColor:  c.settings.CellAliveColor,
+						DeadColor:   c.settings.CellDeadColor,
+						BorderColor: c.settings.CellBorderColor,
+					}, nil)
 					_ = png.Encode(f, img)
 				}
 			}
@@ -676,8 +647,13 @@ func (c *Core) saveHeatMapImage() {
 				defer func() {
 					_ = f.Close()
 				}()
-				img := image.NewNRGBA(image.Rect(0, 0, c.settings.Width*c.settings.CellSize, c.settings.Height*c.settings.CellSize))
-				c.gridHolder.drawHeatMap(img, c.instrumentHeatMap)
+				img := imaging.HeatMap(c.instrumentHeatMap, c.settings.Height, c.settings.Width, imaging.Config{
+					CellSize:    c.settings.CellSize,
+					Borders:     c.settings.CellBorders,
+					AliveColor:  c.settings.CellAliveColor,
+					DeadColor:   c.settings.CellDeadColor,
+					BorderColor: c.settings.CellBorderColor,
+				}, nil)
 				_ = png.Encode(f, img)
 			}
 		}

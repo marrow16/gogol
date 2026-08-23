@@ -229,7 +229,7 @@ func (p *menuPopup) layout(gtx layout.Context) layout.Dimensions {
 	})
 	p.width = dims.Size.X
 	call := macro.Stop()
-	paint.FillShape(gtx.Ops, popupBackground, clip.Rect{Max: dims.Size}.Op())
+	fill(gtx, popupBackground, dims.Size)
 	border(gtx, dims, true, true, false, false)
 	call.Add(gtx.Ops)
 	p.layoutPopouts(gtx)
@@ -253,13 +253,9 @@ func (p *menuPopup) layoutPopouts(gtx layout.Context) {
 	call := macro.Stop()
 	x := -dims.Size.X
 	y := p.selectedItemY()
-	stack := op.Offset(image.Pt(x, y)).Push(gtx.Ops)
+	stack := op.Offset(image.Point{x, y}).Push(gtx.Ops)
 	defer stack.Pop()
-	paint.FillShape(
-		gtx.Ops,
-		popupBackground,
-		clip.Rect{Max: dims.Size}.Op(),
-	)
+	fill(gtx, popupBackground, dims.Size)
 	border(gtx, dims, true, true, true, true)
 	call.Add(gtx.Ops)
 }
@@ -402,14 +398,8 @@ func (i *menuItem) layout(gtx layout.Context, width int) layout.Dimensions {
 		dims.Size.X = width
 		dims.Size.Y = (dims.Size.Y * 2) / 3
 		i.height = dims.Size.Y
-		paint.FillShape(gtx.Ops, popupBorder,
-			clip.Rect(image.Rect(
-				0,
-				dims.Size.Y/2,
-				dims.Size.X,
-				(dims.Size.Y/2)+1,
-			)).Op(),
-		)
+		// draw separator line...
+		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{0, dims.Size.Y / 2}, Max: image.Point{dims.Size.X, (dims.Size.Y / 2) + 1}}.Op())
 		return dims
 	} else {
 		for i.clickable.Clicked(gtx) {
@@ -440,11 +430,7 @@ func (i *menuItem) layout(gtx layout.Context, width int) layout.Dimensions {
 			})
 			call := macro.Stop()
 			if i.index == i.parent.selected {
-				paint.FillShape(
-					gtx.Ops,
-					popupSelectedBackground,
-					clip.Rect{Max: dims.Size}.Op(),
-				)
+				fill(gtx, popupSelectedBackground, dims.Size)
 			}
 			call.Add(gtx.Ops)
 			i.height = dims.Size.Y
