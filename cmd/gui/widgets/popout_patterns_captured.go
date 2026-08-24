@@ -53,7 +53,7 @@ func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
 	result := &capturedPatternsPopout{
 		parent:        p,
 		core:          c,
-		previewMode:   &widget.Enum{Value: previewMetadata},
+		previewMode:   &widget.Enum{Value: previewImage},
 		btnSave:       newButton("Save"),
 		btnRemove:     newButton("Remove"),
 		btnClear:      newButton("Clear"),
@@ -227,8 +227,8 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 		dims := flexVertical(10,
 			rigid(p.chooser.layout),
 			rigid(flexHorizontal(10,
-				rigid(p.radioMetadata.Layout),
 				rigid(p.radioPreview.Layout),
+				rigid(p.radioMetadata.Layout),
 			)),
 			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = int(float32(m.Size.Y) * 15.5)

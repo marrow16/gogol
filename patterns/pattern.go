@@ -73,6 +73,7 @@ func (p Pattern) Trimmed() Pattern {
 		Width:  width,
 		Height: height,
 		Cells:  cells,
+		Rule:   p.Rule,
 	}
 }
 
@@ -95,6 +96,7 @@ func (p Pattern) Rotated(rotation Rotation) Pattern {
 			Width:  width,
 			Height: height,
 			Cells:  cells,
+			Rule:   p.Rule,
 		}
 	case Rotate180:
 		cells := make([]bool, len(p.Cells))
@@ -105,6 +107,7 @@ func (p Pattern) Rotated(rotation Rotation) Pattern {
 			Width:  p.Width,
 			Height: p.Height,
 			Cells:  cells,
+			Rule:   p.Rule,
 		}
 	case Rotate270:
 		cells := make([]bool, len(p.Cells))
@@ -121,6 +124,7 @@ func (p Pattern) Rotated(rotation Rotation) Pattern {
 			Width:  width,
 			Height: height,
 			Cells:  cells,
+			Rule:   p.Rule,
 		}
 	default:
 		panic("invalid rotation")
@@ -139,6 +143,7 @@ func (p Pattern) Reflected() Pattern {
 		Width:  p.Width,
 		Height: p.Height,
 		Cells:  cells,
+		Rule:   p.Rule,
 	}
 }
 
