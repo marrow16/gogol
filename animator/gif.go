@@ -14,7 +14,7 @@ type gifEncoder struct {
 	err              error
 	buf              [256]byte
 	width, height    int
-	palette          []color.RGBA
+	palette          color.Palette
 	globalColorTable [3 * 256]byte
 	loopCount        int
 	delay            int
@@ -69,9 +69,9 @@ func (e *gifEncoder) writeHeader() {
 
 func (e *gifEncoder) encodeColorTable(paddedSize int) {
 	for i, c := range e.palette {
-		e.globalColorTable[3*i+0] = c.R
-		e.globalColorTable[3*i+1] = c.G
-		e.globalColorTable[3*i+2] = c.B
+		e.globalColorTable[3*i+0] = c.(color.NRGBA).R
+		e.globalColorTable[3*i+1] = c.(color.NRGBA).G
+		e.globalColorTable[3*i+2] = c.(color.NRGBA).B
 	}
 	n := 1 << (paddedSize + 1)
 	if n > len(e.palette) {

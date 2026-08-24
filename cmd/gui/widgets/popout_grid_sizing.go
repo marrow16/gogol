@@ -16,6 +16,7 @@ type sizingPopout struct {
 	cellSize            *numberInput[int]
 	btnResize           *button
 	btnFitScreen        *button
+	chkKeepOnResize     *checkbox
 	wrapMode            *widget.Enum
 	radioWrapNone       *radioButton
 	radioWrapHorizontal *radioButton
@@ -30,10 +31,11 @@ type sizingPopout struct {
 
 func newSizingPopout(p *menuPopup, c *Core) *sizingPopout {
 	result := &sizingPopout{
-		parent:       p,
-		core:         c,
-		btnResize:    newButton("Resize"),
-		btnFitScreen: newButton("Fit screen"),
+		parent:          p,
+		core:            c,
+		btnResize:       newButton("Resize"),
+		btnFitScreen:    newButton("Fit screen"),
+		chkKeepOnResize: newCheckBox("Keep cells", c.settings.KeepCellsOnResize),
 	}
 	result.height = newNumberInput(4, 2, 999, 10, nil).setValue(int(c.settings.Height))
 	result.width = newNumberInput(4, 2, 999, 10, nil).setValue(int(c.settings.Width))
@@ -61,6 +63,7 @@ func newSizingPopout(p *menuPopup, c *Core) *sizingPopout {
 func (p *sizingPopout) reset() {
 	p.height.setValue(p.core.gridHolder.grid.Height)
 	p.width.setValue(p.core.gridHolder.grid.Width)
+	p.chkKeepOnResize.SetChecked(p.core.settings.KeepCellsOnResize)
 	p.cellSize.setValue(p.core.settings.CellSize)
 	p.wrapMode.Value = p.core.gridHolder.grid.WrapMode.String()
 	p.boundaryMode.Value = p.core.gridHolder.grid.BoundaryMode.String()
@@ -111,6 +114,9 @@ func (p *sizingPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnResize.Clicked(gtx) {
 		p.resize()
 	}
+	if p.chkKeepOnResize.Update(gtx) {
+		p.core.settings.KeepCellsOnResize = p.chkKeepOnResize.Checked()
+	}
 	if p.wrapMode.Update(gtx) {
 		p.core.setWrapMode(logic.WrapModeFromString(p.wrapMode.Value, p.core.gridHolder.grid.WrapMode))
 	}
@@ -130,6 +136,7 @@ func (p *sizingPopout) layout(gtx layout.Context) layout.Dimensions {
 			rigidFixedWidth(nil, labelMax, 0),
 			rigid(p.btnResize.Layout),
 			rigid(p.btnFitScreen.Layout),
+			rigid(p.chkKeepOnResize.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Wrapping mode:", text.End, 0, labelMax),
@@ -158,6 +165,6 @@ func (p *sizingPopout) hasFocus(gtx layout.Context) bool {
 	_, radiosWrap := p.wrapMode.Focused()
 	_, radiosBoundary := p.boundaryMode.Focused()
 	return p.height.isFocused(gtx) || p.width.isFocused(gtx) || p.cellSize.isFocused(gtx) || p.randomize.isFocused(gtx) ||
-		p.btnResize.isFocused(gtx) || p.btnFitScreen.isFocused(gtx) ||
+		p.btnResize.isFocused(gtx) || p.btnFitScreen.isFocused(gtx) || p.chkKeepOnResize.isFocused(gtx) ||
 		radiosWrap || radiosBoundary
 }

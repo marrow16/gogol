@@ -110,6 +110,7 @@ type Settings struct {
 	CellAliveColor      color.NRGBA
 	CellDeadColor       color.NRGBA
 	CellBorderColor     color.NRGBA
+	KeepCellsOnResize   bool
 	Originator          string
 	Rules               map[string]string
 	Patterns            []string
@@ -164,6 +165,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				CellBorderColor:     fmt.Sprintf("#%02X%02X%02X", s.CellBorderColor.R, s.CellBorderColor.G, s.CellBorderColor.B),
 				CellBorders:         s.CellBorders,
 				CellSize:            s.CellSize,
+				KeepCellsOnResize:   s.KeepCellsOnResize,
 				Rule:                grid.Rule.Rle(),
 				Rules:               s.Rules,
 				Patterns:            s.Patterns,
@@ -329,6 +331,7 @@ func (s *Settings) fromPrefs(p prefs) {
 	s.Recording = p.Recording
 	s.RepeatDetection = p.RepeatDetection
 	s.HeatMappingType = p.HeatMappingType
+	s.KeepCellsOnResize = p.KeepCellsOnResize
 	if p.HeatMappingHalfLife > 0.5 && p.HeatMappingHalfLife < 1.0 {
 		s.HeatMappingHalfLife = p.HeatMappingHalfLife
 	}
@@ -390,6 +393,7 @@ type prefs struct {
 	CellBorderColor     string              `json:"cell_border_color"`
 	CellBorders         bool                `json:"cell_borders"`
 	CellSize            int                 `json:"cell_size"`
+	KeepCellsOnResize   bool                `json:"keep_cells_on_resize"`
 	Rule                string              `json:"rule"`
 	Rules               map[string]string   `json:"rules,omitempty"`
 	Patterns            []string            `json:"patterns,omitempty"`

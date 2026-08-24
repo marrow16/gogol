@@ -184,7 +184,7 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 	sb.top = windowRect.Max.Y - height
 	sb.right = windowRect.Max.X
 	fill(gtx, popupBackground, size)
-	horizontalLine(gtx, errorColor, size.X, 1)
+	horizontalLine(gtx, popupBorder, size.X, 1)
 	gtx.Constraints = layout.Exact(size)
 	layout.Flex{
 		Axis:      layout.Horizontal,

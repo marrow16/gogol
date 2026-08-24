@@ -15,7 +15,7 @@ func ScaleSparse(src *image.Paletted, scale float32) *image.NRGBA {
 	dst := image.NewNRGBA(image.Rectangle{Max: image.Point{X: w, Y: h}})
 	dstPix := dst.Pix
 	// background fill...
-	bg := src.Palette[dead].(color.NRGBA)
+	bg := src.Palette[DeadIndex].(color.NRGBA)
 	for i := 0; i < len(dstPix); i += 4 {
 		dstPix[i] = bg.R
 		dstPix[i+1] = bg.G
@@ -36,7 +36,7 @@ func ScaleSparse(src *image.Paletted, scale float32) *image.NRGBA {
 		dstRow := dy * dstStride
 		for sx := 0; sx < srcW; sx++ {
 			pi := srcPix[srcOff+sx]
-			if pi == dead {
+			if pi == DeadIndex {
 				continue
 			}
 			dx := int(float32(sx) * scale)

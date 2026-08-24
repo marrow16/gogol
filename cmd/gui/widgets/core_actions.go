@@ -542,13 +542,12 @@ func (c *Core) exportImage() (err error) {
 		defer func() {
 			_ = f.Close()
 		}()
-		img := imaging.Grid(c.gridHolder.grid, imaging.Config{
+		img := imaging.GridImagePaletted(c.gridHolder.grid, imaging.Config{
 			CellSize:    c.settings.CellSize,
 			Borders:     c.settings.CellBorders,
 			AliveColor:  c.settings.CellAliveColor,
 			DeadColor:   c.settings.CellDeadColor,
 			BorderColor: c.settings.CellBorderColor,
-			Paletted:    true,
 		})
 		err = png.Encode(f, img)
 	}
