@@ -208,37 +208,66 @@ func (g *Grid) LimitAliveAdjacents(maximum int) {
 		render = nullRender
 	}
 	total := g.Width * g.Height
-	for {
-		highest := maximum
-		var candidates []int
-		for index := 0; index < total; index++ {
+	// reverse lookup for real grid cells (boundary cells won't be present)
+	indexes := make(map[*Cell]int, total)
+	// current live-adjacent count for each real grid cell
+	counts := make([]uint8, total)
+	// build index and group cells by their current alive adjacent count...
+	var buckets [9][]int
+	index := 0
+	for _, r := range g.Rows {
+		for _, cell := range r {
+			indexes[cell] = index
+			if cell.Alive {
+				n := cell.AdjacentsAlive()
+				counts[index] = uint8(n)
+				buckets[n] = append(buckets[n], index)
+			}
+			index++
+		}
+	}
+	highest := 8
+	for highest > maximum {
+		// discard stale entries until we find a genuine candidate...
+		for len(buckets[highest]) > 0 {
+			candidates := buckets[highest]
+			n := rng.Intn(len(candidates))
+			index := candidates[n]
+			// removal from this bucket...
+			last := len(candidates) - 1
+			candidates[n] = candidates[last]
+			buckets[highest] = candidates[:last]
 			row := index / g.Width
 			col := index % g.Width
 			cell := g.Rows[row][col]
-			if !cell.Alive {
+			// entry may be stale because this cell's count has since been reduced and it was appended to a lower bucket...
+			if !cell.Alive || int(counts[index]) != highest {
 				continue
 			}
-			adjacents := cell.AdjacentsAlive()
-			if adjacents <= maximum {
-				continue
+			cell.Alive = false
+			render(row, col, false, true)
+			// only this cell's neighbours have changed...
+			for _, adjacent := range cell.Adjacents {
+				if !adjacent.Alive {
+					continue
+				}
+				// boundary cells aren't in indexes...
+				adjacentIndex, ok := indexes[adjacent]
+				if !ok {
+					continue
+				}
+				old := counts[adjacentIndex]
+				counts[adjacentIndex] = old - 1
+				// don't bother removing its old bucket entry, it will be recognised as stale when encountered...
+				buckets[old-1] = append(
+					buckets[old-1],
+					adjacentIndex,
+				)
 			}
-			switch {
-			case adjacents > highest:
-				highest = adjacents
-				candidates = candidates[:0]
-				candidates = append(candidates, index)
-			case adjacents == highest:
-				candidates = append(candidates, index)
-			}
+			// there may still be genuine cells at this level...
+			continue
 		}
-		if len(candidates) == 0 {
-			return
-		}
-		index := candidates[rng.Intn(len(candidates))]
-		row := index / g.Width
-		col := index % g.Width
-		g.Rows[row][col].Alive = false
-		render(row, col, false, true)
+		highest--
 	}
 }
 
