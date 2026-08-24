@@ -13,13 +13,6 @@ import (
 var ffmpegChecked = false
 var ffmpegAvailable = false
 
-const (
-	// palette colors...
-	deadColor   = 0
-	aliveColor  = 1
-	borderColor = 2
-)
-
 func Mp4Available() bool {
 	if !ffmpegChecked {
 		ffmpegChecked = true
@@ -65,7 +58,7 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument) (e
 		pixelFormat = "yuv420p"
 	)
 	grid := recorder.InitialGrid()
-	img := imaging.GridSliceImage(grid, imaging.Config{
+	img := imaging.CellsImage(grid, imaging.Config{
 		CellSize:    a.cellSize,
 		Borders:     a.borders,
 		AliveColor:  a.alive,
@@ -116,7 +109,7 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument) (e
 			yMin := row*a.cellSize + offset
 			yMax := yMin + cellWidth
 			line := yMin*stride + xMin*4
-			lineBytes := cellWidth * 4
+			lineBytes := cellWidth << 2
 			c := a.dead
 			if alive {
 				c = a.alive
@@ -157,22 +150,19 @@ func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument)
 		_ = f.Close()
 	}()
 	grid := recorder.InitialGrid()
-	img := imaging.GridImageSlicePaletted(grid, imaging.Config{
+	img := imaging.CellsImagePaletted(grid, imaging.Config{
 		CellSize:    a.cellSize,
 		Borders:     a.borders,
 		AliveColor:  a.alive,
 		DeadColor:   a.dead,
 		BorderColor: a.border,
 	})
+
 	anim := &gifEncoder{
-		w:      f,
-		width:  img.Bounds().Dx(),
-		height: img.Bounds().Dy(),
-		palette: []color.RGBA{
-			deadColor:   {a.dead.R, a.dead.G, a.dead.B, 255},
-			aliveColor:  {a.alive.R, a.alive.G, a.alive.B, 255},
-			borderColor: {a.border.R, a.border.G, a.border.B, 255},
-		},
+		w:         f,
+		width:     img.Bounds().Dx(),
+		height:    img.Bounds().Dy(),
+		palette:   img.Palette,
 		loopCount: -1,
 		delay:     7,
 	}
@@ -194,9 +184,9 @@ func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument)
 			yMin := row*a.cellSize + offset
 			yMax := yMin + cellWidth
 			line := yMin*stride + xMin
-			c := uint8(0)
+			c := imaging.DeadIndex
 			if alive {
-				c = 1
+				c = imaging.AliveIndex
 			}
 			for y := yMin; y < yMax; y++ {
 				end := line + cellWidth

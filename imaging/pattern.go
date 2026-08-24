@@ -6,13 +6,6 @@ import (
 	"image/color"
 )
 
-func Pattern(p patterns.Pattern, cfg Config) image.Image {
-	if cfg.Paletted {
-		return PatternImagePaletted(p, cfg)
-	}
-	return PatternImage(p, cfg)
-}
-
 func PatternImage(p patterns.Pattern, cfg Config) *image.NRGBA {
 	wd := p.Width * cfg.CellSize
 	ht := p.Height * cfg.CellSize
@@ -72,18 +65,20 @@ func PatternImagePaletted(p patterns.Pattern, cfg Config) *image.Paletted {
 		wd++
 		ht++
 	}
-	img := image.NewPaletted(image.Rectangle{Max: image.Point{wd, ht}}, color.Palette{
-		dead:   cfg.DeadColor,
-		alive:  cfg.AliveColor,
-		border: cfg.BorderColor,
-	})
+	img := image.NewPaletted(
+		image.Rectangle{Max: image.Point{wd, ht}},
+		color.Palette{DeadIndex: cfg.DeadColor,
+			AliveIndex:  cfg.AliveColor,
+			BorderIndex: cfg.BorderColor,
+		},
+	)
 	if cfg.Borders && cfg.CellSize > 2 {
-		DrawCellBordersPaletted(img, wd, ht, cfg.CellSize, border)
+		DrawCellBordersPaletted(img, wd, ht, cfg.CellSize, BorderIndex)
 	}
 	if cfg.CellSize == 1 {
 		p.DrawTo(patterns.Rotate0, func(row, col int, a bool) {
 			if a {
-				img.Pix[img.PixOffset(col, row)] = alive
+				img.Pix[img.PixOffset(col, row)] = AliveIndex
 			}
 		})
 	} else {
@@ -97,7 +92,7 @@ func PatternImagePaletted(p patterns.Pattern, cfg Config) *image.Paletted {
 					off := img.PixOffset(x0, y)
 					r := img.Pix[off : off+(x1-x0)]
 					for i := range r {
-						r[i] = alive
+						r[i] = AliveIndex
 					}
 				}
 			}

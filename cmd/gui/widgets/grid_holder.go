@@ -16,7 +16,6 @@ import (
 	"github.com/marrow16/gogol/patterns"
 	"image"
 	"image/color"
-	"image/draw"
 	"math"
 	"strconv"
 	"time"
@@ -327,6 +326,11 @@ type overlay struct {
 
 func (g *gridHolder) resize() {
 	if lg, err := logic.NewGrid(g.core.settings.Height, g.core.settings.Width, g.grid.WrapMode, g.grid.BoundaryMode); err == nil {
+		if g.core.settings.KeepCellsOnResize {
+			if rp, err := patterns.NewPatternFromGrid(g.grid); err == nil {
+				rp.Draw(lg, 0, 0, patterns.Rotate0)
+			}
+		}
 		lg.Rule = g.grid.Rule
 		lg.Render = g.renderCell
 		g.grid = lg
@@ -362,24 +366,24 @@ func (g *gridHolder) buildHeatMap(heatMap logic.HeatMap) {
 	g.heatMapImgOp = paint.NewImageOp(g.heatMapCanvas)
 }
 
-var sp image.Point
-
 func (g *gridHolder) renderCell(row, col int, alive, changed bool) {
 	if changed {
-		clr := g.core.settings.CellDeadColor
+		var clr *color.NRGBA
 		if alive {
-			clr = g.core.settings.CellAliveColor
+			clr = &g.core.settings.CellAliveColor
+		} else {
+			clr = &g.core.settings.CellDeadColor
 		}
 		offset := 0
-		if g.core.settings.CellBorders && g.core.settings.CellSize > 2 {
+		cellSize := g.core.settings.CellSize
+		if g.core.settings.CellBorders && cellSize > 2 {
 			offset = 1
 		}
-		cellSize := g.core.settings.CellSize
 		xMin := col*cellSize + offset
 		xMax := xMin + cellSize - offset
 		yMin := row*cellSize + offset
 		yMax := yMin + cellSize - offset
-		i := yMin*g.canvas.Stride + xMin*4
+		i := yMin*g.canvas.Stride + (xMin << 2)
 		for y := yMin; y < yMax; y++ {
 			p := i
 			for x := xMin; x < xMax; x++ {
@@ -395,19 +399,33 @@ func (g *gridHolder) renderCell(row, col int, alive, changed bool) {
 	}
 }
 
-func (g *gridHolder) renderCellWithColors(row, col int, alive bool, aliveColor, deadColor color.Color) {
+func (g *gridHolder) renderCellWithColors(row, col int, alive bool, aliveColor, deadColor color.NRGBA) {
 	c := deadColor
 	if alive {
 		c = aliveColor
 	}
+	cs := g.core.settings.CellSize
 	off := 0
-	if g.core.settings.CellBorders {
+	if g.core.settings.CellBorders && cs > 2 {
 		off = 1
 	}
-	draw.Draw(g.canvas, image.Rectangle{
-		Min: image.Point{X: (col * g.core.settings.CellSize) + off, Y: (row * g.core.settings.CellSize) + off},
-		Max: image.Point{X: (col + 1) * g.core.settings.CellSize, Y: (row + 1) * g.core.settings.CellSize}},
-		&image.Uniform{C: c}, image.Point{}, draw.Src)
+	xMin := col*cs + off
+	yMin := row*cs + off
+	xMax := xMin + cs - off
+	yMax := yMin + cs - off
+	stride := g.canvas.Stride
+	i := yMin*stride + (xMin << 2)
+	for y := yMin; y < yMax; y++ {
+		p := i
+		for x := xMin; x < xMax; x++ {
+			g.canvas.Pix[p] = c.R
+			g.canvas.Pix[p+1] = c.G
+			g.canvas.Pix[p+2] = c.B
+			g.canvas.Pix[p+3] = c.A
+			p += 4
+		}
+		i += stride
+	}
 	g.dirty = true
 }
 

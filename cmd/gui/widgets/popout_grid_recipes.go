@@ -3,6 +3,7 @@ package widgets
 import (
 	"errors"
 	"gioui.org/layout"
+	"gioui.org/widget"
 	"github.com/marrow16/gogol/recipes"
 	"slices"
 	"sort"
@@ -16,6 +17,7 @@ type gridRecipesPopout struct {
 	btnPath    *pathButton
 	btnRun     *button
 	btnSaveRle *button
+	linkHelp   widget.Clickable
 	error      error
 }
 
@@ -118,17 +120,26 @@ func (p *gridRecipesPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnSaveRle.Clicked(gtx) {
 		p.saveRecipeRle()
 	}
+	if p.linkHelp.Clicked(gtx) {
+		_ = openURL(gridRecipesHelp)
+	}
+	curr := p.chooser.currentItem()
+	gap := 20
+	if curr == nil {
+		gap = 0
+	}
 	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
 		dims := flexVertical(10,
 			rigid(flexHorizontal(0,
 				rigid(p.chooser.layout),
 				rigid(p.btnPath.Layout),
 			)),
-			rigid(flexHorizontal(20,
-				rigid(p.btnRun.Layout),
-				rigid(p.btnSaveRle.Layout),
+			rigid(flexHorizontal(gap,
+				conditionalRigid(curr != nil, p.btnRun.Layout, nil),
+				conditionalRigid(curr != nil, p.btnSaveRle.Layout, nil),
 				rigid(errorLabel(p.error)),
-				conditionalRigid(p.error == nil && p.chooser.currentItem() != nil, label("(Press "+modKeyName+"G to run)"), nil),
+				conditionalRigid(p.error == nil && curr != nil, label("(Press "+modKeyName+"G to run)"), nil),
+				conditionalRigid(p.error == nil && curr == nil, linkLabel(&p.linkHelp, "(see help)"), nil),
 			)),
 		)(gtx)
 		p.chooser.layoutDropdown(gtx)
@@ -137,5 +148,5 @@ func (p *gridRecipesPopout) layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *gridRecipesPopout) hasFocus(gtx layout.Context) bool {
-	return p.chooser.isFocused(gtx) || p.btnRun.isFocused(gtx) || p.btnSaveRle.isFocused(gtx) || p.btnPath.isFocused(gtx)
+	return p.chooser.isFocused(gtx) || p.btnRun.isFocused(gtx) || p.btnSaveRle.isFocused(gtx) || p.btnPath.isFocused(gtx) || gtx.Focused(&p.linkHelp)
 }
