@@ -38,6 +38,7 @@ func NewSettings() *Settings {
 		CellBorderColor:     color.NRGBA{R: 240, G: 240, B: 239, A: 255},
 		HeatMappingHalfLife: 0.996,
 		Shortcuts:           make(map[string][]string),
+		Fps:                 20,
 		MetaRules: map[string]string{
 			"Plus Worlds": `AllOf(
     B(!2345) / S(+47,!3),
@@ -127,6 +128,7 @@ type Settings struct {
 	MetaRules           map[string]string
 	CollectedRules      map[int]bool
 	AnimationFormat     string
+	Fps                 int
 }
 
 func (s *Settings) Save(grid *logic.Grid, zoom float32) {
@@ -182,6 +184,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				MetaRules:           s.MetaRules,
 				CollectedRules:      fr,
 				AnimationFormat:     s.AnimationFormat,
+				Fps:                 s.Fps,
 			}
 			if pattern, err := s.PatternFromGrid(grid); err == nil {
 				var buf bytes.Buffer
@@ -346,6 +349,9 @@ func (s *Settings) fromPrefs(p prefs) {
 		s.CollectedRules[fr] = true
 	}
 	s.AnimationFormat = p.AnimationFormat
+	if p.Fps >= 1 {
+		s.Fps = p.Fps
+	}
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			if g, err := logic.NewGrid(pattern.Height, pattern.Width, s.WrapMode, s.BoundaryMode); err == nil {
@@ -411,6 +417,7 @@ type prefs struct {
 	MetaRules           map[string]string   `json:"meta_rules"`
 	CollectedRules      []int               `json:"collected_rules"`
 	AnimationFormat     string              `json:"animation_format"`
+	Fps                 int                 `json:"fps"`
 }
 
 var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")

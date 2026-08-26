@@ -83,6 +83,7 @@ type Core struct {
 	stepAheadQueued   bool
 	skipBackQueued    bool
 	mutex             sync.Mutex
+	hz                atomic.Uint64
 	settingsListeners []func()
 
 	snapshots     []patterns.Pattern
