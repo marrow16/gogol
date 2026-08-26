@@ -27,50 +27,115 @@ func (c *Core) start() {
 	stop := c.stopRun
 	delay := time.Duration(c.settings.StepDelay) * time.Millisecond
 	c.mutex.Unlock()
-	ignoreRepeat := false
-	if c.instrumentRepeat != nil && c.instrumentRepeat.Found {
-		ignoreRepeat = true
-	}
-	go func() {
-		defer func() {
-			c.mutex.Lock()
-			if c.stopRun == stop {
-				c.running = false
-				c.stopRun = nil
-			}
-			c.mutex.Unlock()
-		}()
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-			}
-			start := time.Now()
-			if !c.gridHolder.grid.StepWithInstrumentation(c.instrumentation) {
-				time.Sleep(50 * time.Millisecond)
-				c.gridHolder.dirty = true
-				window.Invalidate()
-				return
-			}
-			if !ignoreRepeat && c.instrumentRepeat != nil && c.instrumentRepeat.Found {
-				time.Sleep(50 * time.Millisecond)
-				c.gridHolder.dirty = true
-				window.Invalidate()
-				return
-			}
-			window.Invalidate()
-			if sleep := delay - time.Since(start); sleep > 0 {
-				timer := time.NewTimer(sleep)
+	c.hz.Store(0)
+	fps := int64(time.Second / time.Duration(c.settings.Fps))
+	if len(c.instrumentation) == 0 {
+		go func() {
+			defer func() {
+				c.hz.Store(0)
+				c.mutex.Lock()
+				if c.stopRun == stop {
+					c.running = false
+					c.stopRun = nil
+				}
+				c.mutex.Unlock()
+			}()
+			rateStart := time.Now()
+			var rateSteps uint64
+			var lastInvalidate int64
+			for {
 				select {
 				case <-stop:
-					timer.Stop()
 					return
-				case <-timer.C:
+				default:
+				}
+				start := time.Now()
+				if !c.gridHolder.grid.Step() {
+					time.Sleep(50 * time.Millisecond)
+					c.gridHolder.dirty = true
+					window.Invalidate()
+					return
+				}
+				rateSteps++
+				if elapsed := time.Since(rateStart); elapsed >= time.Second {
+					c.hz.Store(uint64(float64(rateSteps) / elapsed.Seconds()))
+					rateSteps = 0
+					rateStart = time.Now()
+				}
+				if now := time.Now().UnixNano(); now-lastInvalidate >= fps {
+					window.Invalidate()
+					lastInvalidate = now
+				}
+				if sleep := delay - time.Since(start); sleep > 0 {
+					timer := time.NewTimer(sleep)
+					select {
+					case <-stop:
+						timer.Stop()
+						return
+					case <-timer.C:
+					}
 				}
 			}
+		}()
+	} else {
+		ignoreRepeat := false
+		if c.instrumentRepeat != nil && c.instrumentRepeat.Found {
+			ignoreRepeat = true
 		}
-	}()
+		go func() {
+			defer func() {
+				c.hz.Store(0)
+				c.mutex.Lock()
+				if c.stopRun == stop {
+					c.running = false
+					c.stopRun = nil
+				}
+				c.mutex.Unlock()
+			}()
+			rateStart := time.Now()
+			var rateSteps uint64
+			var lastInvalidate int64
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				start := time.Now()
+				if !c.gridHolder.grid.StepWithInstrumentation(c.instrumentation) {
+					time.Sleep(50 * time.Millisecond)
+					c.gridHolder.dirty = true
+					window.Invalidate()
+					return
+				}
+				rateSteps++
+				if elapsed := time.Since(rateStart); elapsed >= time.Second {
+					c.hz.Store(uint64(float64(rateSteps) / elapsed.Seconds()))
+					rateSteps = 0
+					rateStart = time.Now()
+				}
+				if !ignoreRepeat && c.instrumentRepeat != nil && c.instrumentRepeat.Found {
+					time.Sleep(50 * time.Millisecond)
+					c.gridHolder.dirty = true
+					window.Invalidate()
+					return
+				}
+				if now := time.Now().UnixNano(); now-lastInvalidate >= fps {
+					window.Invalidate()
+					lastInvalidate = now
+				}
+				if sleep := delay - time.Since(start); sleep > 0 {
+					timer := time.NewTimer(sleep)
+					select {
+					case <-stop:
+						timer.Stop()
+						return
+					case <-timer.C:
+					}
+				}
+			}
+		}()
+	}
 }
 
 func (c *Core) stop() {

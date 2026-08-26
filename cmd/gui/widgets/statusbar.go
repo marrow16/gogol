@@ -205,7 +205,11 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 			case sb.core.instrumentRepeat != nil && sb.core.instrumentRepeat.Found:
 				sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" Repeat Found!", text.Start)
 			default:
-				sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10)), text.Start)
+				if hz := sb.core.hz.Load(); hz > 0 {
+					sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatUint(hz, 10)+"Hz)", text.Start)
+				} else {
+					sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10)), text.Start)
+				}
 			}
 			return sb.stepDims
 		}),
