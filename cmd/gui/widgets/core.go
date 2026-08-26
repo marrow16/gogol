@@ -2,6 +2,12 @@ package widgets
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"gioui.org/app"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
@@ -13,11 +19,6 @@ import (
 	"github.com/marrow16/gogol/cmd/gui/settings"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
-	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 var (
@@ -83,7 +84,8 @@ type Core struct {
 	stepAheadQueued   bool
 	skipBackQueued    bool
 	mutex             sync.Mutex
-	hz                atomic.Uint64
+	hertz             atomic.Uint64
+	changes           atomic.Int64
 	settingsListeners []func()
 
 	snapshots     []patterns.Pattern

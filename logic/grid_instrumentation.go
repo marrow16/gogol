@@ -40,7 +40,7 @@ func (r StopReason) String() string {
 // the after StepInstrumentation is called synchronously while the grid is locked.
 // Do not call back into Grid from an instrumentation implementation.
 // changes and locations are only valid for the duration of the call.
-func (g *Grid) StepWithInstrumentation(after StepInstrumentation) (gridChanged bool) {
+func (g *Grid) StepWithInstrumentation(after StepInstrumentation) (bool, int) {
 	if after == nil {
 		return g.Step()
 	}
@@ -66,15 +66,16 @@ func (g *Grid) StepWithInstrumentation(after StepInstrumentation) (gridChanged b
 			}
 		}
 	}
-	if len(g.changesBuffer) == 0 {
-		return false
+	l := len(g.changesBuffer)
+	if l == 0 {
+		return false, 0
 	}
 	for _, cell := range g.changesBuffer {
 		cell.flip()
 	}
 	step := g.StepCount.Add(1)
 	after.Instrument(step, g.changesBuffer, g.locationsBuffer)
-	return true
+	return true, l
 }
 
 // StepAheadWithInstrumentation

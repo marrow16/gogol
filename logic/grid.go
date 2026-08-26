@@ -414,7 +414,7 @@ func (g *Grid) GetCell(row, col int) *Cell {
 
 func nullRender(row, col int, alive, changed bool) {}
 
-func (g *Grid) Step() (gridChanged bool) {
+func (g *Grid) Step() (bool, int) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 	if g.Rule == nil {
@@ -435,14 +435,15 @@ func (g *Grid) Step() (gridChanged bool) {
 			}
 		}
 	}
-	if len(g.changesBuffer) == 0 {
-		return false
+	l := len(g.changesBuffer)
+	if l == 0 {
+		return false, 0
 	}
 	for _, cell := range g.changesBuffer {
 		cell.flip()
 	}
 	g.StepCount.Add(1)
-	return true
+	return true, l
 }
 
 func (g *Grid) StepAhead(by int) {

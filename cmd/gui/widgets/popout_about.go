@@ -1,6 +1,9 @@
 package widgets
 
 import (
+	"runtime"
+	"strings"
+
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/text"
@@ -8,7 +11,7 @@ import (
 )
 
 const (
-	gogolGuiVersion = "1.0.43"
+	gogolGuiVersion = "1.0.44"
 	gogolRepo       = "https://github.com/marrow16/gogol"
 	helpLink        = "https://github.com/marrow16/gogol/blob/main/HELP_GUI.md"
 	shortcutsHelp   = "https://github.com/marrow16/gogol/blob/main/cmd/gui/SHORTCUTS.md"
@@ -19,6 +22,7 @@ const (
 func newAboutPopout(p *menuPopup) *aboutPopout {
 	result := &aboutPopout{
 		parent: p,
+		v:      "Version: " + gogolGuiVersion + " (Go: " + strings.TrimPrefix(runtime.Version(), "go") + ")",
 	}
 	result.links = map[*widget.Clickable]string{
 		&result.linkRepo:        gogolRepo,
@@ -38,6 +42,7 @@ type aboutPopout struct {
 	linkMetaRule    widget.Clickable
 	linkGridRecipes widget.Clickable
 	links           map[*widget.Clickable]string
+	v               string
 }
 
 func (p *aboutPopout) layout(gtx layout.Context) layout.Dimensions {
@@ -50,7 +55,7 @@ func (p *aboutPopout) layout(gtx layout.Context) layout.Dimensions {
 	}
 	return popoutLayout(gtx, flexVertical(0,
 		rigidLabel("GoGoL", text.Middle, font.Bold, minX),
-		rigidLabel("Version: "+gogolGuiVersion, text.Middle, 0, minX),
+		rigidLabel(p.v, text.Middle, 0, minX),
 		rigidSpacerVertical(m.Size.Y/2),
 		rigidLabel("Author: Martin \"Marrow\" Rowlinson", text.Middle, 0, minX),
 		rigidFixedWidth(linkLabel(&p.linkRepo, gogolRepo), minX, layout.Center),

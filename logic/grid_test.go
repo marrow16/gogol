@@ -2,9 +2,10 @@ package logic
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestNewGrid(t *testing.T) {
@@ -252,7 +253,7 @@ func TestGrid_Step(t *testing.T) {
 		testDisplay(g)
 
 		cellsChanged = 0
-		gridChanged := g.Step()
+		gridChanged, _ := g.Step()
 		assert.True(t, gridChanged)
 		assert.Equal(t, 2, cellsChanged)
 		assert.False(t, g.GetCell(2, 2).Alive)
@@ -260,7 +261,7 @@ func TestGrid_Step(t *testing.T) {
 		testDisplay(g)
 
 		cellsChanged = 0
-		gridChanged = g.Step()
+		gridChanged, _ = g.Step()
 		assert.True(t, gridChanged)
 		assert.Equal(t, 2, cellsChanged)
 		assert.True(t, g.GetCell(2, 2).Alive)
@@ -287,13 +288,13 @@ func TestGrid_Step(t *testing.T) {
 		testDisplay(g)
 
 		cellsChanged = 0
-		gridChanged := g.Step()
+		gridChanged, _ := g.Step()
 		assert.True(t, gridChanged)
 		assert.Equal(t, 8, cellsChanged)
 		testDisplay(g)
 
 		cellsChanged = 0
-		gridChanged = g.Step()
+		gridChanged, _ = g.Step()
 		assert.True(t, gridChanged)
 		assert.Equal(t, 8, cellsChanged)
 		testDisplay(g)
@@ -318,7 +319,7 @@ func TestGrid_Step(t *testing.T) {
 
 		for s := 0; s < 20; s++ {
 			cellsChanged = 0
-			gridChanged := g.Step()
+			gridChanged, _ := g.Step()
 			assert.True(t, gridChanged)
 			assert.Equal(t, 4, cellsChanged)
 		}
@@ -338,7 +339,7 @@ func TestGrid_Step(t *testing.T) {
 		g.SetCell(1, 0, true)
 		g.SetCell(1, 1, true)
 		g.Rule = nil
-		gridChanged := g.Step()
+		gridChanged, _ := g.Step()
 		assert.True(t, gridChanged)
 		assert.False(t, g.GetCell(0, 0).Alive)
 		assert.False(t, g.GetCell(0, 1).Alive)

@@ -2,17 +2,18 @@ package widgets
 
 import (
 	"encoding/json"
+	"image/png"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"gioui.org/layout"
 	"gioui.org/op"
 	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
 	"github.com/marrow16/gogol/recipes"
-	"image/png"
-	"os"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func (c *Core) start() {
@@ -27,12 +28,13 @@ func (c *Core) start() {
 	stop := c.stopRun
 	delay := time.Duration(c.settings.StepDelay) * time.Millisecond
 	c.mutex.Unlock()
-	c.hz.Store(0)
+	c.hertz.Store(0)
+	c.changes.Store(0)
 	fps := int64(time.Second / time.Duration(c.settings.Fps))
 	if len(c.instrumentation) == 0 {
 		go func() {
 			defer func() {
-				c.hz.Store(0)
+				c.hertz.Store(0)
 				c.mutex.Lock()
 				if c.stopRun == stop {
 					c.running = false
@@ -50,7 +52,10 @@ func (c *Core) start() {
 				default:
 				}
 				start := time.Now()
-				if !c.gridHolder.grid.Step() {
+				stepped, changes := c.gridHolder.grid.Step()
+				if !stepped {
+					c.hertz.Store(0)
+					c.changes.Store(0)
 					time.Sleep(50 * time.Millisecond)
 					c.gridHolder.dirty = true
 					window.Invalidate()
@@ -58,7 +63,8 @@ func (c *Core) start() {
 				}
 				rateSteps++
 				if elapsed := time.Since(rateStart); elapsed >= time.Second {
-					c.hz.Store(uint64(float64(rateSteps) / elapsed.Seconds()))
+					c.changes.Store(int64(changes))
+					c.hertz.Store(uint64(float64(rateSteps) / elapsed.Seconds()))
 					rateSteps = 0
 					rateStart = time.Now()
 				}
@@ -84,7 +90,7 @@ func (c *Core) start() {
 		}
 		go func() {
 			defer func() {
-				c.hz.Store(0)
+				c.hertz.Store(0)
 				c.mutex.Lock()
 				if c.stopRun == stop {
 					c.running = false
@@ -102,7 +108,10 @@ func (c *Core) start() {
 				default:
 				}
 				start := time.Now()
-				if !c.gridHolder.grid.StepWithInstrumentation(c.instrumentation) {
+				stepped, changes := c.gridHolder.grid.StepWithInstrumentation(c.instrumentation)
+				if !stepped {
+					c.hertz.Store(0)
+					c.changes.Store(0)
 					time.Sleep(50 * time.Millisecond)
 					c.gridHolder.dirty = true
 					window.Invalidate()
@@ -110,7 +119,8 @@ func (c *Core) start() {
 				}
 				rateSteps++
 				if elapsed := time.Since(rateStart); elapsed >= time.Second {
-					c.hz.Store(uint64(float64(rateSteps) / elapsed.Seconds()))
+					c.changes.Store(int64(changes))
+					c.hertz.Store(uint64(float64(rateSteps) / elapsed.Seconds()))
 					rateSteps = 0
 					rateStart = time.Now()
 				}
@@ -164,7 +174,8 @@ func (c *Core) step() {
 	c.clearMode()
 	defer c.mutex.Unlock()
 	c.stopRunning()
-	c.gridHolder.grid.StepWithInstrumentation(c.instrumentation)
+	_, changes := c.gridHolder.grid.StepWithInstrumentation(c.instrumentation)
+	c.changes.Store(int64(changes))
 	window.Invalidate()
 }
 

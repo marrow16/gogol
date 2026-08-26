@@ -2,18 +2,19 @@ package main
 
 import (
 	"bytes"
-	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"errors"
-	"github.com/marrow16/gogol/cmd/tui/layout"
-	"github.com/marrow16/gogol/logic"
-	"github.com/marrow16/gogol/patterns"
 	"io/fs"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/marrow16/gogol/cmd/tui/layout"
+	"github.com/marrow16/gogol/logic"
+	"github.com/marrow16/gogol/patterns"
 )
 
 func newModel() *model {
@@ -221,7 +222,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tickMsg:
 		if m.mode == modeRunning {
-			if m.grid.Step() {
+			stepped, _ := m.grid.Step()
+			if stepped {
 				return m, m.tick()
 			} else {
 				m.mode = modeStopped

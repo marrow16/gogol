@@ -4,9 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"github.com/marrow16/gogol/logic"
 	"io"
 	"slices"
+
+	"github.com/marrow16/gogol/logic"
 )
 
 type Pattern struct {
@@ -443,7 +444,8 @@ func (p Pattern) Phases(maxSteps int, populationFactor int, sizeFactor int) (pha
 	maxPop := initialPop * populationFactor
 	minPop := initialPop / populationFactor
 	for i := 0; i < maxSteps; i++ {
-		if !g.Step() {
+		stepped, _ := g.Step()
+		if !stepped {
 			result = PhaseStopped
 			return
 		}

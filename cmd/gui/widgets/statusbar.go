@@ -1,6 +1,9 @@
 package widgets
 
 import (
+	"image"
+	"strconv"
+
 	"gioui.org/f32"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -11,8 +14,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/cmd/gui/icons"
-	"image"
-	"strconv"
 )
 
 func newStatusBar(c *Core) *statusBar {
@@ -205,10 +206,11 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 			case sb.core.instrumentRepeat != nil && sb.core.instrumentRepeat.Found:
 				sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" Repeat Found!", text.Start)
 			default:
-				if hz := sb.core.hz.Load(); hz > 0 {
-					sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatUint(hz, 10)+"Hz)", text.Start)
+				perc := (float64(sb.core.changes.Load()) / float64(sb.core.gridHolder.grid.Width*sb.core.gridHolder.grid.Height)) * 100.0
+				if hz := sb.core.hertz.Load(); hz > 0 {
+					sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"% "+strconv.FormatUint(hz, 10)+"Hz)", text.Start)
 				} else {
-					sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10)), text.Start)
+					sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"%)", text.Start)
 				}
 			}
 			return sb.stepDims
