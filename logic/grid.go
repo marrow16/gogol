@@ -446,14 +446,15 @@ func (g *Grid) Step() (bool, int) {
 	return true, l
 }
 
-func (g *Grid) StepAhead(by int) {
+func (g *Grid) StepAhead(by int) int {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 	if g.Rule == nil {
 		g.Rule = StandardRule
 	}
 	count := uint64(0)
-	for i := 0; i < by; i++ {
+	changes := 0
+	for range by {
 		g.changesBuffer = g.changesBuffer[:0]
 		for _, row := range g.Rows {
 			for _, cell := range row {
@@ -462,7 +463,8 @@ func (g *Grid) StepAhead(by int) {
 				}
 			}
 		}
-		if len(g.changesBuffer) == 0 {
+		changes = len(g.changesBuffer)
+		if changes == 0 {
 			break
 		}
 		count++
@@ -471,4 +473,5 @@ func (g *Grid) StepAhead(by int) {
 		}
 	}
 	g.StepCount.Add(count)
+	return changes
 }

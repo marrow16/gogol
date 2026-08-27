@@ -86,10 +86,10 @@ func (g *Grid) StepWithInstrumentation(after StepInstrumentation) (bool, int) {
 //
 // after receives the same changes after they have been applied.
 // returning true stops further execution.
-func (g *Grid) StepAheadWithInstrumentation(by int, before, after StepStopInstrumentation) StopReason {
+func (g *Grid) StepAheadWithInstrumentation(by int, before, after StepStopInstrumentation) (StopReason, int) {
 	if before == nil && after == nil {
-		g.StepAhead(by)
-		return StepCompleted
+		changes := g.StepAhead(by)
+		return StepCompleted, changes
 	}
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
@@ -99,7 +99,8 @@ func (g *Grid) StepAheadWithInstrumentation(by int, before, after StepStopInstru
 	reason := StepCompleted
 	count := uint64(0)
 	step := g.StepCount.Load() + 1
-	for i := 0; i < by; i++ {
+	changes := 0
+	for range by {
 		g.changesBuffer = g.changesBuffer[:0]
 		g.locationsBuffer = g.locationsBuffer[:0]
 		for r, row := range g.Rows {
@@ -110,7 +111,8 @@ func (g *Grid) StepAheadWithInstrumentation(by int, before, after StepStopInstru
 				}
 			}
 		}
-		if len(g.changesBuffer) == 0 {
+		changes = len(g.changesBuffer)
+		if changes == 0 {
 			reason = NoChangesDetected
 			break
 		}
@@ -129,5 +131,5 @@ func (g *Grid) StepAheadWithInstrumentation(by int, before, after StepStopInstru
 		step++
 	}
 	g.StepCount.Add(count)
-	return reason
+	return reason, changes
 }

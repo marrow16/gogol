@@ -1,15 +1,16 @@
 package logic
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRepeatInstrument(t *testing.T) {
 	t.Run("stable empty - step ahead", func(t *testing.T) {
 		g, _ := NewGrid(10, 10, WrapAll, DeadBoundary)
 		i := NewRepeatInstrument(g)
-		result := g.StepAheadWithInstrumentation(10, nil, i)
+		result, _ := g.StepAheadWithInstrumentation(10, nil, i)
 		assert.Equal(t, NoChangesDetected, result)
 		assert.Equal(t, uint64(0), g.StepCount.Load())
 		assert.False(t, i.Found)
@@ -21,7 +22,7 @@ func TestRepeatInstrument(t *testing.T) {
 		g.SetCell(1, 0, true)
 		g.SetCell(1, 1, true)
 		i := NewRepeatInstrument(g)
-		result := g.StepAheadWithInstrumentation(10, nil, i)
+		result, _ := g.StepAheadWithInstrumentation(10, nil, i)
 		assert.Equal(t, NoChangesDetected, result)
 		assert.Equal(t, uint64(0), g.StepCount.Load())
 		assert.False(t, i.Found)
@@ -32,7 +33,7 @@ func TestRepeatInstrument(t *testing.T) {
 		g.SetCell(0, 1, true)
 		g.SetCell(0, 2, true)
 		i := NewRepeatInstrument(g)
-		result := g.StepAheadWithInstrumentation(10, nil, i)
+		result, _ := g.StepAheadWithInstrumentation(10, nil, i)
 		assert.Equal(t, InstrumentStoppedOnAfter, result)
 		assert.Equal(t, uint64(2), g.StepCount.Load())
 		assert.True(t, i.Found)
@@ -48,7 +49,7 @@ func TestRepeatInstrument(t *testing.T) {
 		g.SetCell(2, 1, true)
 		g.SetCell(2, 2, true)
 		i := NewRepeatInstrument(g)
-		result := g.StepAheadWithInstrumentation(100, nil, i)
+		result, _ := g.StepAheadWithInstrumentation(100, nil, i)
 		assert.Equal(t, InstrumentStoppedOnAfter, result)
 		assert.Equal(t, uint64(40), g.StepCount.Load())
 		assert.True(t, i.Found)
@@ -64,7 +65,7 @@ func TestRepeatInstrument(t *testing.T) {
 		g.SetCell(2, 1, true)
 		g.SetCell(2, 2, true)
 		i := NewRepeatInstrument(g)
-		result := g.StepAheadWithInstrumentation(100, i, nil)
+		result, _ := g.StepAheadWithInstrumentation(100, i, nil)
 		assert.Equal(t, InstrumentStoppedOnBefore, result)
 		assert.Equal(t, uint64(39), g.StepCount.Load())
 		assert.True(t, i.Found)

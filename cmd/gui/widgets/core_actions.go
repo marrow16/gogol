@@ -196,7 +196,8 @@ func (c *Core) stepAhead() {
 		}
 	}
 	go func() {
-		c.gridHolder.grid.StepAheadWithInstrumentation(c.settings.StepAheadBy, nil, c.instrumentation)
+		_, changes := c.gridHolder.grid.StepAheadWithInstrumentation(c.settings.StepAheadBy, nil, c.instrumentation)
+		c.changes.Store(int64(changes))
 		c.gridHolder.grid.Draw()
 		window.Invalidate()
 		c.stepAheadQueued = false
@@ -209,7 +210,8 @@ func (c *Core) stepAheadBy(n int) {
 	defer c.mutex.Unlock()
 	c.clearMode()
 	c.stopRunning()
-	c.gridHolder.grid.StepAheadWithInstrumentation(n, nil, c.instrumentation)
+	_, changes := c.gridHolder.grid.StepAheadWithInstrumentation(n, nil, c.instrumentation)
+	c.changes.Store(int64(changes))
 	c.gridHolder.grid.Draw()
 	window.Invalidate()
 }

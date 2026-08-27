@@ -203,14 +203,21 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 				sb.stepDims = sb.label(gtx, sb.core.status, text.Start)
 			case sb.core.mode != noMode:
 				sb.stepDims = sb.label(gtx, sb.core.modeDisplay(), text.Start)
-			case sb.core.instrumentRepeat != nil && sb.core.instrumentRepeat.Found:
-				sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" Repeat Found!", text.Start)
 			default:
+				var repeat string
+				if sb.core.instrumentRepeat != nil && sb.core.instrumentRepeat.Found {
+					repeat = " [Repeat found]"
+				}
 				perc := (float64(sb.core.changes.Load()) / float64(sb.core.gridHolder.grid.Width*sb.core.gridHolder.grid.Height)) * 100.0
 				if hz := sb.core.hertz.Load(); hz > 0 {
-					sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"% "+strconv.FormatUint(hz, 10)+"Hz)", text.Start)
+					if hz > 1000 {
+						khz := float64(hz) / 1000.0
+						sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"% "+strconv.FormatFloat(khz, 'f', 1, 64)+"kHz)"+repeat, text.Start)
+					} else {
+						sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"% "+strconv.FormatUint(hz, 10)+"Hz)"+repeat, text.Start)
+					}
 				} else {
-					sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"%)", text.Start)
+					sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"%)"+repeat, text.Start)
 				}
 			}
 			return sb.stepDims

@@ -175,6 +175,7 @@ func (c *Core) modeDisplay() string {
 func (c *Core) clearMode() {
 	makeDirty := c.mode == heatMapMode
 	c.mode = noMode
+	c.changes.Store(0)
 	c.gridHolder.overlay = nil
 	c.gridHolder.stopEditing()
 	if makeDirty {
