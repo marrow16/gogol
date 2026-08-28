@@ -87,7 +87,7 @@ func (i *input) layout(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		}
 	}
-	bc, bt := focusedBorder(i.isFocused(gtx))
+	bc, bt := focusedBorder(!i.editor.ReadOnly && i.isFocused(gtx))
 	return widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, i.style.Layout)
 	})
