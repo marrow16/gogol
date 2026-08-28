@@ -27,6 +27,7 @@ type capturedPatternsPopout struct {
 	radioMetadata *radioButton
 	btnSave       *button
 	chkAddLibrary *checkbox
+	btnPlace      *button
 	btnRemove     *button
 	btnClear      *button
 	ruleClick     widget.Clickable
@@ -57,6 +58,7 @@ func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
 		core:          c,
 		previewMode:   &widget.Enum{Value: previewImage},
 		btnSave:       newButton("Save"),
+		btnPlace:      newButton("Place"),
 		btnRemove:     newButton("Remove"),
 		btnClear:      newButton("Clear"),
 		chkAddLibrary: newCheckBox("Add to library", true),
@@ -175,14 +177,20 @@ func (p *capturedPatternsPopout) savePattern(pattern *patterns.Pattern) {
 		return
 	}
 	p.error = nil
-	if f, err := saveFile(pattern.Filename, false); err == nil {
+	pattern.Filename = strings.TrimSuffix(pattern.Filename, ".rle") + ".rle"
+	fn, err := resolveSavePath(pattern.Filename)
+	if err != nil {
+		p.error = err
+		return
+	}
+	if f, err := saveFile(fn, false); err == nil {
 		defer func() {
 			_ = f.Close()
 		}()
 		p.core.settings.Originator = pattern.Origination
 		if p.error = patterns.PatternRleEncode(*pattern, f); p.error == nil && p.chkAddLibrary.Checked() {
 			patterns.PatternLibrary[pattern.Name] = *pattern
-			p.core.settings.AddPattern(pattern.Filename)
+			p.core.settings.AddPattern(fn)
 			// remove from list...
 			for i, v := range p.core.settings.CapturedPatterns {
 				if v == pattern {
@@ -226,6 +234,9 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnClear.Clicked(gtx) {
 		p.core.settings.CapturedPatterns = nil
 	}
+	if p.btnPlace.Clicked(gtx) && currentPattern != nil {
+		p.core.startPatternPlace(gtx, *currentPattern, false)
+	}
 	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
 		dims := flexVertical(10,
 			rigid(p.chooser.layout),
@@ -247,8 +258,9 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 						rigid(p.btnSave.Layout),
 						rigid(p.chkAddLibrary.Layout),
 						rigid(insetErrorLabel(p.error)),
-						rigid(p.btnRemove.Layout),
-						rigid(p.btnClear.Layout))(gtx)
+						conditionalRigid(p.error == nil, p.btnPlace.Layout, nil),
+						conditionalRigid(p.error == nil, p.btnRemove.Layout, nil),
+						conditionalRigid(p.error == nil, p.btnClear.Layout, nil))(gtx)
 				default:
 					return p.layoutIdentifyControls(gtx, *currentPattern)
 				}
@@ -464,7 +476,7 @@ func (p *capturedPatternsPopout) identify(pattern *patterns.Pattern, withPhases 
 func (p *capturedPatternsPopout) hasFocus(gtx layout.Context) bool {
 	_, radios := p.previewMode.Focused()
 	return radios || p.chooser.isFocused(gtx) || p.btnSave.isFocused(gtx) || p.chkAddLibrary.isFocused(gtx) ||
-		p.btnRemove.isFocused(gtx) || p.btnClear.isFocused(gtx) ||
+		p.btnRemove.isFocused(gtx) || p.btnClear.isFocused(gtx) || p.btnPlace.isFocused(gtx) ||
 		p.name.isFocused(gtx) || p.filename.isFocused(gtx) ||
 		p.origin.isFocused(gtx) || p.comment.isFocused(gtx) ||
 		p.btnIdentify.isFocused(gtx) || p.chkWithPhases.isFocused(gtx) || gtx.Focused(&p.ruleClick)
