@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	gogolGuiVersion = "1.0.45"
+	gogolGuiVersion = "1.0.46"
 	gogolRepo       = "https://github.com/marrow16/gogol"
 	helpLink        = "https://github.com/marrow16/gogol/blob/main/HELP_GUI.md"
 	shortcutsHelp   = "https://github.com/marrow16/gogol/blob/main/cmd/gui/SHORTCUTS.md"

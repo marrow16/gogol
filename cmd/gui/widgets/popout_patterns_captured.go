@@ -2,6 +2,13 @@ package widgets
 
 import (
 	"errors"
+	"image"
+	"slices"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"time"
+
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/text"
@@ -9,12 +16,6 @@ import (
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/patterns"
-	"image"
-	"slices"
-	"strconv"
-	"strings"
-	"sync/atomic"
-	"time"
 )
 
 type capturedPatternsPopout struct {
@@ -28,6 +29,7 @@ type capturedPatternsPopout struct {
 	chkAddLibrary *checkbox
 	btnRemove     *button
 	btnClear      *button
+	ruleClick     widget.Clickable
 	error         error
 	name          *input
 	filename      *input
@@ -203,6 +205,7 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	}
 	m := measureText(gtx, "M")
 	currentPattern := p.chooser.currentItem()
+	p.previewMode.Update(gtx)
 	if p.btnSave.Clicked(gtx) {
 		if currentPattern != nil {
 			p.savePattern(*currentPattern)
@@ -279,7 +282,18 @@ func (p *capturedPatternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt 
 func (p *capturedPatternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern, gtx layout.Context) layout.Dimensions {
 	txtDim := measureText(gtx, "My")
 	labelMax := measureMaxText(gtx, font.Bold, "Size: ", "Filename: ", "Origin: ", "Comment: ").Size.X
+	if p.ruleClick.Clicked(gtx) && pattern.Rule != nil {
+		p.core.setRule(pattern.Rule)
+	}
 	return layout.Flex{Axis: layout.Vertical, Gap: 10, Spacing: layout.SpaceEnd}.Layout(gtx,
+		rigid(flexHorizontal(20,
+			rigidLabel("Rule:", text.End, font.Bold, labelMax),
+			conditionalRigid(pattern.Rule != nil, linkLabel(&p.ruleClick, pattern.Rule.Name()), nil),
+		)),
+		rigid(flexHorizontal(20,
+			rigidLabel("Size:", text.End, font.Bold, labelMax),
+			flexed(label(strconv.Itoa(pattern.Width)+"w X "+strconv.Itoa(pattern.Height)+"h")),
+		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Name:", text.End, font.Bold, labelMax),
 			flexed(p.name.layout),
@@ -299,14 +313,6 @@ func (p *capturedPatternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern
 				gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
 				return p.comment.layout(gtx)
 			}),
-		)),
-		rigid(flexHorizontal(20,
-			rigidLabel("Size:", text.End, font.Bold, labelMax),
-			flexed(label(strconv.Itoa(pattern.Width)+"w X "+strconv.Itoa(pattern.Height)+"h")),
-		)),
-		rigid(flexHorizontal(20,
-			rigidLabel("Rule:", text.End, font.Bold, labelMax),
-			flexed(label(pattern.Rule.Name())),
 		)),
 	)
 }
@@ -461,7 +467,7 @@ func (p *capturedPatternsPopout) hasFocus(gtx layout.Context) bool {
 		p.btnRemove.isFocused(gtx) || p.btnClear.isFocused(gtx) ||
 		p.name.isFocused(gtx) || p.filename.isFocused(gtx) ||
 		p.origin.isFocused(gtx) || p.comment.isFocused(gtx) ||
-		p.btnIdentify.isFocused(gtx) || p.chkWithPhases.isFocused(gtx)
+		p.btnIdentify.isFocused(gtx) || p.chkWithPhases.isFocused(gtx) || gtx.Focused(&p.ruleClick)
 }
 
 func (p *capturedPatternsPopout) reset() {
