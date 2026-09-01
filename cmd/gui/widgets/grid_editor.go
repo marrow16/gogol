@@ -140,7 +140,7 @@ func (e *editor) handleKeys(gtx layout.Context, kev key.Event) (handled bool) {
 		e.adjustRow(e.g.grid.Height - e.row - 1)
 	default:
 		if kev.Modifiers&key.ModAlt == key.ModAlt {
-			e.handleSpecialKeys(gtx, kev)
+			e.handleSpecialKeys(kev)
 		} else {
 			e.endMarking(false)
 			e.drawLetter(kev)
@@ -315,8 +315,17 @@ func (e *editor) addPatternUndo(pattern patterns.Pattern, row, col int, rotation
 	e.undos = append(e.undos, u)
 }
 
-func (e *editor) handleSpecialKeys(gtx layout.Context, kev key.Event) {
+func (e *editor) handleSpecialKeys(kev key.Event) {
 	switch kev.Name {
+	case "E":
+		e.finish()
+		e.g.core.mode = noMode
+	case "M":
+		e.finish()
+		e.g.core.showMenu()
+	case "L":
+		e.finish()
+		e.g.core.showLifeRules()
 	case "C":
 		e.endMarking(false)
 		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
@@ -648,6 +657,10 @@ func (e *editor) end() {
 	}
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
+	e.finish()
+}
+
+func (e *editor) finish() {
 	close(e.stop)
 	e.stop = nil
 	e.blink = false

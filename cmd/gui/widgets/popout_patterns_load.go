@@ -85,7 +85,7 @@ func (p *loadPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 			flexed(p.path.layout),
 			rigid(p.btnPath.Layout),
 		)),
-		rigid(flexHorizontal(20,
+		rigid(flexHorizontal(0,
 			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = labelMax
 				return layout.Dimensions{Size: gtx.Constraints.Min}

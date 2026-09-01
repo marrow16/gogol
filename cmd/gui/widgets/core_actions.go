@@ -790,5 +790,6 @@ func (c *Core) placePattern(gtx layout.Context) {
 	}
 	c.gridHolder.placeOverlay()
 	c.clearMode()
+	c.resetInstrumentation()
 	gtx.Execute(op.InvalidateCmd{})
 }

@@ -314,6 +314,18 @@ func rigid(w layout.Widget) layout.FlexChild {
 	})
 }
 
+func rigidLeftRight(minWd int, wl, wr layout.Widget) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		if minWd > 0 {
+			gtx.Constraints.Min.X = minWd
+		}
+		return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+			rigid(wl),
+			rigid(wr),
+		)
+	})
+}
+
 func rigidImage(img *image.NRGBA) layout.FlexChild {
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		size := img.Bounds().Size()

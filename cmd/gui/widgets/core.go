@@ -184,9 +184,6 @@ func (c *Core) clearMode() {
 	}
 }
 
-// B0135/S1 snow flakes in coal mine
-// B0135/S03 has gliders
-
 var keyFilters = []event.Filter{
 	key.Filter{Required: key.ModAlt, Name: ""},
 	key.Filter{Name: key.NameEscape},

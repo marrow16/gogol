@@ -2,20 +2,21 @@ package widgets
 
 import (
 	"errors"
-	"image"
-	"slices"
-	"strconv"
-	"strings"
-	"sync/atomic"
-	"time"
-
 	"gioui.org/font"
+	"gioui.org/io/clipboard"
+	"gioui.org/io/transfer"
 	"gioui.org/layout"
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/patterns"
+	"image"
+	"slices"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"time"
 )
 
 type capturedPatternsPopout struct {
@@ -28,6 +29,8 @@ type capturedPatternsPopout struct {
 	btnSave       *button
 	chkAddLibrary *checkbox
 	btnPlace      *button
+	btnPaste      *button
+	pasteTag      struct{}
 	btnRemove     *button
 	btnClear      *button
 	ruleClick     widget.Clickable
@@ -59,6 +62,7 @@ func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
 		previewMode:   &widget.Enum{Value: previewImage},
 		btnSave:       newButton("Save"),
 		btnPlace:      newButton("Place"),
+		btnPaste:      newButton("Paste RLE"),
 		btnRemove:     newButton("Remove"),
 		btnClear:      newButton("Clear"),
 		chkAddLibrary: newCheckBox("Add to library", true),
@@ -237,13 +241,23 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnPlace.Clicked(gtx) && currentPattern != nil {
 		p.core.startPatternPlace(gtx, *currentPattern, false)
 	}
+	if p.btnPaste.Clicked(gtx) {
+		gtx.Execute(clipboard.ReadCmd{Tag: &p.pasteTag})
+	}
+	p.readPaste(gtx)
 	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
 		dims := flexVertical(10,
 			rigid(p.chooser.layout),
-			rigid(flexHorizontal(10,
-				rigid(p.radioPreview.Layout),
-				rigid(p.radioMetadata.Layout),
-			)),
+			rigidLeftRight(p.chooser.dims.Size.X,
+				flexHorizontal(10,
+					rigid(p.radioPreview.Layout),
+					rigid(p.radioMetadata.Layout),
+				),
+				flexHorizontal(10,
+					rigid(p.btnPaste.Layout),
+					conditionalRigid(currentPattern != nil, p.btnPlace.Layout, nil),
+				),
+			),
 			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = int(float32(m.Size.Y) * 15.5)
 				gtx.Constraints.Max.X = p.chooser.dims.Size.X
@@ -258,7 +272,6 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 						rigid(p.btnSave.Layout),
 						rigid(p.chkAddLibrary.Layout),
 						rigid(insetErrorLabel(p.error)),
-						conditionalRigid(p.error == nil, p.btnPlace.Layout, nil),
 						conditionalRigid(p.error == nil, p.btnRemove.Layout, nil),
 						conditionalRigid(p.error == nil, p.btnClear.Layout, nil))(gtx)
 				default:
@@ -269,6 +282,30 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 		p.chooser.layoutDropdown(gtx)
 		return dims
 	})
+}
+
+func (p *capturedPatternsPopout) readPaste(gtx layout.Context) {
+	for {
+		evt, ok := gtx.Event(transfer.TargetFilter{
+			Target: &p.pasteTag,
+			Type:   clipboardReadType,
+		})
+		if !ok {
+			break
+		}
+		if evt, ok := evt.(transfer.DataEvent); ok {
+			r := evt.Open()
+			defer r.Close()
+			if pattern, err := patterns.NewPatternFromRle(r); err == nil {
+				if len(pattern.Name) == 0 {
+					pattern.Name = strconv.Itoa(len(p.core.settings.CapturedPatterns)+1) + " (Pasted " + time.Now().Format("2006-01-02 15-04-05") + ")"
+				}
+				p.core.settings.CapturedPatterns = append(p.core.settings.CapturedPatterns, &pattern)
+				p.chooser.resetItems(p.core.settings.CapturedPatterns)
+				p.chooser.setText(pattern.Name)
+			}
+		}
+	}
 }
 
 func (p *capturedPatternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt int) layout.Dimensions {
@@ -443,7 +480,7 @@ func (p *capturedPatternsPopout) identify(pattern *patterns.Pattern, withPhases 
 		if withPhases {
 			p.identifyStatus.Store(identifyingPhases)
 			window.Invalidate()
-			phases, _ := searchPattern.Phases(100, 0, 4)
+			phases, _ := searchPattern.Phases(100, 10, 4)
 			for _, phase := range phases {
 				for _, h := range phase.AllHashes() {
 					searchHashes[h] = struct{}{}
@@ -476,7 +513,7 @@ func (p *capturedPatternsPopout) identify(pattern *patterns.Pattern, withPhases 
 func (p *capturedPatternsPopout) hasFocus(gtx layout.Context) bool {
 	_, radios := p.previewMode.Focused()
 	return radios || p.chooser.isFocused(gtx) || p.btnSave.isFocused(gtx) || p.chkAddLibrary.isFocused(gtx) ||
-		p.btnRemove.isFocused(gtx) || p.btnClear.isFocused(gtx) || p.btnPlace.isFocused(gtx) ||
+		p.btnRemove.isFocused(gtx) || p.btnClear.isFocused(gtx) || p.btnPlace.isFocused(gtx) || p.btnPaste.isFocused(gtx) ||
 		p.name.isFocused(gtx) || p.filename.isFocused(gtx) ||
 		p.origin.isFocused(gtx) || p.comment.isFocused(gtx) ||
 		p.btnIdentify.isFocused(gtx) || p.chkWithPhases.isFocused(gtx) || gtx.Focused(&p.ruleClick)
