@@ -28,6 +28,14 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 	result.menuItems = menuItems{
 		{
 			parent: result,
+			label:  "Help",
+			key:    "F1",
+			fn: func() {
+				parent.core.showHelp(-2)
+			},
+		},
+		{
+			parent: result,
 			label:  "About",
 			popout: popoutAbout,
 		},
@@ -93,7 +101,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		{
 			parent: result,
 			label:  "Snapshot",
-			key:    "S",
+			key:    modKeyName + "S",
 			fn: func() {
 				parent.core.snapshot()
 			},
@@ -101,7 +109,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		{
 			parent: result,
 			label:  "Undo to snapshot",
-			key:    "Z",
+			key:    modKeyName + "Z",
 			fn: func() {
 				parent.core.undoToSnapshot()
 			},
@@ -109,7 +117,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		{
 			parent: result,
 			label:  "Export Grid",
-			key:    "X",
+			key:    modKeyName + "X",
 			fn: func() {
 				_ = parent.core.export()
 			},
@@ -123,7 +131,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		{
 			parent: result,
 			label:  "Edit mode",
-			key:    "E",
+			key:    modKeyName + "E",
 			fn: func() {
 				parent.core.startEditMode()
 			},
@@ -132,7 +140,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		{
 			parent: result,
 			label:  "Randomize",
-			key:    "R",
+			key:    modKeyName + "R",
 			fn: func() {
 				parent.core.randomize()
 			},
@@ -140,7 +148,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		{
 			parent: result,
 			label:  "Random Noise",
-			key:    "N",
+			key:    modKeyName + "N",
 			fn: func() {
 				parent.core.randomChanges()
 			},
@@ -148,7 +156,7 @@ func newMenuPopup(parent *statusBar) *menuPopup {
 		{
 			parent: result,
 			label:  "Clear",
-			key:    "C",
+			key:    modKeyName + "C",
 			fn: func() {
 				parent.core.clear()
 			},
@@ -190,6 +198,13 @@ type menuPopup struct {
 	width                  int
 	right                  int
 	bottom                 int
+}
+
+func (p *menuPopup) popoutShowing() popoutType {
+	if p.poppedOut {
+		return p.menuItems[p.selected].popout
+	}
+	return popoutNone
 }
 
 func (p *menuPopup) setSelected(n int) {
@@ -425,7 +440,7 @@ func (i *menuItem) layout(gtx layout.Context, width int) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					conditionalRigid(i.popout != popoutNone, label("< "), nil),
 					flexed(label(i.label)),
-					conditionalRigid(i.key != "", label(modKeyName+i.key), nil),
+					conditionalRigid(i.key != "", label(i.key), nil),
 				)
 			})
 			call := macro.Stop()

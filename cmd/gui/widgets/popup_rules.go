@@ -188,9 +188,10 @@ func (p *rulesPopup) layoutDetails() layout.FlexChild {
 		horizontalLine(gtx, popupBorder, gtx.Constraints.Max.X, 1)
 		maxText := measureMaxText(gtx, font.Bold, "Rule: ", "Perm.: ", "Name: ", "Integer: ").Size.X
 		return layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}.Layout(gtx, flexVertical(10,
-			layout.Rigid(flexHorizontal(8,
+			layout.Rigid(flexHorizontal(0,
 				rigidLabel("Name: ", text.End, font.Bold, maxText),
 				conditionalFlexed(custom, p.nameInput.layout, borderedInset(2, 2, 4, 4, label(p.core.gridHolder.grid.Rule.Name()))),
+				conditionalRigid(custom && canSave, label(" "), nil),
 				conditionalRigid(custom && canSave, p.btnSaveName.Layout, nil),
 			)),
 			layout.Rigid(flexHorizontal(0,

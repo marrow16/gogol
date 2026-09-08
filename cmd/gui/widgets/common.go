@@ -4,6 +4,7 @@ import (
 	"errors"
 	"gioui.org/font"
 	"gioui.org/io/key"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -240,6 +241,7 @@ func linkLabel(btn *widget.Clickable, s string) layout.Widget {
 					lbl := material.Label(theme, theme.TextSize, s)
 					lbl.MaxLines = 1
 					lbl.Color = popupLinkColor
+					pointer.CursorPointer.Add(gtx.Ops)
 					return lbl.Layout(gtx)
 				}),
 				layout.Expanded(func(gtx layout.Context) layout.Dimensions {

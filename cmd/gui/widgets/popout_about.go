@@ -11,12 +11,8 @@ import (
 )
 
 const (
-	gogolGuiVersion = "1.0.48"
+	gogolGuiVersion = "1.1.49"
 	gogolRepo       = "https://github.com/marrow16/gogol"
-	helpLink        = "https://github.com/marrow16/gogol/blob/main/HELP_GUI.md"
-	shortcutsHelp   = "https://github.com/marrow16/gogol/blob/main/cmd/gui/SHORTCUTS.md"
-	metaRuleHelp    = "https://github.com/marrow16/gogol/blob/main/logic/meta/README.md"
-	gridRecipesHelp = "https://github.com/marrow16/gogol/blob/main/recipes/README.md"
 )
 
 func newAboutPopout(p *menuPopup) *aboutPopout {
@@ -25,24 +21,16 @@ func newAboutPopout(p *menuPopup) *aboutPopout {
 		v:      "Version: " + gogolGuiVersion + " (Go: " + strings.TrimPrefix(runtime.Version(), "go") + ")",
 	}
 	result.links = map[*widget.Clickable]string{
-		&result.linkRepo:        gogolRepo,
-		&result.linkHelp:        helpLink,
-		&result.linkShortcuts:   shortcutsHelp,
-		&result.linkMetaRule:    metaRuleHelp,
-		&result.linkGridRecipes: gridRecipesHelp,
+		&result.linkRepo: gogolRepo,
 	}
 	return result
 }
 
 type aboutPopout struct {
-	parent          *menuPopup
-	linkRepo        widget.Clickable
-	linkHelp        widget.Clickable
-	linkShortcuts   widget.Clickable
-	linkMetaRule    widget.Clickable
-	linkGridRecipes widget.Clickable
-	links           map[*widget.Clickable]string
-	v               string
+	parent   *menuPopup
+	linkRepo widget.Clickable
+	links    map[*widget.Clickable]string
+	v        string
 }
 
 func (p *aboutPopout) layout(gtx layout.Context) layout.Dimensions {
@@ -60,10 +48,6 @@ func (p *aboutPopout) layout(gtx layout.Context) layout.Dimensions {
 		rigidLabel("Author: Martin \"Marrow\" Rowlinson", text.Middle, 0, minX),
 		rigidFixedWidth(linkLabel(&p.linkRepo, gogolRepo), minX, layout.Center),
 		rigidSpacerVertical(m.Size.Y/2),
-		rigidFixedWidth(linkLabel(&p.linkHelp, "General UI help"), minX, layout.Center),
-		rigidFixedWidth(linkLabel(&p.linkShortcuts, "Shortcuts help"), minX, layout.Center),
-		rigidFixedWidth(linkLabel(&p.linkMetaRule, "Meta Rules help"), minX, layout.Center),
-		rigidFixedWidth(linkLabel(&p.linkGridRecipes, "Grid Recipes help"), minX, layout.Center),
 	))
 }
 

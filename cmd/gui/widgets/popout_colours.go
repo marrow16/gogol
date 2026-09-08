@@ -136,7 +136,7 @@ func (p *colorsPopout) layout(gtx layout.Context) layout.Dimensions {
 	if ok := p.chkBorders.Update(gtx); ok {
 		p.core.setCellBorders(p.chkBorders.Checked())
 	}
-	labelMax := measureMaxText(gtx, font.Normal, "Alive cells", "Dead cells", "Cell Border").Size.X
+	labelMax := measureMaxText(gtx, font.Normal, "Alive cells", "Dead cells", "Cell border").Size.X
 	return popoutLayout(gtx, flexVertical(4,
 		rigid(flexHorizontal(20,
 			rigidLabel("Alive cells", text.End, 0, labelMax),
@@ -157,7 +157,7 @@ func (p *colorsPopout) layout(gtx layout.Context) layout.Dimensions {
 			flexed(p.deadB.layout),
 		)),
 		rigid(flexHorizontal(20,
-			rigidLabel("Cell Border", text.End, 0, labelMax),
+			rigidLabel("Cell border", text.End, 0, labelMax),
 			rigidLabel("R:", 0, 0, 0),
 			flexed(p.borderR.layout),
 			rigidLabel("G:", 0, 0, 0),
