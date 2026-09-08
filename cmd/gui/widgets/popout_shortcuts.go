@@ -8,6 +8,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/go-andiamo/splitter"
+	"github.com/marrow16/gogol/cmd/gui/help"
 	"slices"
 	"strings"
 )
@@ -98,7 +99,7 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 	k := strings.ToUpper(p.key.editor.Text())
 	isAllowedKey := p.isAllowedKey(k)
 	if p.linkHelp.Clicked(gtx) {
-		_ = openURL(shortcutsHelp)
+		p.core.showHelp(help.ShortCutsRef)
 	}
 	if isAllowedKey {
 		for {

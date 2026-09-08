@@ -2,6 +2,8 @@ package widgets
 
 import (
 	"fmt"
+	"gioui.org/io/system"
+	"github.com/marrow16/gogol/cmd/gui/help"
 	"strconv"
 	"strings"
 	"sync"
@@ -196,6 +198,8 @@ var keyFilters = []event.Filter{
 	key.Filter{Required: key.ModCtrl, Name: "6"},
 	key.Filter{Required: key.ModCtrl, Name: "7"},
 	key.Filter{Required: key.ModCtrl, Name: "8"},
+	key.Filter{Name: key.NameF1},
+	key.Filter{Required: key.ModCtrl, Name: "H"},
 }
 
 func (c *Core) handleKeys(gtx layout.Context) {
@@ -226,6 +230,8 @@ func (c *Core) handleKeys(gtx layout.Context) {
 					} else if evt.Modifiers == key.ModAlt {
 						c.survivesChange(string(evt.Name))
 					}
+				case key.NameF1, "H":
+					c.showHelp(-1)
 				default:
 					if gtx.Focused(&c.gridHolder.clickable) && (c.gridHolder.editor.active || c.gridHolder.overlay != nil) {
 						// in edit mode or place pattern but we swallowed the key - pass it to grid...
@@ -234,6 +240,49 @@ func (c *Core) handleKeys(gtx layout.Context) {
 				}
 			}
 		}
+	}
+}
+
+var popoutsHelpTopic = map[popoutType]help.Topic{
+	popoutColors:                 help.Colors,
+	popoutSizeWrappingBoundaries: help.SizingWrapping,
+	popoutStepping:               help.Stepping,
+	popoutCapturedPatterns:       help.CapturedPatterns,
+	popoutPatterns:               help.Patterns,
+	popoutLoadPatterns:           help.LoadPatterns,
+	popoutImportGrid:             help.ImportGrid,
+	popoutGridRecipes:            help.GridRecipes,
+	popoutInstrumentation:        help.Instrumentation,
+	popoutShortcuts:              help.ShortCuts,
+	popoutMetaRules:              help.MetaRules,
+	popoutCollectedRules:         help.CollectedRules,
+}
+
+func (c *Core) showHelp(topic help.Topic) {
+	if topic == -1 {
+		// try to deduce help topic from mode or currently displayed...
+		switch {
+		case c.mode == editMode:
+			topic = help.Editor
+		case c.mode == heatMapMode:
+			topic = help.HeatMap
+		case c.mode == placePatternMode:
+			topic = help.PlacePattern
+		case c.statusBar.showingPopup == popupRule:
+			topic = help.Rules
+		case c.statusBar.showingPopup == popupMenu:
+			if t, ok := popoutsHelpTopic[c.statusBar.menuPopup.popoutShowing()]; ok {
+				topic = t
+			} else {
+				topic = help.MainMenu
+			}
+		}
+	}
+	help.Show(topic)
+	if w := help.HelpWindow(); w != nil {
+		go func() {
+			w.Perform(system.ActionRaise)
+		}()
 	}
 }
 

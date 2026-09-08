@@ -4,6 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/marrow16/gogol/cmd/gui/help"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/logic/meta"
 	"slices"
@@ -142,7 +143,7 @@ func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, editorHt int) layou
 
 func (p *metaRulesPopout) layoutReport(gtx layout.Context) layout.Dimensions {
 	if p.linkHelp.Clicked(gtx) {
-		_ = openURL(metaRuleHelp)
+		p.core.showHelp(help.MetaRulesRef)
 	}
 	return flexHorizontal(30,
 		rigid(linkLabel(&p.linkHelp, "(see help)")),

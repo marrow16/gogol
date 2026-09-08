@@ -4,6 +4,7 @@ import (
 	"errors"
 	"gioui.org/layout"
 	"gioui.org/widget"
+	"github.com/marrow16/gogol/cmd/gui/help"
 	"github.com/marrow16/gogol/recipes"
 	"slices"
 	"sort"
@@ -121,7 +122,7 @@ func (p *gridRecipesPopout) layout(gtx layout.Context) layout.Dimensions {
 		p.saveRecipeRle()
 	}
 	if p.linkHelp.Clicked(gtx) {
-		_ = openURL(gridRecipesHelp)
+		p.core.showHelp(help.GridRecipesReference)
 	}
 	curr := p.chooser.currentItem()
 	gap := 20

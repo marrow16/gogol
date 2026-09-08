@@ -73,7 +73,7 @@ func (r rule) SurvivesWith() string {
 
 func (r rule) Permutation() int {
 	result := 0
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		if r.bornWith[i] {
 			result |= 1 << (i + 9)
 		}

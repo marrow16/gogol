@@ -157,8 +157,9 @@ func (p *patternsPopout) buildPatternsFilter() *patternFilter {
 		})
 	} else if s := p.filterRule.editor.Text(); len(s) != 0 {
 		if r, err := logic.NewRuleRle("", s); err == nil {
+			perm := r.Permutation()
 			result.fns = append(result.fns, func(pattern patterns.Pattern) bool {
-				return pattern.Rule != nil && pattern.Rule.Permutation() == r.Permutation()
+				return pattern.Rule != nil && pattern.Rule.Permutation() == perm
 			})
 		} else {
 			p.filterRule.setText("")
@@ -423,5 +424,11 @@ func (p *patternsPopout) reset() {
 func (p *patternsPopout) hasFocus(gtx layout.Context) bool {
 	_, radios := p.previewMode.Focused()
 	return radios || p.chooser.isFocused(gtx) || p.chkFilterCurrentRule.isFocused(gtx) || p.chkInterlaced.isFocused(gtx) ||
-		p.btnPlace.isFocused(gtx) || gtx.Focused(&p.ruleClick)
+		p.btnPlace.isFocused(gtx) || gtx.Focused(&p.ruleClick) ||
+		p.chkFilterCurrentRule.isFocused(gtx) || p.filterName.isFocused(gtx) || p.filterRule.isFocused(gtx) ||
+		p.filterRuleCurrent.isFocused(gtx) || p.filterWidthMin.isFocused(gtx) || p.filterWidthMax.isFocused(gtx) ||
+		p.filterHeightMin.isFocused(gtx) || p.filterHeightMax.isFocused(gtx) ||
+		p.filterFilename.isFocused(gtx) || p.filterOrigin.isFocused(gtx) || p.filterComment.isFocused(gtx) ||
+		p.btnFilterApply.isFocused(gtx) || p.btnFilterClear.isFocused(gtx)
+
 }
