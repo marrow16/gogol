@@ -8,7 +8,6 @@ import (
 	"github.com/marrow16/gogol/recipes"
 	"slices"
 	"sort"
-	"strings"
 )
 
 type gridRecipesPopout struct {
@@ -108,11 +107,11 @@ func (p *gridRecipesPopout) saveRecipeRle() {
 
 func (p *gridRecipesPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnPath.Clicked(gtx) {
-		filePicker(func(filename string) {
-			path := strings.TrimSpace(string(filename))
+		p.core.showFileFinder("Select Grid Recipe", []string{".json"}, false, func(path string) {
 			p.core.settings.AddRecipe(path)
 			p.chooser.resetItems(p.sortedRecipes())
 			p.chooser.setText(path)
+			p.chooser.setFocused(gtx)
 		})
 	}
 	if p.btnRun.Clicked(gtx) {

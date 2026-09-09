@@ -112,19 +112,6 @@ func resolveSavePath(path string) (string, error) {
 	return result, nil
 }
 
-func filePicker(fn func(filename string)) {
-	if fn != nil && isMac {
-		out, err := exec.Command(
-			"osascript",
-			"-e",
-			`POSIX path of (choose file)`,
-		).Output()
-		if err == nil {
-			fn(string(out))
-		}
-	}
-}
-
 func openURL(url string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -400,12 +387,30 @@ func measureText(gtx layout.Context, text string) layout.Dimensions {
 	return dims
 }
 
+func measureMaxText(gtx layout.Context, weight font.Weight, texts ...string) layout.Dimensions {
+	gtx.Constraints.Min = image.Point{}
+	mx := layout.Dimensions{}
+	macro := op.Record(gtx.Ops)
+	for _, t := range texts {
+		lbl := material.Label(theme, theme.TextSize, t)
+		lbl.Font.Weight = weight
+		lbl.MaxLines = 1
+		dims := lbl.Layout(gtx)
+		mx.Size.X = max(mx.Size.X, dims.Size.X)
+		mx.Size.Y = max(mx.Size.Y, dims.Size.Y)
+	}
+	_ = macro.Stop()
+	return mx
+}
+
+/*
 func measureMaxText(gtx layout.Context, weight font.Weight, text ...string) layout.Dimensions {
 	mx := layout.Dimensions{}
 	macro := op.Record(gtx.Ops)
 	for _, t := range text {
 		lbl := material.Label(theme, theme.TextSize, t)
 		lbl.Font.Weight = weight
+		lbl.MaxLines = 1
 		dims := lbl.Layout(gtx)
 		if dims.Size.X > mx.Size.X {
 			mx.Size.X = dims.Size.X
@@ -417,3 +422,4 @@ func measureMaxText(gtx layout.Context, weight font.Weight, text ...string) layo
 	_ = macro.Stop()
 	return mx
 }
+*/

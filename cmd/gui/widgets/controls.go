@@ -49,9 +49,6 @@ type pathButton struct {
 }
 
 func (b *pathButton) Layout(gtx layout.Context) layout.Dimensions {
-	if !isMac {
-		return layout.Dimensions{}
-	}
 	return b.style.Layout(gtx)
 }
 

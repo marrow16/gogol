@@ -330,16 +330,14 @@ var contents = map[Topic]content{
 		"The ", bold("Load Patterns"), " popout is available from the ", MainMenu.link("main menu"), ".\n\n",
 		"Enter the ", bold("Path"), " to either a pattern file or a directory containing pattern files. Alternatively, use the ", button("..."), " button to open file finder.\n",
 		"Press the ", button("Load"), " button - the number of successfully loaded patterns will be displayed or an error.\n\n",
-		"On successful load, the patterns will be available in the ", Patterns.link("Patterns"), " popout (and are also loaded next time you restart GoGoL).\n\n",
-		italic("Note: Unfortunately the file finder is only available on MacOS."), "\n",
+		"On successful load, the patterns will be available in the ", Patterns.link("Patterns"), " popout (and are also loaded next time you restart GoGoL).",
 	},
 	ImportGrid: {
 		"Use the ", bold("Import Grid"), " popout from the ", MainMenu.link("main menu"), " to load the current grid from a previously exported grid.\n\n",
 		"Enter the ", bold("Path"), " for the grid ", code(".rle"), " file to import or use the ", button("..."), " button to open file finder.\n",
 		"Use the ", bold("Resize grid"), " to determine whether the current grid can be resized to accommodate the imported grid",
 		" and press the ", button("Import"), " button\n\n",
-		"If the grid is successfully imported, the current grid will be updated - otherwise, an error is displayed.\n\n",
-		italic("Note: Unfortunately the file finder is only available on MacOS."),
+		"If the grid is successfully imported, the current grid will be updated - otherwise, an error is displayed.",
 	},
 	GridRecipes: {
 		"The ", bold("Grid Recipes"), " popout is available from the ", MainMenu.link("main menu"), ".\n\n",
@@ -348,8 +346,7 @@ var contents = map[Topic]content{
 		"Because recipes are loaded on demand, the recipe file can be edited and re-run without restarting GoGoL.\n\n",
 		"Press the ", button("Run"), " button or press ", keys{altMac, "G"}, " to execute the selected recipe. If the recipe cannot be loaded or contains an error, the error will be displayed.\n\n",
 		"Use ", button("Save as RLE"), " button to execute the recipe and save the resulting grid as an RLE file.\n\n",
-		"For details of the Grid Recipe JSON format and available operations, see the ", GridRecipesReference.link(), ".\n\n",
-		italic("Note: Unfortunately the file finder is only available on MacOS."),
+		"For details of the Grid Recipe JSON format and available operations, see the ", GridRecipesReference.link(), ".",
 	},
 	GridRecipesReference: {
 		"A Grid Recipe is a JSON document that describes how to construct an initial Game of Life grid.\n\n",

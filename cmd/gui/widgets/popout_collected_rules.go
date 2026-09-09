@@ -34,7 +34,7 @@ func newCollectedRulesPopout(p *menuPopup, c *Core) *collectedRulesPopout {
 	result.commonEdit = newInput(nil, 256, func(text string) {}).maximumWidth(20).onSubmit(result.submitCommonality)
 	result.rulesList = newListControl[logic.Rule](result.rules, true).
 		rowRenderer(result.layoutRule).
-		onItemSelect(func(r logic.Rule) {
+		onItemSelect(func(r logic.Rule, _ bool) {
 			c.gridHolder.grid.SetRule(r)
 			window.Invalidate()
 		}).
