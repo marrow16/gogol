@@ -52,6 +52,18 @@ var zoomIn []byte
 //go:embed zoomOut.png
 var zoomOut []byte
 
+//go:embed folder.png
+var folder []byte
+
+//go:embed fileRLE.png
+var fileRLE []byte
+
+//go:embed fileIMG.png
+var fileIMG []byte
+
+//go:embed fileJSON.png
+var fileJSON []byte
+
 var (
 	Backward     = mustImage(backward)
 	Burger       = mustImage(burger)
@@ -68,6 +80,11 @@ var (
 	Zoom         = mustImage(zoom)
 	ZoomIn       = mustImage(zoomIn)
 	ZoomOut      = mustImage(zoomOut)
+
+	Folder   = mustImage(folder)
+	FileRLE  = mustImage(fileRLE)
+	FileIMG  = mustImage(fileIMG)
+	FileJSON = mustImage(fileJSON)
 )
 
 func mustImage(data []byte) image.Image {

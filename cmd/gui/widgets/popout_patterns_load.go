@@ -8,7 +8,6 @@ import (
 	"gioui.org/text"
 	"github.com/marrow16/gogol/cmd/gui/settings"
 	"os"
-	"strings"
 )
 
 type loadPatternsPopout struct {
@@ -71,10 +70,9 @@ func (p *loadPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 		p.loadPatterns()
 	}
 	if p.btnPath.Clicked(gtx) {
-		filePicker(func(filename string) {
-			p.path.setText(strings.TrimSpace(string(filename)))
+		p.core.showFileFinder("Select Pattern(s)", []string{".rle"}, true, func(path string) {
+			p.path.setText(path)
 			p.path.setFocused(gtx)
-
 		})
 	}
 	labelMax := measureMaxText(gtx, font.Normal, "Path: ").Size.X

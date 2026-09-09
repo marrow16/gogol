@@ -56,7 +56,7 @@ func newMetaRulesPopout(p *menuPopup, c *Core) *metaRulesPopout {
 	result.radioMatches = newRadioButton(result.mode, metaRuleMatches, "Matching Rules")
 	result.listMatched = newListControl[logic.Rule]([]logic.Rule{}, true).
 		rowRenderer(result.layoutMatchedRule).
-		onItemSelect(func(r logic.Rule) {
+		onItemSelect(func(r logic.Rule, _ bool) {
 			c.gridHolder.grid.SetRule(r)
 			window.Invalidate()
 		}).

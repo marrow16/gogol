@@ -108,6 +108,8 @@ type Core struct {
 	// pattern placing...
 	placePatternCol, placePatternRow int
 	placePatternRotation             patterns.Rotation
+
+	fileFinder *fileFinder
 }
 
 func (c *Core) Run(w *app.Window) error {
@@ -124,18 +126,22 @@ func (c *Core) Run(w *app.Window) error {
 		case app.FrameEvent:
 			var ops op.Ops
 			gtx := app.NewContext(&ops, e)
-			c.handleKeys(gtx)
-			c.windowRect = clip.Rect{Max: gtx.Constraints.Max}
-			c.settings.ScreenWidth = int(float32(c.windowRect.Max.X) / gtx.Metric.PxPerDp)
-			c.settings.ScreenHeight = int(float32(c.windowRect.Max.Y) / gtx.Metric.PxPerDp)
-			paint.FillShape(gtx.Ops, backgroundColor, c.windowRect.Op())
-			layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Flexed(1, c.gridHolder.layout),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return c.statusBar.layout(gtx, c.windowRect)
-				}),
-			)
-			c.statusBar.showPopups(gtx)
+			if c.fileFinder != nil && c.fileFinder.showing {
+				c.fileFinder.layout(gtx)
+			} else {
+				c.handleKeys(gtx)
+				c.windowRect = clip.Rect{Max: gtx.Constraints.Max}
+				c.settings.ScreenWidth = int(float32(c.windowRect.Max.X) / gtx.Metric.PxPerDp)
+				c.settings.ScreenHeight = int(float32(c.windowRect.Max.Y) / gtx.Metric.PxPerDp)
+				paint.FillShape(gtx.Ops, backgroundColor, c.windowRect.Op())
+				layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Flexed(1, c.gridHolder.layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return c.statusBar.layout(gtx, c.windowRect)
+					}),
+				)
+				c.statusBar.showPopups(gtx)
+			}
 			e.Frame(gtx.Ops)
 		}
 	}
@@ -284,6 +290,22 @@ func (c *Core) showHelp(topic help.Topic) {
 			w.Perform(system.ActionRaise)
 		}()
 	}
+}
+
+func (c *Core) showFileFinder(title string, allowExts []string, allowDir bool, fn func(path string)) {
+	if c.fileFinder == nil {
+		c.fileFinder = newFileFinder()
+	}
+	c.fileFinder.allowDir = allowDir
+	c.fileFinder.allowExts = make(map[string]struct{}, len(allowExts))
+	for _, ext := range allowExts {
+		c.fileFinder.allowExts[strings.ToLower(ext)] = struct{}{}
+	}
+	c.fileFinder.onSelect = fn
+	c.fileFinder.title = title
+	c.fileFinder.checkCurrent = true
+	c.fileFinder.showing = true
+	window.Invalidate()
 }
 
 func (c *Core) startPatternPlace(gtx layout.Context, pattern *patterns.Pattern, interlaced bool) {

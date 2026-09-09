@@ -3,6 +3,7 @@ package widgets
 import (
 	"errors"
 	"gioui.org/font"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/text"
 	"github.com/marrow16/gogol/logic"
@@ -94,9 +95,15 @@ func (p *importGridPopout) layout(gtx layout.Context) layout.Dimensions {
 		p.importGrid()
 	}
 	if p.btnPath.Clicked(gtx) {
-		filePicker(func(filename string) {
-			p.path.setText(strings.TrimSpace(string(filename)))
+		p.core.showFileFinder("Import Grid", []string{".rle"}, false, func(path string) {
+			p.path.setText(path)
+			gtx.Execute(key.FocusCmd{Tag: &p.path.editor})
 		})
+		/*
+			filePicker(func(filename string) {
+				p.path.setText(strings.TrimSpace(string(filename)))
+			})
+		*/
 	}
 	labelMax := measureMaxText(gtx, font.Normal, "Path: ").Size.X
 	return popoutLayout(gtx, flexVertical(8,
