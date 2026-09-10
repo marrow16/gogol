@@ -27,6 +27,7 @@ const (
 	CollectedRules
 	Keys
 	About
+	FileFinder
 )
 
 func (t Topic) link(s ...string) topicLink {
@@ -93,6 +94,8 @@ func (t Topic) String() string {
 		return "Keys Help"
 	case About:
 		return "About GoGoL"
+	case FileFinder:
+		return "File Finder Help"
 	}
 	return "Help"
 }

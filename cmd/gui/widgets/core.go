@@ -205,7 +205,6 @@ var keyFilters = []event.Filter{
 	key.Filter{Required: key.ModCtrl, Name: "7"},
 	key.Filter{Required: key.ModCtrl, Name: "8"},
 	key.Filter{Name: key.NameF1},
-	key.Filter{Required: key.ModCtrl, Name: "H"},
 }
 
 func (c *Core) handleKeys(gtx layout.Context) {
@@ -294,7 +293,7 @@ func (c *Core) showHelp(topic help.Topic) {
 
 func (c *Core) showFileFinder(title string, allowExts []string, allowDir bool, fn func(path string)) {
 	if c.fileFinder == nil {
-		c.fileFinder = newFileFinder()
+		c.fileFinder = newFileFinder(c)
 	}
 	c.fileFinder.allowDir = allowDir
 	c.fileFinder.allowExts = make(map[string]struct{}, len(allowExts))

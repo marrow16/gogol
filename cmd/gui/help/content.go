@@ -11,6 +11,7 @@ var contents = map[Topic]content{
 		CollectedRules, "\n",
 		Colors, "\n",
 		Editor, "\n",
+		FileFinder, "\n",
 		GridRecipes, indent{indent: 20, content: content{GridRecipesReference}},
 		HeatMap, "\n",
 		ImportGrid, "\n",
@@ -192,7 +193,7 @@ var contents = map[Topic]content{
 		"The main menu can be shown by clicking the ", iconText{image: icons.Burger},
 		" button on the status bar or by pressing key\u00a0", keys{altMac, "M"}, "\n\n",
 		"The menu contains the following options:\n\n",
-		bold("Help"), " or press keys ", keys{"F1"}, " / ", keys{"Ctrl+H"},
+		bold("Help"), " or press key ", keys{"F1"},
 		indent{indent: 20, spaceAfter: 8, content: content{"Show this help screen."}},
 		bold("About"),
 		indent{indent: 20, spaceAfter: 8, content: content{"Shows application version and information."}},
@@ -328,20 +329,20 @@ var contents = map[Topic]content{
 	},
 	LoadPatterns: {
 		"The ", bold("Load Patterns"), " popout is available from the ", MainMenu.link("main menu"), ".\n\n",
-		"Enter the ", bold("Path"), " to either a pattern file or a directory containing pattern files. Alternatively, use the ", button("..."), " button to open file finder.\n",
+		"Enter the ", bold("Path"), " to either a pattern file or a directory containing pattern files. Alternatively, use the ", button("..."), " button to open ", FileFinder.link("file finder"), ".\n",
 		"Press the ", button("Load"), " button - the number of successfully loaded patterns will be displayed or an error.\n\n",
 		"On successful load, the patterns will be available in the ", Patterns.link("Patterns"), " popout (and are also loaded next time you restart GoGoL).",
 	},
 	ImportGrid: {
 		"Use the ", bold("Import Grid"), " popout from the ", MainMenu.link("main menu"), " to load the current grid from a previously exported grid.\n\n",
-		"Enter the ", bold("Path"), " for the grid ", code(".rle"), " file to import or use the ", button("..."), " button to open file finder.\n",
+		"Enter the ", bold("Path"), " for the grid ", code(".rle"), " file to import or use the ", button("..."), " button to open the ", FileFinder.link("file finder"), ".\n",
 		"Use the ", bold("Resize grid"), " to determine whether the current grid can be resized to accommodate the imported grid",
 		" and press the ", button("Import"), " button\n\n",
 		"If the grid is successfully imported, the current grid will be updated - otherwise, an error is displayed.",
 	},
 	GridRecipes: {
 		"The ", bold("Grid Recipes"), " popout is available from the ", MainMenu.link("main menu"), ".\n\n",
-		"Select ", "an existing grid recipe from the dropdown, or enter the path to a recipe .json file. Alternatively, use the ", button("..."), " button to open the file finder.\n\n",
+		"Select ", "an existing grid recipe from the dropdown, or enter the path to a recipe .json file. Alternatively, use the ", button("..."), " button to open the ", FileFinder.link("file finder"), ".\n\n",
 		"Selecting a recipe file registers it for use by GoGoL. The recipe is not loaded, parsed or validated at this point - the file is only read when the recipe is run.\n",
 		"Because recipes are loaded on demand, the recipe file can be edited and re-run without restarting GoGoL.\n\n",
 		"Press the ", button("Run"), " button or press ", keys{altMac, "G"}, " to execute the selected recipe. If the recipe cannot be loaded or contains an error, the error will be displayed.\n\n",
@@ -1183,7 +1184,54 @@ x = 6, y = 6, rule = B0/S467
 				{{keys{altMac, "'"}}, {"Increase grid height"}},
 				{{keys{"Ctrl+0"}, " - ", keys{"Ctrl+8"}}, {"Toggle rule born with"}},
 				{{keys{altMac, "0"}, " - ", keys{altMac, "8"}}, {"Toggle rule survives with"}},
+				{{keys{"F1"}}, {"To show this help screen."}},
 			},
 		},
+	},
+	FileFinder: {
+		"File finder is the built-in file (and path) selector for GoGoL - replacing native OS file finders and file open dialogs.\n",
+		"It specifically allows previewing ", code(".rle"), " files (including meta data). ",
+		"It also allows limited previewing of ", code(".png"), ", ", code(".jpg"), ", ", code(".jpeg"), " and ", code(".gif"), " files.\n\n",
+		"The file finder can be reached by pressing the ", button("..."), " button in ", LoadPatterns.link("Load Patterns"), ", ", GridRecipes.link("Grid Recipes"), " or ", ImportGrid.link("Import Grid"), ".",
+		h4("Usage", 8, 4),
+		bold("Path"), " shows the current path:",
+		indent{indent: 20, spaceAfter: 8, content: content{
+			hanging{prefix: "• ", content: "Click on any of the path items to navigate up the folder path."},
+			hanging{prefix: "• ", content: content{
+				"Press keys ", keys{keyLeft}, " or ", keys{keyBack}, " to navigate up to parent folder.",
+			}},
+		}},
+		"The left pane shows the list of files and folders in the current path:",
+		indent{indent: 20, spaceAfter: 8, content: content{
+			hanging{prefix: "• ", content: "Clicking on any file or folder selects it."},
+			hanging{prefix: "• ", content: content{
+				"Use keys ", keys{keyUp}, " ", keys{keyDown}, " ", keys{"PgUp"}, " ", keys{"PgDn"}, " ", keys{"Home"}, " and ", keys{"End"}, " to navigate.",
+			}},
+			hanging{prefix: "• ", content: content{
+				"When on a folder, click again or press ", keys{keyRight}, " to navigate into that folder.",
+			}},
+			hanging{prefix: "• ", content: "Press any character key to navigate to the next file/folder whose name starts with that character."},
+		}},
+		"The right pane shows the details of the currently selected file or folder:",
+		indent{indent: 20, spaceAfter: 8, content: content{
+			hanging{prefix: "• ", content: content{
+				"If the currently selected file is a ", code(".rle"), ", ", code(".png"), ", ", code(".jpg"), ", ", code(".jpeg"), " or ", code(".gif"),
+				" - a preview is displayed.",
+			}},
+		}},
+		"The bottom pane shows controls:",
+		indent{indent: 20, spaceAfter: 8, content: content{
+			hanging{prefix: "• ", content: content{
+				"Use the ", button("Only show selectable files"), " checkbox to limit files shown to only those that can be selected.",
+			}},
+			hanging{prefix: "• ", content: content{
+				"Click ", button("Open"), " button to select the current file/folder and return to the calling popout.",
+				"\n", italic("This button will be disabled if the current file type is not allowed or selecting a folder when folder selection is not permissible."),
+			}},
+			hanging{prefix: "• ", content: content{
+				"Click on ", button("Cancel"), " button or press ", keys{"Esc"}, " to exit file finder",
+			}},
+		}},
+		italic("Note: Clicking on the window close will "), boldItalic("not"), " close the file finder - it will close the entire application!",
 	},
 }

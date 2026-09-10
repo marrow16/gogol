@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"gioui.org/f32"
 	"gioui.org/font"
+	"gioui.org/io/event"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -18,6 +20,8 @@ import (
 	"github.com/marrow16/gogol/patterns"
 	"image"
 	"image/color"
+	"image/gif"
+	"image/jpeg"
 	"image/png"
 	_ "image/png"
 	"maps"
@@ -29,11 +33,13 @@ import (
 	"sync"
 )
 
-func newFileFinder() *fileFinder {
+func newFileFinder(core *Core) *fileFinder {
 	result := &fileFinder{
-		btnOpen:         newButton("Open"),
-		btnOpenDisabled: newButton("Open"),
-		btnCancel:       newButton("Cancel"),
+		core:              core,
+		btnOpen:           newButton("Open"),
+		btnOpenDisabled:   newButton("Open"),
+		btnCancel:         newButton("Cancel"),
+		chkOnlySelectable: newCheckBox("Only show selectable files", false),
 	}
 	result.btnOpenDisabled.style.Background = color.NRGBA{R: 160, G: 160, B: 160, A: 255}
 	result.list = newListControl[*dirEntry](nil, false).
@@ -45,6 +51,19 @@ func newFileFinder() *fileFinder {
 		})
 	result.list.selectedBg = color.NRGBA{R: 220, G: 220, B: 220, A: 255}
 	result.list.focusedBg = color.NRGBA{R: 220, G: 220, B: 220, A: 255}
+	result.keyFilters = []event.Filter{
+		key.Filter{Name: key.NameEscape},
+		key.Filter{Name: key.NameF1},
+		key.Filter{Name: key.NameDeleteBackward},
+		key.Filter{Name: key.NameLeftArrow},
+		key.Filter{Name: key.NameRightArrow},
+	}
+	for k := 'A'; k <= 'Z'; k++ {
+		result.keyFilters = append(result.keyFilters, key.Filter{Name: key.Name(k)})
+	}
+	for k := '0'; k <= '9'; k++ {
+		result.keyFilters = append(result.keyFilters, key.Filter{Name: key.Name(k)})
+	}
 	return result
 }
 
@@ -53,16 +72,18 @@ func isHidden(name string) bool {
 }
 
 type fileFinder struct {
-	showing   bool
-	allowExts map[string]struct{}
-	allowDir  bool
-	//resultPath string
-	result          *dirEntry
-	onSelect        func(path string)
-	title           string
-	btnOpen         *button
-	btnOpenDisabled *button
-	btnCancel       *button
+	core              *Core
+	showing           bool
+	allowExts         map[string]struct{}
+	allowDir          bool
+	result            *dirEntry
+	onSelect          func(path string)
+	title             string
+	btnOpen           *button
+	btnOpenDisabled   *button
+	btnCancel         *button
+	chkOnlySelectable *checkbox
+	keyFilters        []event.Filter
 
 	checkCurrent bool
 	currentDir   *dirEntry
@@ -165,6 +186,7 @@ func (f *fileFinder) canSelectPath(path string) bool {
 
 func (f *fileFinder) layout(gtx layout.Context) {
 	f.setCurrentDir()
+	gtx.Execute(key.FocusCmd{Tag: &f.list.tag})
 	layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		f.header(gtx),
 		f.breadcrumbs(gtx),
@@ -196,7 +218,12 @@ func (f *fileFinder) breadcrumbs(gtx layout.Context) layout.FlexChild {
 		}
 	}
 	items := make([]layout.FlexChild, 0, len(f.currentPath)*2)
-	items = append(items, rigid(label("Path: ")))
+	items = append(items, rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Label(theme, theme.TextSize, "Path: ")
+		lbl.Font.Weight = font.Bold
+		lbl.MaxLines = 1
+		return lbl.Layout(gtx)
+	}))
 	sep := label("/")
 	last := len(f.currentPath) - 1
 	for i, item := range f.currentPath {
@@ -231,11 +258,45 @@ func (f *fileFinder) body(gtx layout.Context) layout.FlexChild {
 }
 
 func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
+	var backTo *dirEntry
+	for {
+		ev, ok := gtx.Event(f.keyFilters...)
+		if !ok {
+			break
+		}
+		if kev, ok := ev.(key.Event); ok && kev.State == key.Press {
+			switch kev.Name {
+			case key.NameEscape:
+				f.showing = false
+				window.Invalidate()
+			case key.NameF1:
+				f.core.showHelp(-1)
+			case key.NameDeleteBackward, key.NameLeftArrow:
+				if len(f.currentPath) > 1 {
+					backTo = f.currentDir
+					f.result = nil
+					f.currentPath = f.currentPath[:len(f.currentPath)-1]
+					f.currentDir = f.currentPath[len(f.currentPath)-1]
+					window.Invalidate()
+				}
+			case key.NameRightArrow:
+				if f.list.selectedIndex >= 0 && f.list.selectedIndex < len(f.list.items) && !f.list.items[f.list.selectedIndex].isFile {
+					f.result = nil
+					f.currentPath = append(f.currentPath, f.list.items[f.list.selectedIndex])
+					f.currentDir = f.list.items[f.list.selectedIndex]
+					window.Invalidate()
+				}
+			default:
+				f.handleNavKeys(strings.ToUpper(string(kev.Name)))
+			}
+		}
+	}
 	if f.currentDir != f.scannedDir {
 		f.scannedDir = f.currentDir
 		dirs := make([]*dirEntry, 0)
 		files := make([]*dirEntry, 0)
 		entries, _ := os.ReadDir(f.scannedDir.path)
+		onlySelectable := f.chkOnlySelectable.Checked()
 		for _, entry := range entries {
 			name := entry.Name()
 			path := filepath.Join(f.scannedDir.path, name)
@@ -246,7 +307,7 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 						name:      name,
 						clickable: new(widget.Clickable),
 					})
-				} else {
+				} else if !onlySelectable || f.canSelectPath(path) {
 					files = append(files, &dirEntry{
 						path:   path,
 						name:   name,
@@ -255,9 +316,31 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 				}
 			}
 		}
+		slices.SortStableFunc(dirs, func(a, b *dirEntry) int {
+			return strings.Compare(strings.ToLower(a.name), strings.ToLower(b.name))
+		})
+		slices.SortStableFunc(files, func(a, b *dirEntry) int {
+			return strings.Compare(strings.ToLower(a.name), strings.ToLower(b.name))
+		})
 		items := append(dirs, files...)
 		f.list.resetItems(items)
-		f.list.list.ScrollTo(0)
+		if backTo != nil {
+			for i, e := range items {
+				if e.isFile {
+					break
+				}
+				if e.path == backTo.path {
+					f.list.selectedIndex = i
+					f.result = e
+					f.list.list.ScrollTo(f.list.selectedIndex)
+					break
+				}
+			}
+		}
+		if f.result == nil && len(items) > 0 {
+			f.result = items[0]
+			f.list.list.ScrollTo(f.list.selectedIndex)
+		}
 	}
 	return layout.Flexed(1.5, func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Inset{Top: 4, Left: 4, Bottom: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -268,17 +351,48 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 	})
 }
 
+func (f *fileFinder) handleNavKeys(k string) {
+	idx := f.list.selectedIndex
+	if idx >= 0 && idx < len(f.list.items) {
+		curr := f.list.items[idx]
+		if !curr.isFile {
+			if strings.HasPrefix(strings.ToUpper(curr.name), k) && idx+1 < len(f.list.items) &&
+				strings.HasPrefix(strings.ToUpper(f.list.items[idx+1].name), k) {
+				f.list.selectedIndex++
+				f.list.list.ScrollTo(f.list.selectedIndex)
+				f.navigateEntry(f.list.items[f.list.selectedIndex])
+			} else {
+				for i, e := range f.list.items {
+					if strings.HasPrefix(strings.ToUpper(e.name), k) {
+						f.list.selectedIndex = i
+						f.list.list.ScrollTo(f.list.selectedIndex)
+						f.navigateEntry(f.list.items[f.list.selectedIndex])
+						break
+					}
+				}
+			}
+		} else if strings.HasPrefix(strings.ToUpper(curr.name), k) && idx+1 < len(f.list.items) &&
+			strings.HasPrefix(strings.ToUpper(f.list.items[idx+1].name), k) {
+			f.list.selectedIndex++
+			f.list.list.ScrollTo(f.list.selectedIndex)
+			f.navigateEntry(f.list.items[f.list.selectedIndex])
+		} else {
+			for i, e := range f.list.items {
+				if strings.HasPrefix(strings.ToUpper(e.name), k) {
+					f.list.selectedIndex = i
+					f.list.list.ScrollTo(f.list.selectedIndex)
+					f.navigateEntry(f.list.items[f.list.selectedIndex])
+					break
+				}
+			}
+		}
+	}
+}
+
 func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
 	return layout.Flexed(3.5, func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Inset{Top: 4, Left: 4, Bottom: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return f.entryPreview(f.result)(gtx)
-			/*
-				if f.result != nil {
-					return material.Label(theme, theme.TextSize, fmt.Sprintf("PREVIEW: file:%v path:%q", f.result.isFile, f.result.path)).Layout(gtx)
-				} else {
-					return material.Label(theme, theme.TextSize, "NO PREVIEW (nothing selected)").Layout(gtx)
-				}
-			*/
 		})
 		border(gtx, dims, false, true, false, false)
 		return dims
@@ -297,12 +411,15 @@ func (f *fileFinder) footer(gtx layout.Context) layout.FlexChild {
 		f.showing = false
 		window.Invalidate()
 	}
+	if f.chkOnlySelectable.Update(gtx) {
+		f.scannedDir = nil
+		f.result = nil
+		window.Invalidate()
+	}
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Inset{Top: 8, Left: 8, Bottom: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Dimensions{}
-				}),
+			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+				layout.Rigid(f.chkOnlySelectable.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return flexHorizontal(20,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -412,6 +529,8 @@ type dirEntry struct {
 	previewExtra   [][2]string
 	previewImage   image.Image
 	previewError   error
+	previewScrollV *widget.List
+	previewScrollH *widget.List
 }
 
 func (e *dirEntry) buildPreview(allowExts map[string]struct{}) {
@@ -428,8 +547,8 @@ func (e *dirEntry) buildPreview(allowExts map[string]struct{}) {
 			preview, extra, img, err = e.buildPreviewRle()
 		case ".json":
 			preview, extra, err = e.buildPreviewJson()
-		case ".png":
-			preview, extra, img, err = e.buildPreviewPng()
+		case ".png", ".jpg", ".jpeg", ".gif":
+			preview, extra, img, err = e.buildPreviewImg()
 		default:
 			preview, err = e.buildPreviewCommon()
 		}
@@ -535,7 +654,7 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 	), extra, nil, e2
 }
 
-func (e *dirEntry) buildPreviewPng() (layout.Widget, [][2]string, image.Image, error) {
+func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, error) {
 	p, err := e.buildPreviewCommon()
 	if err != nil {
 		return nil, nil, nil, err
@@ -545,7 +664,15 @@ func (e *dirEntry) buildPreviewPng() (layout.Widget, [][2]string, image.Image, e
 		return nil, nil, nil, err
 	}
 	defer f.Close()
-	img, err := png.Decode(f)
+	var img image.Image
+	switch filepath.Ext(e.name) {
+	case ".png":
+		img, err = png.Decode(f)
+	case ".jpg", ".jpeg":
+		img, err = jpeg.Decode(f)
+	case ".gif":
+		img, err = gif.Decode(f)
+	}
 	if err != nil {
 		extra := [][2]string{{"PNG error:", err.Error()}}
 		return p, extra, nil, nil
@@ -557,30 +684,38 @@ func (e *dirEntry) buildPreviewPng() (layout.Widget, [][2]string, image.Image, e
 			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(16)}}
 		}),
 		flexed(func(gtx layout.Context) layout.Dimensions {
+			img := e.previewImage
 			b := img.Bounds()
-			iw := float32(b.Dx())
-			ih := float32(b.Dy())
-			maxW := float32(gtx.Constraints.Max.X)
-			maxH := float32(gtx.Constraints.Max.Y)
-			scale := min(maxW/iw, maxH/ih)
-			w := int(iw * scale)
-			h := int(ih * scale)
-			stack := op.Affine(
-				f32.Affine2D{}.Scale(
-					f32.Point{},
-					f32.Point{X: scale, Y: scale},
-				),
-			).Push(gtx.Ops)
-			defer stack.Pop()
-			paint.NewImageOp(img).Add(gtx.Ops)
-			paint.PaintOp{}.Add(gtx.Ops)
-			return layout.Dimensions{
-				Size: image.Point{X: w, Y: h},
+			if b.Dx() > gtx.Constraints.Max.X || b.Dy() > gtx.Constraints.Max.Y {
+				iw := float32(b.Dx())
+				ih := float32(b.Dy())
+				maxW := float32(gtx.Constraints.Max.X)
+				maxH := float32(gtx.Constraints.Max.Y)
+				scale := min(maxW/iw, maxH/ih)
+				w := int(iw * scale)
+				h := int(ih * scale)
+				stack := op.Affine(
+					f32.Affine2D{}.Scale(
+						f32.Point{},
+						f32.Point{X: scale, Y: scale},
+					),
+				).Push(gtx.Ops)
+				defer stack.Pop()
+				paint.NewImageOp(img).Add(gtx.Ops)
+				paint.PaintOp{}.Add(gtx.Ops)
+				return layout.Dimensions{
+					Size: image.Point{X: w, Y: h},
+				}
+			} else {
+				size := img.Bounds().Size()
+				stack := clip.Rect{Max: size}.Push(gtx.Ops)
+				defer stack.Pop()
+				paint.NewImageOp(img).Add(gtx.Ops)
+				paint.PaintOp{}.Add(gtx.Ops)
+				return layout.Dimensions{Size: size}
 			}
-
 		}),
 	), nil, img, nil
-
 }
 
 func (e *dirEntry) buildPreviewJson() (layout.Widget, [][2]string, error) {
@@ -604,6 +739,12 @@ func (e *dirEntry) buildPreviewJson() (layout.Widget, [][2]string, error) {
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(js)
 	jtxt := string(buf.Bytes())
+	if e.previewScrollV == nil {
+		e.previewScrollV = &widget.List{}
+		e.previewScrollV.List.Axis = layout.Vertical
+		e.previewScrollH = &widget.List{}
+		e.previewScrollH.List.Axis = layout.Horizontal
+	}
 	return flexVertical(0,
 		rigid(p),
 		rigid(func(gtx layout.Context) layout.Dimensions {
@@ -611,10 +752,16 @@ func (e *dirEntry) buildPreviewJson() (layout.Widget, [][2]string, error) {
 			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(16)}}
 		}),
 		flexed(func(gtx layout.Context) layout.Dimensions {
-			dims := layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: gtx.Constraints.Max.Y}}
+			dims := layout.Dimensions{Size: gtx.Constraints.Max}
 			border(gtx, dims, true, true, true, true)
-			return layout.Inset{Top: 8, Bottom: 8, Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Label(theme, (theme.TextSize*4)/5, jtxt).Layout(gtx)
+			return material.List(theme, e.previewScrollV).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+				return material.List(theme, e.previewScrollH).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+					gtx.Constraints.Min = image.Point{}
+					gtx.Constraints.Max = image.Point{X: 1 << 30, Y: 1 << 30}
+					lbl := material.Label(theme, (theme.TextSize*4)/5, jtxt)
+					lbl.MaxLines = 0
+					return lbl.Layout(gtx)
+				})
 			})
 		}),
 	), nil, nil
