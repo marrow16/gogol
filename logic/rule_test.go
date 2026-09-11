@@ -16,34 +16,32 @@ func TestStandard(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, r.Rle(), r2.Rle())
 	testCases := []struct {
-		alive     bool
-		adjs      int
-		nextState bool
-		changed   bool
+		alive   bool
+		adjs    int
+		changed bool
 	}{
-		{adjs: 0, nextState: false},
-		{adjs: 1, nextState: false},
-		{adjs: 2, nextState: false},
-		{adjs: 3, nextState: true, changed: true},
-		{adjs: 4, nextState: false},
-		{adjs: 5, nextState: false},
-		{adjs: 6, nextState: false},
-		{adjs: 7, nextState: false},
-		{adjs: 8, nextState: false},
-		{alive: true, adjs: 0, nextState: false, changed: true},
-		{alive: true, adjs: 1, nextState: false, changed: true},
-		{alive: true, adjs: 2, nextState: true},
-		{alive: true, adjs: 3, nextState: true},
-		{alive: true, adjs: 4, nextState: false, changed: true},
-		{alive: true, adjs: 5, nextState: false, changed: true},
-		{alive: true, adjs: 6, nextState: false, changed: true},
-		{alive: true, adjs: 7, nextState: false, changed: true},
-		{alive: true, adjs: 8, nextState: false, changed: true},
+		{adjs: 0},
+		{adjs: 1},
+		{adjs: 2},
+		{adjs: 3, changed: true},
+		{adjs: 4},
+		{adjs: 5},
+		{adjs: 6},
+		{adjs: 7},
+		{adjs: 8},
+		{alive: true, adjs: 0, changed: true},
+		{alive: true, adjs: 1, changed: true},
+		{alive: true, adjs: 2},
+		{alive: true, adjs: 3},
+		{alive: true, adjs: 4, changed: true},
+		{alive: true, adjs: 5, changed: true},
+		{alive: true, adjs: 6, changed: true},
+		{alive: true, adjs: 7, changed: true},
+		{alive: true, adjs: 8, changed: true},
 	}
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("alive=%t,adjs=%d", tc.alive, tc.adjs), func(t *testing.T) {
 			c := newTestCell(tc.alive, tc.adjs)
-			assert.Equal(t, tc.nextState, r.NextState(c))
 			assert.Equal(t, tc.changed, r.StateChanged(c))
 		})
 	}
@@ -65,34 +63,32 @@ func TestFlippedStandard(t *testing.T) {
 	r, err := NewRuleRle("", "S23/B3")
 	require.NoError(t, err)
 	testCases := []struct {
-		alive     bool
-		adjs      int
-		nextState bool
-		changed   bool
+		alive   bool
+		adjs    int
+		changed bool
 	}{
-		{adjs: 0, nextState: false},
-		{adjs: 1, nextState: false},
-		{adjs: 2, nextState: false},
-		{adjs: 3, nextState: true, changed: true},
-		{adjs: 4, nextState: false},
-		{adjs: 5, nextState: false},
-		{adjs: 6, nextState: false},
-		{adjs: 7, nextState: false},
-		{adjs: 8, nextState: false},
-		{alive: true, adjs: 0, nextState: false, changed: true},
-		{alive: true, adjs: 1, nextState: false, changed: true},
-		{alive: true, adjs: 2, nextState: true},
-		{alive: true, adjs: 3, nextState: true},
-		{alive: true, adjs: 4, nextState: false, changed: true},
-		{alive: true, adjs: 5, nextState: false, changed: true},
-		{alive: true, adjs: 6, nextState: false, changed: true},
-		{alive: true, adjs: 7, nextState: false, changed: true},
-		{alive: true, adjs: 8, nextState: false, changed: true},
+		{adjs: 0},
+		{adjs: 1},
+		{adjs: 2},
+		{adjs: 3, changed: true},
+		{adjs: 4},
+		{adjs: 5},
+		{adjs: 6},
+		{adjs: 7},
+		{adjs: 8},
+		{alive: true, adjs: 0, changed: true},
+		{alive: true, adjs: 1, changed: true},
+		{alive: true, adjs: 2},
+		{alive: true, adjs: 3},
+		{alive: true, adjs: 4, changed: true},
+		{alive: true, adjs: 5, changed: true},
+		{alive: true, adjs: 6, changed: true},
+		{alive: true, adjs: 7, changed: true},
+		{alive: true, adjs: 8, changed: true},
 	}
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("alive=%t,adjs=%d", tc.alive, tc.adjs), func(t *testing.T) {
 			c := newTestCell(tc.alive, tc.adjs)
-			assert.Equal(t, tc.nextState, r.NextState(c))
 			assert.Equal(t, tc.changed, r.StateChanged(c))
 		})
 	}
@@ -101,34 +97,32 @@ func TestFlippedStandard(t *testing.T) {
 func TestAntiLife(t *testing.T) {
 	r := Rules["AntiLife"]
 	testCases := []struct {
-		alive     bool
-		adjs      int
-		nextState bool
-		changed   bool
+		alive   bool
+		adjs    int
+		changed bool
 	}{
-		{adjs: 0, nextState: true, changed: true},
-		{adjs: 1, nextState: true, changed: true},
-		{adjs: 2, nextState: true, changed: true},
-		{adjs: 3, nextState: true, changed: true},
-		{adjs: 4, nextState: true, changed: true},
-		{adjs: 5, nextState: false},
-		{adjs: 6, nextState: false},
-		{adjs: 7, nextState: true, changed: true},
-		{adjs: 8, nextState: true, changed: true},
-		{alive: true, adjs: 0, nextState: true},
-		{alive: true, adjs: 1, nextState: true},
-		{alive: true, adjs: 2, nextState: true},
-		{alive: true, adjs: 3, nextState: true},
-		{alive: true, adjs: 4, nextState: true},
-		{alive: true, adjs: 5, nextState: false, changed: true},
-		{alive: true, adjs: 6, nextState: true},
-		{alive: true, adjs: 7, nextState: true},
-		{alive: true, adjs: 8, nextState: true},
+		{adjs: 0, changed: true},
+		{adjs: 1, changed: true},
+		{adjs: 2, changed: true},
+		{adjs: 3, changed: true},
+		{adjs: 4, changed: true},
+		{adjs: 5},
+		{adjs: 6},
+		{adjs: 7, changed: true},
+		{adjs: 8, changed: true},
+		{alive: true, adjs: 0},
+		{alive: true, adjs: 1},
+		{alive: true, adjs: 2},
+		{alive: true, adjs: 3},
+		{alive: true, adjs: 4},
+		{alive: true, adjs: 5, changed: true},
+		{alive: true, adjs: 6},
+		{alive: true, adjs: 7},
+		{alive: true, adjs: 8},
 	}
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("alive=%t,adjs=%d", tc.alive, tc.adjs), func(t *testing.T) {
 			c := newTestCell(tc.alive, tc.adjs)
-			assert.Equal(t, tc.nextState, r.NextState(c))
 			assert.Equal(t, tc.changed, r.StateChanged(c))
 		})
 	}
