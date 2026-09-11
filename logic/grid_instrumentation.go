@@ -46,9 +46,6 @@ func (g *Grid) StepWithInstrumentation(after StepInstrumentation) (bool, int) {
 	}
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	if g.Rule == nil {
-		g.Rule = StandardRule
-	}
 	render := g.Render
 	if render == nil {
 		render = nullRender
@@ -93,9 +90,6 @@ func (g *Grid) StepAheadWithInstrumentation(by int, before, after StepStopInstru
 	}
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	if g.Rule == nil {
-		g.Rule = StandardRule
-	}
 	reason := StepCompleted
 	count := uint64(0)
 	step := g.StepCount.Load() + 1

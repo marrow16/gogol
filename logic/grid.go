@@ -165,7 +165,7 @@ func (g *Grid) RandomizePopulation(rf int) {
 		// do nothing, all dead
 	case 100:
 		// all alive
-		for i := 0; i < total; i++ {
+		for i := range total {
 			selected[i] = true
 		}
 	default:
@@ -417,9 +417,6 @@ func nullRender(row, col int, alive, changed bool) {}
 func (g *Grid) Step() (bool, int) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	if g.Rule == nil {
-		g.Rule = StandardRule
-	}
 	render := g.Render
 	if render == nil {
 		render = nullRender
@@ -449,9 +446,6 @@ func (g *Grid) Step() (bool, int) {
 func (g *Grid) StepAhead(by int) int {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	if g.Rule == nil {
-		g.Rule = StandardRule
-	}
 	count := uint64(0)
 	changes := 0
 	for range by {

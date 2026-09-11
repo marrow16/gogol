@@ -64,7 +64,7 @@ func (w *rleWriter) writeTag(t byte, s string) {
 	}
 }
 
-func (w *rleWriter) writeDimensions(x, y int, r logic.Rule) {
+func (w *rleWriter) writeDimensions(x, y int, r *logic.Rule) {
 	w.writeString("x = " + strconv.Itoa(x) + ", y = " + strconv.Itoa(y))
 	if r != nil {
 		w.writeString(", rule = " + r.Rle())

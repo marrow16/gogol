@@ -79,7 +79,7 @@ func (p *Pattern) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		rp.Rule = r
+		rp.Rule = &r
 	}
 	switch {
 	case jp.Cells.Base64 != nil:

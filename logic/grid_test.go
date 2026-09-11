@@ -331,21 +331,6 @@ func TestGrid_Step(t *testing.T) {
 		assert.True(t, g.GetCell(3, 2).Alive)
 		assert.True(t, g.GetCell(3, 3).Alive)
 	})
-	t.Run("no rule, no render func", func(t *testing.T) {
-		g, err := NewGrid(2, 2, WrapAll, DeadBoundary)
-		require.NoError(t, err)
-		g.SetCell(0, 0, true)
-		g.SetCell(0, 1, true)
-		g.SetCell(1, 0, true)
-		g.SetCell(1, 1, true)
-		g.Rule = nil
-		gridChanged, _ := g.Step()
-		assert.True(t, gridChanged)
-		assert.False(t, g.GetCell(0, 0).Alive)
-		assert.False(t, g.GetCell(0, 1).Alive)
-		assert.False(t, g.GetCell(1, 0).Alive)
-		assert.False(t, g.GetCell(1, 1).Alive)
-	})
 }
 
 func testDisplay(g *Grid) {

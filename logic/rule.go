@@ -6,24 +6,13 @@ import (
 	"strings"
 )
 
-type Rule interface {
-	StateChanged(c *Cell) (changed bool)
-	Rle() string
-	BornWith() string
-	SurvivesWith() string
-	Permutation() int
-	Integer() int
-	Name() string
-	IsCustom() bool
-}
-
-type rule struct {
+type Rule struct {
 	name         string
 	bornWith     [9]bool
 	survivesWith [9]bool
 }
 
-func (r rule) StateChanged(c *Cell) (changed bool) {
+func (r Rule) StateChanged(c *Cell) (changed bool) {
 	adjsAlive := c.AdjacentsAlive()
 	if c.Alive {
 		return !r.survivesWith[adjsAlive]
@@ -32,7 +21,7 @@ func (r rule) StateChanged(c *Cell) (changed bool) {
 	}
 }
 
-func (r rule) Rle() string {
+func (r Rule) Rle() string {
 	var sb strings.Builder
 	sb.Grow(18 + 3)
 	sb.WriteString("B")
@@ -42,10 +31,10 @@ func (r rule) Rle() string {
 	return sb.String()
 }
 
-func (r rule) BornWith() string {
+func (r Rule) BornWith() string {
 	var sb strings.Builder
 	sb.Grow(9)
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		if r.bornWith[i] {
 			sb.WriteString(strconv.Itoa(i))
 		}
@@ -53,10 +42,10 @@ func (r rule) BornWith() string {
 	return sb.String()
 }
 
-func (r rule) SurvivesWith() string {
+func (r Rule) SurvivesWith() string {
 	var sb strings.Builder
 	sb.Grow(9)
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		if r.survivesWith[i] {
 			sb.WriteString(strconv.Itoa(i))
 		}
@@ -64,7 +53,7 @@ func (r rule) SurvivesWith() string {
 	return sb.String()
 }
 
-func (r rule) Permutation() int {
+func (r Rule) Permutation() int {
 	result := 0
 	for i := range 9 {
 		if r.bornWith[i] {
@@ -77,9 +66,9 @@ func (r rule) Permutation() int {
 	return result
 }
 
-func (r rule) Integer() int {
+func (r Rule) Integer() int {
 	result := 0
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		if r.bornWith[i] {
 			result |= 1 << i
 		}
@@ -90,7 +79,7 @@ func (r rule) Integer() int {
 	return result
 }
 
-func (r rule) Name() string {
+func (r Rule) Name() string {
 	if r.name != "" {
 		return r.name
 	}
@@ -100,17 +89,17 @@ func (r rule) Name() string {
 	return "Custom " + r.Rle() + " (" + strconv.Itoa(r.Permutation()) + ")"
 }
 
-func (r rule) IsCustom() bool {
+func (r Rule) IsCustom() bool {
 	_, known := rleToName[r.Rle()]
 	return !known
 }
 
 func NewRuleFromPermutation(permutation int) (Rule, error) {
 	if permutation < 0 || permutation >= 1<<18 {
-		return nil, ErrInvalidPermutation
+		return Rule{}, ErrInvalidPermutation
 	}
-	r := &rule{}
-	for i := 0; i < 9; i++ {
+	r := Rule{}
+	for i := range 9 {
 		r.bornWith[i] = permutation&(1<<(i+9)) != 0
 		r.survivesWith[i] = permutation&(1<<i) != 0
 	}
@@ -119,7 +108,7 @@ func NewRuleFromPermutation(permutation int) (Rule, error) {
 
 func NewRuleFromInteger(i int) (Rule, error) {
 	if i < 0 || i >= 1<<18 {
-		return nil, ErrInvalidInteger
+		return Rule{}, ErrInvalidInteger
 	}
 	return NewRuleFromPermutation(IntegerToPermutation(i))
 }
@@ -133,10 +122,8 @@ func MustNewRuleRle(name string, rle string) Rule {
 }
 
 func NewRuleRle(name string, rle string) (Rule, error) {
-	result := &rule{
-		bornWith:     [9]bool{},
-		survivesWith: [9]bool{},
-		name:         name,
+	result := Rule{
+		name: name,
 	}
 	parts := strings.Split(strings.ToUpper(rle), "/")
 	b := ""
@@ -154,27 +141,27 @@ func NewRuleRle(name string, rle string) (Rule, error) {
 	if len(parts) > 1 {
 		if strings.HasPrefix(parts[1], "B") {
 			if foundB {
-				return nil, ErrInvalidRule
+				return Rule{}, ErrInvalidRule
 			}
 			foundB = true
 			b = parts[1][1:]
 		} else if strings.HasPrefix(parts[1], "S") {
 			if foundS {
-				return nil, ErrInvalidRule
+				return Rule{}, ErrInvalidRule
 			}
 			foundS = true
 			s = parts[1][1:]
 		}
 	}
 	if !foundB || !foundS {
-		return nil, ErrInvalidRule
+		return Rule{}, ErrInvalidRule
 	}
 	for _, ch := range b {
 		idx := ch - '0'
 		if idx >= 0 && idx <= 8 {
 			result.bornWith[idx] = true
 		} else {
-			return nil, ErrInvalidRule
+			return Rule{}, ErrInvalidRule
 		}
 	}
 	for _, ch := range s {
@@ -182,7 +169,7 @@ func NewRuleRle(name string, rle string) (Rule, error) {
 		if idx >= 0 && idx <= 8 {
 			result.survivesWith[idx] = true
 		} else {
-			return nil, ErrInvalidRule
+			return Rule{}, ErrInvalidRule
 		}
 	}
 	return result, nil

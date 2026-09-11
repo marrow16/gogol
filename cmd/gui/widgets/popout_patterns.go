@@ -31,7 +31,7 @@ type patternsPopout struct {
 	cachedImage   *image.NRGBA
 	// search/filter controls...
 	patternsCount        int
-	currentRule          logic.Rule
+	currentRule          *logic.Rule
 	chkFilterCurrentRule *checkbox
 	filterName           *input
 	filterRule           *input
@@ -109,7 +109,7 @@ func (p *patternsPopout) resetPatterns(force bool) {
 	if !do && p.filterApplied && p.chkFilterCurrentRule.Checked() {
 		if p.currentRule == nil || p.currentRule.Permutation() != p.core.gridHolder.grid.Rule.Permutation() {
 			do = true
-			p.currentRule = p.core.gridHolder.grid.Rule
+			p.currentRule = &p.core.gridHolder.grid.Rule
 		}
 	}
 	if do {
@@ -356,7 +356,7 @@ func (p *patternsPopout) layoutSearchFilter(gtx layout.Context) layout.Dimension
 func (p *patternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern, gtx layout.Context) layout.Dimensions {
 	labelMax := measureMaxText(gtx, font.Bold, "Size: ", "Name: ", "Filename: ", "Origin: ", "Comment: ").Size.X
 	if p.ruleClick.Clicked(gtx) && pattern.Rule != nil {
-		p.core.setRule(pattern.Rule)
+		p.core.setRule(*pattern.Rule)
 	}
 	return flexVertical(0,
 		rigid(flexHorizontal(20,
