@@ -7,7 +7,6 @@ import (
 )
 
 type Rule interface {
-	NextState(c *Cell) (nextState bool)
 	StateChanged(c *Cell) (changed bool)
 	Rle() string
 	BornWith() string
@@ -24,19 +23,13 @@ type rule struct {
 	survivesWith [9]bool
 }
 
-func (r rule) NextState(c *Cell) (nextState bool) {
+func (r rule) StateChanged(c *Cell) (changed bool) {
 	adjsAlive := c.AdjacentsAlive()
 	if c.Alive {
-		nextState = r.survivesWith[adjsAlive]
+		return !r.survivesWith[adjsAlive]
 	} else {
-		nextState = r.bornWith[adjsAlive]
+		return r.bornWith[adjsAlive]
 	}
-	return nextState
-}
-
-func (r rule) StateChanged(c *Cell) (changed bool) {
-	nextState := r.NextState(c)
-	return nextState != c.Alive
 }
 
 func (r rule) Rle() string {
