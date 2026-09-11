@@ -327,7 +327,7 @@ func (m *model) save() {
 func (m *model) patternFromGrid() (patterns.Pattern, error) {
 	p, err := patterns.NewPatternFromGrid(m.grid)
 	if err == nil {
-		p.Rule = m.grid.Rule
+		p.Rule = &m.grid.Rule
 		p.Comments = []string{"Exported from GoGoL (https://github.com/marrow16/gogol)",
 			"Wrap mode: " + m.grid.WrapMode.String(),
 			"Boundary mode: " + m.grid.BoundaryMode.String(),

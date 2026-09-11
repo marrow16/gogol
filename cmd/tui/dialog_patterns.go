@@ -228,7 +228,7 @@ func (p *patternPreview[T]) Render(parent T, form *layout.Form[T], inputNo int, 
 				rn = n
 			}
 			clickPts.Add(rgn.Text(3, 11, rn, dialogTextUlStyle), func(parent T) tea.Cmd {
-				d.m.grid.Rule = d.currentPattern.Rule
+				d.m.grid.Rule = *d.currentPattern.Rule
 				d.m.prefs.setRule(d.m.grid.Rule)
 				return d.m.savePrefs()
 			})

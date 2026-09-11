@@ -202,7 +202,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 func (s *Settings) PatternFromGrid(grid *logic.Grid) (patterns.Pattern, error) {
 	p, err := patterns.NewPatternFromGrid(grid)
 	if err == nil {
-		p.Rule = grid.Rule
+		p.Rule = &grid.Rule
 		p.Comments = []string{"Exported from GoGoL (https://github.com/marrow16/gogol)",
 			"Wrap mode: " + grid.WrapMode.String(),
 			"Boundary mode: " + grid.BoundaryMode.String(),
@@ -356,7 +356,7 @@ func (s *Settings) fromPrefs(p prefs) {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			if g, err := logic.NewGrid(pattern.Height, pattern.Width, s.WrapMode, s.BoundaryMode); err == nil {
 				s.SavedGrid = g
-				s.SavedGrid.Rule = pattern.Rule
+				s.SavedGrid.Rule = *pattern.Rule
 				pattern.Draw(s.SavedGrid, 0, 0, patterns.Rotate0)
 				for _, c := range pattern.Comments {
 					if after, ok := strings.CutPrefix(c, "Step: "); ok {

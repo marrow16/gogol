@@ -51,7 +51,7 @@ func newTestCell(alive bool, adjsAlive int) *Cell {
 	result := &Cell{
 		Alive: alive,
 	}
-	for c := 0; c < 8; c++ {
+	for c := range 8 {
 		result.Adjacents[c] = &Cell{
 			Alive: c < adjsAlive,
 		}

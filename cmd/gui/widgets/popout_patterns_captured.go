@@ -101,7 +101,7 @@ func (p *capturedPatternsPopout) addCapturedPattern(pattern patterns.Pattern) {
 			Cells:       slices.Clone(pattern.Cells),
 			Comments:    []string{"Captured by GoGoL"},
 			Origination: origin,
-			Rule:        p.core.gridHolder.grid.Rule,
+			Rule:        &p.core.gridHolder.grid.Rule,
 			Filename:    name + ".rle"})
 	p.chooser.resetItems(p.core.settings.CapturedPatterns)
 	p.chooser.setText(name)
@@ -332,7 +332,7 @@ func (p *capturedPatternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern
 	txtDim := measureText(gtx, "My")
 	labelMax := measureMaxText(gtx, font.Bold, "Size: ", "Filename: ", "Origin: ", "Comment: ").Size.X
 	if p.ruleClick.Clicked(gtx) && pattern.Rule != nil {
-		p.core.setRule(pattern.Rule)
+		p.core.setRule(*pattern.Rule)
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: 10, Spacing: layout.SpaceEnd}.Layout(gtx,
 		rigid(flexHorizontal(20,

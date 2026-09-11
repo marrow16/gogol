@@ -30,10 +30,12 @@ func PatternRleDecoder(r io.Reader) (result Pattern, err error) {
 		case strings.HasPrefix(line, "#P") || strings.HasPrefix(line, "#R"):
 			result.Coordinates = strings.TrimSpace(line[2:])
 		case strings.HasPrefix(line, "#r"):
-			result.Rule, err = logic.NewRuleRle("", strings.TrimSpace(line[2:]))
+			var rule logic.Rule
+			rule, err = logic.NewRuleRle("", strings.TrimSpace(line[2:]))
 			if err != nil {
 				return
 			}
+			result.Rule = &rule
 		case strings.HasPrefix(line, "x") || strings.HasPrefix(line, "y"):
 			parts := strings.Split(line, ",")
 			if len(parts) < 2 {
@@ -69,10 +71,12 @@ func PatternRleDecoder(r io.Reader) (result Pattern, err error) {
 								rle = "B" + strings.TrimSpace(bs[1]) + "/S" + strings.TrimSpace(bs[0])
 							}
 						}
-						result.Rule, err = logic.NewRuleRle("", rle)
+						var rule logic.Rule
+						rule, err = logic.NewRuleRle("", rle)
 						if err != nil {
 							return
 						}
+						result.Rule = &rule
 					}
 				}
 			}

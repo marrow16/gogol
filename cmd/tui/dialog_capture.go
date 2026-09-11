@@ -580,7 +580,7 @@ func (d *captureDialog) scrapePattern() {
 	if d.pattern.Origination == "" {
 		d.pattern.Origination = "(your name)"
 	}
-	d.pattern.Rule = d.m.grid.Rule
+	d.pattern.Rule = &d.m.grid.Rule
 	d.pattern.Comments = []string{"Captured from GoGoL (https://github.com/marrow16/gogol)"}
 }
 

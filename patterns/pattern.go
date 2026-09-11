@@ -18,7 +18,7 @@ type Pattern struct {
 	Comments      []string
 	Origination   string
 	Coordinates   string
-	Rule          logic.Rule
+	Rule          *logic.Rule
 	Filename      string
 	CellsEncoding CellsEncoding // used for json marshalling
 }
@@ -202,7 +202,7 @@ func NewPattern(name string, width int, cells []bool) (Pattern, error) {
 		Width:  width,
 		Height: len(cells) / width,
 		Cells:  cells,
-		Rule:   logic.StandardRule,
+		Rule:   &logic.StandardRule,
 	}, nil
 }
 
@@ -234,7 +234,7 @@ func NewPatternFromGrid(grid *logic.Grid) (result Pattern, err error) {
 		Name:   "Grid",
 		Width:  grid.Width,
 		Height: grid.Height,
-		Rule:   grid.Rule,
+		Rule:   &grid.Rule,
 		Cells:  make([]bool, grid.Width*grid.Height),
 	}
 	for r := 0; r < grid.Height; r++ {
@@ -259,7 +259,7 @@ func NewPatternFromGridPortion(grid *logic.Grid, startRow, startCol, height, wid
 	result := Pattern{
 		Width:  width,
 		Height: height,
-		Rule:   grid.Rule,
+		Rule:   &grid.Rule,
 		Cells:  make([]bool, width*height),
 	}
 	for r := 0; r < height; r++ {
@@ -436,7 +436,7 @@ func (p Pattern) Phases(maxSteps int, populationFactor int, sizeFactor int) (pha
 	g, _ := logic.NewGrid(gh, gw, logic.WrapAll, logic.DeadBoundary)
 	rule := logic.StandardRule
 	if p.Rule != nil {
-		rule = p.Rule
+		rule = *p.Rule
 	}
 	g.SetRule(rule)
 	orig.Draw(g, (gh-orig.Height)/2, (gw-orig.Width)/2, Rotate0)

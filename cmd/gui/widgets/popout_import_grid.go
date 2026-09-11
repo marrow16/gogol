@@ -75,7 +75,9 @@ func (p *importGridPopout) importGrid() {
 			if resizeReqd {
 				p.core.gridResize(pattern.Height, pattern.Width)
 			}
-			p.core.gridHolder.grid.Rule = pattern.Rule
+			if pattern.Rule != nil {
+				p.core.gridHolder.grid.SetRule(*pattern.Rule)
+			}
 			p.core.gridHolder.grid.SetBoundaryMode(boundary)
 			p.core.gridHolder.grid.SetWrapMode(wrap)
 			p.core.gridHolder.grid.StepCount.Store(step)

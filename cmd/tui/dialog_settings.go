@@ -558,7 +558,7 @@ var exportForm = &layout.Form[*settingsDialog]{
 								d.m.grid.Clear()
 								p.Draw(d.m.grid, 0, 0, patterns.Rotate0)
 								d.m.grid.StepCount.Store(step)
-								d.m.grid.Rule = p.Rule
+								d.m.grid.Rule = *p.Rule
 								d.m.grid.BoundaryMode = boundary
 								d.m.grid.WrapMode = wrap
 								d.m.prefs.setRule(d.m.grid.Rule)
@@ -567,7 +567,7 @@ var exportForm = &layout.Form[*settingsDialog]{
 								return d.m.savePrefs()
 							} else if grid, err := logic.NewGrid(p.Height, p.Width, wrap, boundary); err == nil {
 								d.importResult = nil
-								grid.Rule = p.Rule
+								grid.Rule = *p.Rule
 								p.Draw(grid, 0, 0, patterns.Rotate0)
 								d.m.grid.StepCount.Store(step)
 								d.m.prefs.setRule(grid.Rule)
