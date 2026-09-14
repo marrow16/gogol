@@ -131,13 +131,13 @@ func (e *editor) handleKeys(gtx layout.Context, kev key.Event) (handled bool) {
 		e.adjustColumn(-e.col)
 	case key.NameEnd:
 		e.endMarking(false)
-		e.adjustColumn(e.g.grid.Width - e.col - 1)
+		e.adjustColumn(e.g.grid.Width() - e.col - 1)
 	case key.NamePageUp:
 		e.endMarking(false)
 		e.adjustRow(-e.row)
 	case key.NamePageDown:
 		e.endMarking(false)
-		e.adjustRow(e.g.grid.Height - e.row - 1)
+		e.adjustRow(e.g.grid.Height() - e.row - 1)
 	default:
 		if kev.Modifiers&key.ModAlt == key.ModAlt {
 			e.handleSpecialKeys(kev)
@@ -228,8 +228,8 @@ func (e *editor) handleShortcutKeys(gtx layout.Context, kev key.Event) (handled 
 	case "A":
 		//all
 		handled = true
-		e.markStartRow = e.g.grid.Height - 1
-		e.markStartCol = e.g.grid.Width - 1
+		e.markStartRow = e.g.grid.Height() - 1
+		e.markStartCol = e.g.grid.Width() - 1
 		e.markArea(0, 0)
 		e.blink = true
 		e.wasUnder = append(e.wasUnder, [2]int{e.row, e.col})
@@ -266,19 +266,17 @@ func (e *editor) drawLetter(kev key.Event) {
 }
 
 func (e *editor) setCell(alive bool, keyName key.Name, keyMods key.Modifiers) {
-	if cell := e.g.grid.GetCell(e.row, e.col); cell != nil {
-		e.undos = append(e.undos, undo{
-			kind:         undoCell,
-			restoreRow:   e.row,
-			restoreCol:   e.col,
-			row:          e.row,
-			col:          e.col,
-			wasAlive:     cell.Alive,
-			keyName:      keyName,
-			keyMods:      keyMods,
-			keyTimestamp: time.Now(),
-		})
-	}
+	e.undos = append(e.undos, undo{
+		kind:         undoCell,
+		restoreRow:   e.row,
+		restoreCol:   e.col,
+		row:          e.row,
+		col:          e.col,
+		wasAlive:     e.g.grid.GetCell(e.row, e.col),
+		keyName:      keyName,
+		keyMods:      keyMods,
+		keyTimestamp: time.Now(),
+	})
 	e.g.grid.SetCell(e.row, e.col, alive)
 }
 
@@ -300,11 +298,11 @@ func (e *editor) addPatternUndo(pattern patterns.Pattern, row, col int, rotation
 	if startCol < 0 {
 		startCol = 0
 	}
-	if endRow > e.g.grid.Height {
-		endRow = e.g.grid.Height
+	if endRow > e.g.grid.Height() {
+		endRow = e.g.grid.Height()
 	}
-	if endCol > e.g.grid.Width {
-		endCol = e.g.grid.Width
+	if endCol > e.g.grid.Width() {
+		endCol = e.g.grid.Width()
 	}
 	// make sure pattern isn't entirely outside the grid...
 	if startRow >= endRow || startCol >= endCol {
@@ -444,7 +442,7 @@ func (e *editor) groupedKeyUndos(u undo) undo {
 func (e *editor) setPosition(row, col int) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
-	if row >= 0 && row < e.g.grid.Height && col >= 0 && col < e.g.grid.Width && row != e.row && col != e.col {
+	if row >= 0 && row < e.g.grid.Height() && col >= 0 && col < e.g.grid.Width() && row != e.row && col != e.col {
 		e.blink = true
 		e.wasUnder = append(e.wasUnder, [2]int{e.row, e.col})
 		e.row, e.col = row, col
@@ -463,8 +461,8 @@ func (e *editor) adjustRow(adj int) {
 	e.row += adj
 	switch {
 	case e.row < 0:
-		e.row = e.g.grid.Height - 1
-	case e.row >= e.g.grid.Height:
+		e.row = e.g.grid.Height() - 1
+	case e.row >= e.g.grid.Height():
 		e.row = 0
 	}
 }
@@ -487,7 +485,7 @@ func (e *editor) endMarking(capture bool) {
 }
 
 func (e *editor) markArea(toRow, toCol int) {
-	if toRow < 0 || toRow >= e.g.grid.Height || toCol < 0 || toCol >= e.g.grid.Width {
+	if toRow < 0 || toRow >= e.g.grid.Height() || toCol < 0 || toCol >= e.g.grid.Width() {
 		return
 	}
 	if !e.marking {
@@ -516,7 +514,7 @@ func (e *editor) markingAdjust(rowAdj, colAdj int) {
 	e.blink = true
 	nr := e.row + rowAdj
 	nc := e.col + colAdj
-	if nr < 0 || nr >= e.g.grid.Height || nc < 0 || nc >= e.g.grid.Width {
+	if nr < 0 || nr >= e.g.grid.Height() || nc < 0 || nc >= e.g.grid.Width() {
 		return
 	}
 	sr := min(nr, e.markStartRow)
@@ -542,15 +540,15 @@ func (e *editor) adjustColumn(adj int) {
 	e.col += adj
 	switch {
 	case e.col < 0:
-		e.col = e.g.grid.Width - 1
+		e.col = e.g.grid.Width() - 1
 		e.row--
 		if e.row < 0 {
-			e.row = e.g.grid.Height - 1
+			e.row = e.g.grid.Height() - 1
 		}
-	case e.col >= e.g.grid.Width:
+	case e.col >= e.g.grid.Width():
 		e.col = 0
 		e.row++
-		if e.row >= e.g.grid.Height {
+		if e.row >= e.g.grid.Height() {
 			e.row = 0
 		}
 	}
@@ -583,7 +581,7 @@ func (e *editor) imageOps() {
 		if e.active {
 			aliveColor := placementAliveColor(e.g.core.settings.CellAliveColor)
 			deadColor := e.g.core.settings.CellDeadColor
-			if cell := e.g.grid.GetCell(e.row, e.col); cell != nil && cell.Alive {
+			if e.g.grid.GetCell(e.row, e.col) {
 				deadColor = e.g.core.settings.CellAliveColor
 			}
 			e.g.renderCellWithColors(e.row, e.col, e.blink, aliveColor, deadColor)
@@ -601,9 +599,7 @@ func (e *editor) drain() {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 	for _, u := range e.wasUnder {
-		if cell := e.g.grid.GetCell(u[0], u[1]); cell != nil {
-			e.g.renderCell(u[0], u[1], cell.Alive, true)
-		}
+		e.g.renderCell(u[0], u[1], e.g.grid.GetCell(u[0], u[1]), true)
 	}
 	e.wasUnder = e.wasUnder[:0]
 	e.dirty = false
@@ -616,14 +612,14 @@ func (e *editor) start() {
 	if e.row < 0 {
 		e.row = 0
 	}
-	if e.row >= e.g.grid.Height-1 {
-		e.row = e.g.grid.Height - 1
+	if e.row >= e.g.grid.Height()-1 {
+		e.row = e.g.grid.Height() - 1
 	}
 	if e.col < 0 {
 		e.col = 0
 	}
-	if e.col >= e.g.grid.Width-1 {
-		e.col = e.g.grid.Width - 1
+	if e.col >= e.g.grid.Width()-1 {
+		e.col = e.g.grid.Width() - 1
 	}
 	e.active = true
 	e.blink = true

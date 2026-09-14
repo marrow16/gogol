@@ -230,42 +230,47 @@ func NewPatternFromGrid(grid *logic.Grid) (result Pattern, err error) {
 	if grid == nil {
 		return Pattern{}, errors.New("grid must not be nil")
 	}
+	rule := grid.Rule()
 	result = Pattern{
 		Name:   "Grid",
-		Width:  grid.Width,
-		Height: grid.Height,
-		Rule:   &grid.Rule,
-		Cells:  make([]bool, grid.Width*grid.Height),
+		Width:  grid.Width(),
+		Height: grid.Height(),
+		Rule:   &rule,
+		Cells:  make([]bool, grid.Width()*grid.Height()),
 	}
-	for r := 0; r < grid.Height; r++ {
-		for c := 0; c < grid.Width; c++ {
-			result.Cells[r*grid.Width+c] = grid.GetCell(r, c).Alive
+	idx := 0
+	for r := 0; r < grid.Height(); r++ {
+		for c := 0; c < grid.Width(); c++ {
+			result.Cells[idx] = grid.GetCell(r, c)
+			idx++
 		}
 	}
 	return result, nil
 }
 
 func NewPatternFromGridPortion(grid *logic.Grid, startRow, startCol, height, width int) Pattern {
-	startRow = max(0, min(startRow, grid.Height-1))
-	startCol = max(0, min(startCol, grid.Width-1))
+	startRow = max(0, min(startRow, grid.Height()-1))
+	startCol = max(0, min(startCol, grid.Width()-1))
 	height = max(1, height)
 	width = max(1, width)
-	if startRow+height > grid.Height {
-		height = grid.Height - startRow
+	if startRow+height > grid.Height() {
+		height = grid.Height() - startRow
 	}
-	if startCol+width > grid.Width {
-		width = grid.Width - startCol
+	if startCol+width > grid.Width() {
+		width = grid.Width() - startCol
 	}
+	rule := grid.Rule()
 	result := Pattern{
 		Width:  width,
 		Height: height,
-		Rule:   &grid.Rule,
+		Rule:   &rule,
 		Cells:  make([]bool, width*height),
 	}
+	idx := 0
 	for r := 0; r < height; r++ {
 		for c := 0; c < width; c++ {
-			result.Cells[r*width+c] =
-				grid.GetCell(startRow+r, startCol+c).Alive
+			result.Cells[idx] = grid.GetCell(startRow+r, startCol+c)
+			idx++
 		}
 	}
 	return result
@@ -433,11 +438,11 @@ func (p Pattern) Phases(maxSteps int, populationFactor int, sizeFactor int) (pha
 		hash: {},
 	}
 	gh, gw := orig.Height*sizeFactor, orig.Width*sizeFactor
-	g, _ := logic.NewGrid(gh, gw, logic.WrapAll, logic.DeadBoundary)
 	rule := logic.StandardRule
 	if p.Rule != nil {
 		rule = *p.Rule
 	}
+	g, _ := logic.NewGrid(gh, gw, rule, logic.WrapAll, logic.DeadBoundary)
 	g.SetRule(rule)
 	orig.Draw(g, (gh-orig.Height)/2, (gw-orig.Width)/2, Rotate0)
 	initialPop := g.Population()

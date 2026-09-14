@@ -21,8 +21,8 @@ const (
 )
 
 func GridImage(g *logic.Grid, cfg Config) *image.NRGBA {
-	wd := g.Width * cfg.CellSize
-	ht := g.Height * cfg.CellSize
+	wd := g.Width() * cfg.CellSize
+	ht := g.Height() * cfg.CellSize
 	offset := 0
 	if cfg.Borders && cfg.CellSize > 2 {
 		offset = 1
@@ -71,8 +71,8 @@ func GridImage(g *logic.Grid, cfg Config) *image.NRGBA {
 }
 
 func GridImagePaletted(g *logic.Grid, cfg Config) *image.Paletted {
-	wd := g.Width * cfg.CellSize
-	ht := g.Height * cfg.CellSize
+	wd := g.Width() * cfg.CellSize
+	ht := g.Height() * cfg.CellSize
 	offset := 0
 	if cfg.Borders && cfg.CellSize > 2 {
 		offset = 1

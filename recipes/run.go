@@ -11,8 +11,7 @@ import (
 
 func (r *Recipe) SaveAsRle(origGrid *logic.Grid, filename string, originator string) (err error) {
 	var grid *logic.Grid
-	if grid, err = logic.NewGrid(origGrid.Height, origGrid.Width, origGrid.WrapMode, origGrid.BoundaryMode); err == nil {
-		grid.Rule = origGrid.Rule
+	if grid, err = logic.NewGrid(origGrid.Height(), origGrid.Width(), origGrid.Rule(), origGrid.WrapMode(), origGrid.BoundaryMode()); err == nil {
 		if grid, _, err = r.Run(grid, true); err == nil {
 			var pattern patterns.Pattern
 			if pattern, err = patterns.NewPatternFromGrid(grid); err == nil {
@@ -42,7 +41,7 @@ func (r *Recipe) SaveAsRle(origGrid *logic.Grid, filename string, originator str
 func (r *Recipe) Run(origGrid *logic.Grid, allowResize bool) (newGrid *logic.Grid, resized bool, err error) {
 	newGrid = origGrid
 	if r.GridSettings != nil {
-		ht, wd, wm, bm, rule := origGrid.Height, origGrid.Width, origGrid.WrapMode, origGrid.BoundaryMode, origGrid.Rule
+		ht, wd, wm, bm, rule := origGrid.Height(), origGrid.Width(), origGrid.WrapMode(), origGrid.BoundaryMode(), origGrid.Rule()
 		if r.GridSettings.Height != nil && *r.GridSettings.Height != ht {
 			resized = true
 			ht = *r.GridSettings.Height
@@ -64,14 +63,13 @@ func (r *Recipe) Run(origGrid *logic.Grid, allowResize bool) (newGrid *logic.Gri
 		}
 		if allowResize && resized {
 			var ng *logic.Grid
-			if ng, err = logic.NewGrid(ht, wd, wm, bm); err == nil {
+			if ng, err = logic.NewGrid(ht, wd, rule, wm, bm); err == nil {
 				newGrid = ng
-				newGrid.Rule = rule
 			} else {
 				return
 			}
 		} else {
-			newGrid.WrapMode, newGrid.BoundaryMode, newGrid.Rule = wm, bm, rule
+			newGrid.SetAll(rule, wm, bm)
 			newGrid.Clear()
 		}
 	}
@@ -107,7 +105,7 @@ func (r *Recipe) doDos(grid *logic.Grid, cy, cx int, dos []Do, last *lastDimensi
 				if do.Move != nil && do.Move.isAfter() {
 					cy, cx = do.Move.move(cy, cx, last.height, last.width)
 				}
-				repeats := calcRepeats(do.Repeat, ptn.Height, ptn.Width, grid.Height, grid.Width, cy, cx)
+				repeats := calcRepeats(do.Repeat, ptn.Height, ptn.Width, grid.Height(), grid.Width(), cy, cx)
 				for i := 0; i < repeats; i++ {
 					if do.Move != nil && !do.Move.isAfter() {
 						cy, cx = do.Move.move(cy, cx, last.height, last.width)
@@ -122,20 +120,20 @@ func (r *Recipe) doDos(grid *logic.Grid, cy, cx int, dos []Do, last *lastDimensi
 					cy, cx = do.Move.move(cy, cx, last.height, last.width)
 				}
 				do.VarOps.performOnVar(v, false)
-				ptn := v.toPattern(grid.Height, grid.Width, cy, cx)
+				ptn := v.toPattern(grid.Height(), grid.Width(), cy, cx)
 				ptn.Draw(grid, cy, cx, rotate)
 				last.height, last.width = ptn.Height, ptn.Width
 				if do.Move != nil && do.Move.isAfter() {
 					cy, cx = do.Move.move(cy, cx, last.height, last.width)
 				}
 				do.VarOps.performOnVar(v, true)
-				repeats := calcRepeats(do.Repeat, ptn.Height, ptn.Width, grid.Height, grid.Width, cy, cx)
+				repeats := calcRepeats(do.Repeat, ptn.Height, ptn.Width, grid.Height(), grid.Width(), cy, cx)
 				for i := 0; i < repeats; i++ {
 					if do.Move != nil && !do.Move.isAfter() {
 						cy, cx = do.Move.move(cy, cx, last.height, last.width)
 					}
 					do.VarOps.performOnVar(v, false)
-					ptn = v.toPattern(grid.Height, grid.Width, cy, cx)
+					ptn = v.toPattern(grid.Height(), grid.Width(), cy, cx)
 					ptn.Draw(grid, cy, cx, rotate)
 					last.height, last.width = ptn.Height, ptn.Width
 					if do.Move != nil && do.Move.isAfter() {

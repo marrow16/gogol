@@ -196,7 +196,7 @@ func (c *Core) stepAhead() {
 		}
 	}
 	go func() {
-		_, changes := c.gridHolder.grid.StepAheadWithInstrumentation(c.settings.StepAheadBy, nil, c.instrumentation)
+		_, changes := c.gridHolder.grid.StepAheadWithInstrumentation(c.settings.StepAheadBy, c.instrumentation)
 		c.changes.Store(int64(changes))
 		c.gridHolder.grid.Draw()
 		window.Invalidate()
@@ -210,7 +210,7 @@ func (c *Core) stepAheadBy(n int) {
 	defer c.mutex.Unlock()
 	c.clearMode()
 	c.stopRunning()
-	_, changes := c.gridHolder.grid.StepAheadWithInstrumentation(n, nil, c.instrumentation)
+	_, changes := c.gridHolder.grid.StepAheadWithInstrumentation(n, c.instrumentation)
 	c.changes.Store(int64(changes))
 	c.gridHolder.grid.Draw()
 	window.Invalidate()
@@ -276,7 +276,7 @@ func (c *Core) setRule(r logic.Rule) {
 
 func (c *Core) permutationIncrement() {
 	c.stop()
-	n := c.gridHolder.grid.Rule.Permutation()
+	n := c.gridHolder.grid.Rule().Permutation()
 	if n+1 < 1<<18 {
 		n++
 	} else {
@@ -290,7 +290,7 @@ func (c *Core) permutationIncrement() {
 
 func (c *Core) permutationDecrement() {
 	c.stop()
-	n := c.gridHolder.grid.Rule.Permutation()
+	n := c.gridHolder.grid.Rule().Permutation()
 	if n == 0 {
 		n = (1 << 18) - 1
 	} else {
@@ -304,7 +304,7 @@ func (c *Core) permutationDecrement() {
 
 func (c *Core) integerIncrement() {
 	c.stop()
-	n := c.gridHolder.grid.Rule.Integer()
+	n := c.gridHolder.grid.Rule().Integer()
 	if n+1 < 1<<18 {
 		n++
 	} else {
@@ -318,7 +318,7 @@ func (c *Core) integerIncrement() {
 
 func (c *Core) integerDecrement() {
 	c.stop()
-	n := c.gridHolder.grid.Rule.Integer()
+	n := c.gridHolder.grid.Rule().Integer()
 	if n == 0 {
 		n = (1 << 18) - 1
 	} else {
@@ -332,7 +332,7 @@ func (c *Core) integerDecrement() {
 
 func (c *Core) permutationIncrementBorn() {
 	c.stop()
-	perm := c.gridHolder.grid.Rule.Permutation()
+	perm := c.gridHolder.grid.Rule().Permutation()
 	b := (perm >> 9) & 0x1FF
 	s := perm & 0x1FF
 	b = (b + 1) & 0x1FF
@@ -344,7 +344,7 @@ func (c *Core) permutationIncrementBorn() {
 
 func (c *Core) permutationDecrementBorn() {
 	c.stop()
-	perm := c.gridHolder.grid.Rule.Permutation()
+	perm := c.gridHolder.grid.Rule().Permutation()
 	b := (perm >> 9) & 0x1FF
 	s := perm & 0x1FF
 	if b == 0 {
@@ -360,7 +360,7 @@ func (c *Core) permutationDecrementBorn() {
 
 func (c *Core) permutationIncrementSurvives() {
 	c.stop()
-	perm := c.gridHolder.grid.Rule.Permutation()
+	perm := c.gridHolder.grid.Rule().Permutation()
 	b := (perm >> 9) & 0x1FF
 	s := perm & 0x1FF
 	s = (s + 1) & 0x1FF
@@ -372,7 +372,7 @@ func (c *Core) permutationIncrementSurvives() {
 
 func (c *Core) permutationDecrementSurvives() {
 	c.stop()
-	perm := c.gridHolder.grid.Rule.Permutation()
+	perm := c.gridHolder.grid.Rule().Permutation()
 	b := (perm >> 9) & 0x1FF
 	s := perm & 0x1FF
 	if s == 0 {
@@ -394,7 +394,7 @@ func (c *Core) standardRule() {
 
 func (c *Core) bornChange(w string) {
 	c.stop()
-	bw, sw := c.gridHolder.grid.Rule.BornWith(), c.gridHolder.grid.Rule.SurvivesWith()
+	bw, sw := c.gridHolder.grid.Rule().BornWith(), c.gridHolder.grid.Rule().SurvivesWith()
 	if strings.Contains(bw, w) {
 		bw = strings.Replace(bw, w, "", 1)
 	} else {
@@ -408,7 +408,7 @@ func (c *Core) bornChange(w string) {
 
 func (c *Core) survivesChange(w string) {
 	c.stop()
-	bw, sw := c.gridHolder.grid.Rule.BornWith(), c.gridHolder.grid.Rule.SurvivesWith()
+	bw, sw := c.gridHolder.grid.Rule().BornWith(), c.gridHolder.grid.Rule().SurvivesWith()
 	if strings.Contains(sw, w) {
 		sw = strings.Replace(sw, w, "", 1)
 	} else {
@@ -496,6 +496,7 @@ func (c *Core) population() int {
 func (c *Core) maximumAdjacents(mx int) {
 	c.stop()
 	c.gridHolder.grid.LimitAliveAdjacents(mx)
+	c.gridHolder.grid.Draw()
 	c.resetInstrumentation()
 }
 
@@ -641,7 +642,7 @@ func (c *Core) runRecipe(filename string) {
 			return
 		}
 		if resized {
-			c.settings.Height, c.settings.Width, c.settings.WrapMode, c.settings.BoundaryMode = grid.Height, grid.Width, grid.WrapMode, grid.BoundaryMode
+			c.settings.Height, c.settings.Width, c.settings.WrapMode, c.settings.BoundaryMode = grid.Height(), grid.Width(), grid.WrapMode(), grid.BoundaryMode()
 			c.gridHolder.replaceGrid(grid)
 			c.resetInstrumentation()
 			window.Invalidate()

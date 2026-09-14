@@ -12,9 +12,8 @@ type Rule struct {
 	survivesWith [9]bool
 }
 
-func (r Rule) StateChanged(c *Cell) (changed bool) {
-	adjsAlive := c.AdjacentsAlive()
-	if c.Alive {
+func (r Rule) StateChanged(alive bool, adjsAlive uint8) (changed bool) {
+	if alive {
 		return !r.survivesWith[adjsAlive]
 	} else {
 		return r.bornWith[adjsAlive]

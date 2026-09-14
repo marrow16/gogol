@@ -39,7 +39,7 @@ func newCollectedRulesPopout(p *menuPopup, c *Core) *collectedRulesPopout {
 			window.Invalidate()
 		}).
 		onIsSelected(func(index int, r logic.Rule) bool {
-			return r.Permutation() == c.gridHolder.grid.Rule.Permutation()
+			return r.Permutation() == c.gridHolder.grid.Rule().Permutation()
 		})
 	return result
 }
@@ -61,7 +61,7 @@ func (p *collectedRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnClear.Clicked(gtx) {
 		p.core.settings.CollectedRules = make(map[int]bool)
 	}
-	curr := p.core.gridHolder.grid.Rule.Permutation()
+	curr := p.core.gridHolder.grid.Rule().Permutation()
 	if p.btnAddCurrent.Clicked(gtx) {
 		p.core.settings.CollectedRules[curr] = true
 	}

@@ -127,15 +127,15 @@ func (a *allHeatMapInstrument) StepsCount() uint64 {
 	return a.heatMappers[a.showType].StepsCount()
 }
 
-func (a *allHeatMapInstrument) InstrumentStop(step uint64, changes []*logic.Cell, locations [][2]int) bool {
+func (a *allHeatMapInstrument) InstrumentStop(step uint64, locations []int) bool {
 	for _, i := range a.instruments {
-		i.InstrumentStop(step, changes, locations)
+		i.InstrumentStop(step, locations)
 	}
 	return false
 }
 
-func (a *allHeatMapInstrument) Instrument(step uint64, changes []*logic.Cell, locations [][2]int) {
+func (a *allHeatMapInstrument) Instrument(step uint64, locations []int) {
 	for _, i := range a.instruments {
-		i.Instrument(step, changes, locations)
+		i.Instrument(step, locations)
 	}
 }

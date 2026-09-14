@@ -48,12 +48,12 @@ func newSizingPopout(p *menuPopup, c *Core) *sizingPopout {
 	result.inputs = []*numberInput[int]{
 		result.height, result.width, result.cellSize, result.randomize,
 	}
-	result.wrapMode = &widget.Enum{Value: p.core.gridHolder.grid.WrapMode.String()}
+	result.wrapMode = &widget.Enum{Value: p.core.gridHolder.grid.WrapMode().String()}
 	result.radioWrapNone = newRadioButton(result.wrapMode, logic.WrapNone.String(), "None")
 	result.radioWrapHorizontal = newRadioButton(result.wrapMode, logic.WrapHorizontal.String(), "Horizontal")
 	result.radioWrapVertical = newRadioButton(result.wrapMode, logic.WrapVertical.String(), "Vertical")
 	result.radioWrapAll = newRadioButton(result.wrapMode, logic.WrapAll.String(), "Toroidal")
-	result.boundaryMode = &widget.Enum{Value: p.core.gridHolder.grid.BoundaryMode.String()}
+	result.boundaryMode = &widget.Enum{Value: p.core.gridHolder.grid.BoundaryMode().String()}
 	result.radioBoundaryDead = newRadioButton(result.boundaryMode, logic.DeadBoundary.String(), "Dead cells")
 	result.radioBoundaryAlive = newRadioButton(result.boundaryMode, logic.AliveBoundary.String(), "Alive cells")
 	c.settingsChangeListen(result.reset)
@@ -61,12 +61,12 @@ func newSizingPopout(p *menuPopup, c *Core) *sizingPopout {
 }
 
 func (p *sizingPopout) reset() {
-	p.height.setValue(p.core.gridHolder.grid.Height)
-	p.width.setValue(p.core.gridHolder.grid.Width)
+	p.height.setValue(p.core.gridHolder.grid.Height())
+	p.width.setValue(p.core.gridHolder.grid.Width())
 	p.chkKeepOnResize.SetChecked(p.core.settings.KeepCellsOnResize)
 	p.cellSize.setValue(p.core.settings.CellSize)
-	p.wrapMode.Value = p.core.gridHolder.grid.WrapMode.String()
-	p.boundaryMode.Value = p.core.gridHolder.grid.BoundaryMode.String()
+	p.wrapMode.Value = p.core.gridHolder.grid.WrapMode().String()
+	p.boundaryMode.Value = p.core.gridHolder.grid.BoundaryMode().String()
 	p.randomize.setValue(p.core.settings.Randomization)
 }
 
@@ -118,10 +118,10 @@ func (p *sizingPopout) layout(gtx layout.Context) layout.Dimensions {
 		p.core.settings.KeepCellsOnResize = p.chkKeepOnResize.Checked()
 	}
 	if p.wrapMode.Update(gtx) {
-		p.core.setWrapMode(logic.WrapModeFromString(p.wrapMode.Value, p.core.gridHolder.grid.WrapMode))
+		p.core.setWrapMode(logic.WrapModeFromString(p.wrapMode.Value, p.core.gridHolder.grid.WrapMode()))
 	}
 	if p.boundaryMode.Update(gtx) {
-		p.core.setBoundaryMode(logic.BoundaryModeFromString(p.boundaryMode.Value, p.core.gridHolder.grid.BoundaryMode))
+		p.core.setBoundaryMode(logic.BoundaryModeFromString(p.boundaryMode.Value, p.core.gridHolder.grid.BoundaryMode()))
 	}
 	labelMax := measureMaxText(gtx, font.Normal, "Grid size: ", "Cell size: ", "Wrapping mode: ", "Boundary mode: ", "Randomize %: ").Size.X
 	return popoutLayout(gtx, flexVertical(8,

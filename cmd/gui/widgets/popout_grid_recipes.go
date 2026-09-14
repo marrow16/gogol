@@ -89,7 +89,7 @@ func (p *gridRecipesPopout) runRecipe() {
 			return
 		}
 		if resized {
-			p.core.settings.Height, p.core.settings.Width, p.core.settings.WrapMode, p.core.settings.BoundaryMode = grid.Height, grid.Width, grid.WrapMode, grid.BoundaryMode
+			p.core.settings.Height, p.core.settings.Width, p.core.settings.WrapMode, p.core.settings.BoundaryMode = grid.Height(), grid.Width(), grid.WrapMode(), grid.BoundaryMode()
 			p.core.gridHolder.replaceGrid(grid)
 			p.core.resetInstrumentation()
 			window.Invalidate()

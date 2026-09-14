@@ -11,13 +11,6 @@ func AddRule(name string, r Rule) bool {
 	return false
 }
 
-func RleToName(rle string) (string, bool) {
-	if n, ok := rleToName[rle]; ok {
-		return n, true
-	}
-	return "", false
-}
-
 var StandardRule = MustNewRuleRle("Standard", "B3/S23")
 
 var Rules = map[string]Rule{

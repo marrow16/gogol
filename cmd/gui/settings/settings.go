@@ -160,15 +160,15 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				StepAheadSnapshot:   s.StepAheadSnapshot,
 				SkipBackBy:          s.SkipBackBy,
 				Randomization:       s.Randomization,
-				WrapMode:            grid.WrapMode.String(),
-				BoundaryMode:        grid.BoundaryMode.String(),
+				WrapMode:            grid.WrapMode().String(),
+				BoundaryMode:        grid.BoundaryMode().String(),
 				CellAliveColor:      fmt.Sprintf("#%02X%02X%02X", s.CellAliveColor.R, s.CellAliveColor.G, s.CellAliveColor.B),
 				CellDeadColor:       fmt.Sprintf("#%02X%02X%02X", s.CellDeadColor.R, s.CellDeadColor.G, s.CellDeadColor.B),
 				CellBorderColor:     fmt.Sprintf("#%02X%02X%02X", s.CellBorderColor.R, s.CellBorderColor.G, s.CellBorderColor.B),
 				CellBorders:         s.CellBorders,
 				CellSize:            s.CellSize,
 				KeepCellsOnResize:   s.KeepCellsOnResize,
-				Rule:                grid.Rule.Rle(),
+				Rule:                grid.Rule().Rle(),
 				Rules:               s.Rules,
 				Patterns:            s.Patterns,
 				PatternLibraries:    s.PatternLibraries,
@@ -202,10 +202,11 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 func (s *Settings) PatternFromGrid(grid *logic.Grid) (patterns.Pattern, error) {
 	p, err := patterns.NewPatternFromGrid(grid)
 	if err == nil {
-		p.Rule = &grid.Rule
+		rule := grid.Rule()
+		p.Rule = &rule
 		p.Comments = []string{"Exported from GoGoL (https://github.com/marrow16/gogol)",
-			"Wrap mode: " + grid.WrapMode.String(),
-			"Boundary mode: " + grid.BoundaryMode.String(),
+			"Wrap mode: " + grid.WrapMode().String(),
+			"Boundary mode: " + grid.BoundaryMode().String(),
 			"Step: " + strconv.FormatUint(grid.StepCount.Load(), 10),
 		}
 		p.Origination = s.Originator
@@ -354,9 +355,12 @@ func (s *Settings) fromPrefs(p prefs) {
 	}
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
-			if g, err := logic.NewGrid(pattern.Height, pattern.Width, s.WrapMode, s.BoundaryMode); err == nil {
+			rule := pattern.Rule
+			if rule == nil {
+				rule = &logic.StandardRule
+			}
+			if g, err := logic.NewGrid(pattern.Height, pattern.Width, *rule, s.WrapMode, s.BoundaryMode); err == nil {
 				s.SavedGrid = g
-				s.SavedGrid.Rule = *pattern.Rule
 				pattern.Draw(s.SavedGrid, 0, 0, patterns.Rotate0)
 				for _, c := range pattern.Comments {
 					if after, ok := strings.CutPrefix(c, "Step: "); ok {
