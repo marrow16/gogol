@@ -311,10 +311,10 @@ func (c *Core) startPatternPlace(gtx layout.Context, pattern *patterns.Pattern, 
 	c.statusBar.showHidePopup(popupNone)
 	c.mode = placePatternMode
 	pr, pc := c.placePatternRow, c.placePatternCol
-	if pr >= c.gridHolder.grid.Height-1 {
+	if pr >= c.gridHolder.grid.Height()-1 {
 		pr = 0
 	}
-	if pc >= c.gridHolder.grid.Width-1 {
+	if pc >= c.gridHolder.grid.Width()-1 {
 		pc = 0
 	}
 	c.gridHolder.overlay = &overlay{

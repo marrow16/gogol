@@ -56,8 +56,8 @@ func (p *importGridPopout) importGrid() {
 		}()
 		if pattern, err := patterns.NewPatternFromRle(f); err == nil {
 			// parse wrap and boundary modes...
-			wrap := p.core.gridHolder.grid.WrapMode
-			boundary := p.core.gridHolder.grid.BoundaryMode
+			wrap := p.core.gridHolder.grid.WrapMode()
+			boundary := p.core.gridHolder.grid.BoundaryMode()
 			step := uint64(0)
 			for _, c := range pattern.Comments {
 				if after, ok := strings.CutPrefix(c, "Wrap mode: "); ok {
@@ -71,7 +71,7 @@ func (p *importGridPopout) importGrid() {
 				}
 			}
 			p.core.stop()
-			resizeReqd := p.chkResize.Checked() && pattern.Height != p.core.gridHolder.grid.Height && pattern.Width != p.core.gridHolder.grid.Width
+			resizeReqd := p.chkResize.Checked() && pattern.Height != p.core.gridHolder.grid.Height() && pattern.Width != p.core.gridHolder.grid.Width()
 			if resizeReqd {
 				p.core.gridResize(pattern.Height, pattern.Width)
 			}

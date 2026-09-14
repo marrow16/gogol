@@ -27,23 +27,20 @@ func newGridHolder(c *Core) (*gridHolder, error) {
 	if c.settings.SavedGrid != nil {
 		fromSaved = true
 		lg = c.settings.SavedGrid
-		c.settings.Height, c.settings.Width, c.settings.WrapMode, c.settings.BoundaryMode = lg.Height, lg.Width, lg.WrapMode, lg.BoundaryMode
+		c.settings.Height, c.settings.Width, c.settings.WrapMode, c.settings.BoundaryMode = lg.Height(), lg.Width(), lg.WrapMode(), lg.BoundaryMode()
 	} else {
 		var err error
-		lg, err = logic.NewGrid(c.settings.Height, c.settings.Width, c.settings.WrapMode, c.settings.BoundaryMode)
-		if err != nil {
-			return nil, err
-		}
+		rule := logic.StandardRule
 		if c.settings.Rule != "" {
 			if r, ok := logic.Rules[c.settings.Rule]; ok {
-				lg.SetRule(r)
+				rule = r
 			} else if r, err = logic.NewRuleRle("", c.settings.Rule); err == nil {
-				lg.SetRule(r)
-			} else {
-				lg.Rule = logic.StandardRule
+				rule = r
 			}
-		} else {
-			lg.Rule = logic.StandardRule
+		}
+		lg, err = logic.NewGrid(c.settings.Height, c.settings.Width, rule, c.settings.WrapMode, c.settings.BoundaryMode)
+		if err != nil {
+			return nil, err
 		}
 	}
 	g := &gridHolder{
@@ -53,7 +50,7 @@ func newGridHolder(c *Core) (*gridHolder, error) {
 	}
 	g.editor = &editor{g: g}
 	g.rebuild()
-	lg.Render = g.renderCell
+	lg.SetRenderer(g.renderCell)
 	if fromSaved {
 		lg.Draw()
 	} else {
@@ -83,7 +80,7 @@ type gridHolder struct {
 func (g *gridHolder) replaceGrid(grid *logic.Grid) {
 	g.grid = grid
 	g.rebuild()
-	g.grid.Render = g.renderCell
+	g.grid.SetRenderer(g.renderCell)
 	g.grid.Draw()
 }
 
@@ -192,8 +189,8 @@ func (g *gridHolder) mouseToGrid(pos f32.Point) (row, col int, ok bool) {
 	cellSize := float32(g.core.settings.CellSize) * g.zoom
 	col = int(x / cellSize)
 	row = int(y / cellSize)
-	if row < 0 || row >= g.grid.Height ||
-		col < 0 || col >= g.grid.Width {
+	if row < 0 || row >= g.grid.Height() ||
+		col < 0 || col >= g.grid.Width() {
 		return row, col, false
 	}
 	return row, col, true
@@ -218,7 +215,7 @@ func (g *gridHolder) handleKeys(gtx layout.Context, kev key.Event) {
 			g.overlay.moved = true
 		}
 	case key.NameRightArrow:
-		if g.overlay.col < g.grid.Width-1 {
+		if g.overlay.col < g.grid.Width()-1 {
 			g.overlay.col++
 			g.overlay.moved = true
 		}
@@ -228,7 +225,7 @@ func (g *gridHolder) handleKeys(gtx layout.Context, kev key.Event) {
 			g.overlay.moved = true
 		}
 	case key.NameDownArrow:
-		if g.overlay.row < g.grid.Height-1 {
+		if g.overlay.row < g.grid.Height()-1 {
 			g.overlay.row++
 			g.overlay.moved = true
 		}
@@ -325,14 +322,13 @@ type overlay struct {
 }
 
 func (g *gridHolder) resize() {
-	if lg, err := logic.NewGrid(g.core.settings.Height, g.core.settings.Width, g.grid.WrapMode, g.grid.BoundaryMode); err == nil {
+	if lg, err := logic.NewGrid(g.core.settings.Height, g.core.settings.Width, g.grid.Rule(), g.grid.WrapMode(), g.grid.BoundaryMode()); err == nil {
 		if g.core.settings.KeepCellsOnResize {
 			if rp, err := patterns.NewPatternFromGrid(g.grid); err == nil {
 				rp.Draw(lg, 0, 0, patterns.Rotate0)
 			}
 		}
-		lg.Rule = g.grid.Rule
-		lg.Render = g.renderCell
+		lg.SetRenderer(g.renderCell)
 		g.grid = lg
 		g.rebuild()
 		g.core.status = "Grid " + strconv.Itoa(g.core.settings.Width) + " x " + strconv.Itoa(g.core.settings.Height)
@@ -355,7 +351,7 @@ func (g *gridHolder) rebuild() {
 }
 
 func (g *gridHolder) buildHeatMap(heatMap logic.HeatMap) {
-	g.heatMapCanvas = imaging.HeatMap(heatMap, g.grid.Height, g.grid.Width, imaging.Config{
+	g.heatMapCanvas = imaging.HeatMap(heatMap, g.grid.Height(), g.grid.Width(), imaging.Config{
 		CellSize:    g.core.settings.CellSize,
 		Borders:     g.core.settings.CellBorders,
 		DeadColor:   g.core.settings.CellDeadColor,

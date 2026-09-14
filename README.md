@@ -4,30 +4,21 @@ Game Of Life implementation in Go.
 
 ## Features
 
-* Easy-to-use terminal UI (TUI) or GUI
-* Fast rendering and simulation (up to ~60 FPS)
+* Easy-to-use GUI
+* Fast rendering and simulation
 * Step ahead (steps the simulation ahead without rendering)
 * Snapshot current grid and revert back to snapshot
 * Full control over grid settings
 * Standard and custom Life rules
-* Built-in pattern library
 * Load individual RLE patterns and/or entire libraries
 * Pattern preview and metadata viewer
 * Pattern placement, rotation and positioning
 * Pattern capture from a simulation
   * Interactive pattern editor (cropping and cleanup; metadata editing; save as RLE)
+  * Identification against loaded patterns library
 * Grid recipes - JSON files to create initial grid (see [README](recipes/README.md))
-* Save and load current grid as RLE
-* Mouse and keyboard support
+* Meta rules
 
-## Running TUI
-
-(requires Go 1.26 installed)
-
-TUI (terminal UI):
-```
-go run ./cmd/tui
-```
 
 ## GUI Builds
 
@@ -35,20 +26,18 @@ See [_builds](https://github.com/marrow16/gogol/tree/main/_builds/gui)
 
 ## Screenshots GUI
 
-![screenshot](./_screenshots/gui-screenshot1.png)
-![screenshot](./_screenshots/gui-screenshot2.png)
-![screenshot](./_screenshots/gui-screenshot3.png)
-
-## Screenshots TUI
-
-![screenshot](./_screenshots/screenshot1.png)
-![screenshot](./_screenshots/screenshot2.png)
-![screenshot](./_screenshots/screenshot3.png)
-![screenshot](./_screenshots/screenshot4.png)
-![screenshot](./_screenshots/screenshot5.png)
-![screenshot](./_screenshots/screenshot6.png)
-![screenshot](./_screenshots/screenshot7.png)
-![screenshot](./_screenshots/screenshot8.png)
-![screenshot](./_screenshots/screenshot9.png)
+![screenshot](./_screenshots/screenshot01.png)
+![screenshot](./_screenshots/screenshot02.png)
+![screenshot](./_screenshots/screenshot03.png)
+![screenshot](./_screenshots/screenshot04.png)
+![screenshot](./_screenshots/screenshot05.png)
+![screenshot](./_screenshots/screenshot06.png)
+![screenshot](./_screenshots/screenshot07.png)
+![screenshot](./_screenshots/screenshot08.png)
+![screenshot](./_screenshots/screenshot09.png)
 ![screenshot](./_screenshots/screenshot10.png)
-
+![screenshot](./_screenshots/screenshot11.png)
+![screenshot](./_screenshots/screenshot12.png)
+![screenshot](./_screenshots/screenshot13.png)
+![screenshot](./_screenshots/screenshot14.png)
+![screenshot](./_screenshots/screenshot15.png)

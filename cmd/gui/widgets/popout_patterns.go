@@ -107,9 +107,10 @@ func (p *patternsPopout) setSelected(name string) {
 func (p *patternsPopout) resetPatterns(force bool) {
 	do := force || p.patternsCount != len(patterns.PatternLibrary)
 	if !do && p.filterApplied && p.chkFilterCurrentRule.Checked() {
-		if p.currentRule == nil || p.currentRule.Permutation() != p.core.gridHolder.grid.Rule.Permutation() {
+		if p.currentRule == nil || p.currentRule.Permutation() != p.core.gridHolder.grid.Rule().Permutation() {
 			do = true
-			p.currentRule = &p.core.gridHolder.grid.Rule
+			rule := p.core.gridHolder.grid.Rule()
+			p.currentRule = &rule
 		}
 	}
 	if do {
@@ -153,7 +154,7 @@ func (p *patternsPopout) buildPatternsFilter() *patternFilter {
 	result := &patternFilter{}
 	if p.chkFilterCurrentRule.Checked() {
 		result.fns = append(result.fns, func(pattern patterns.Pattern) bool {
-			return pattern.Rule != nil && pattern.Rule.Permutation() == p.core.gridHolder.grid.Rule.Permutation()
+			return pattern.Rule != nil && pattern.Rule.Permutation() == p.core.gridHolder.grid.Rule().Permutation()
 		})
 	} else if s := p.filterRule.editor.Text(); len(s) != 0 {
 		if r, err := logic.NewRuleRle("", s); err == nil {
@@ -298,7 +299,7 @@ func (p *patternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt int) lay
 }
 
 func (p *patternsPopout) layoutSearchFilter(gtx layout.Context) layout.Dimensions {
-	if r := p.core.gridHolder.grid.Rule; r.IsCustom() {
+	if r := p.core.gridHolder.grid.Rule(); r.IsCustom() {
 		p.filterRuleCurrent.setText(r.Rle())
 	} else {
 		p.filterRuleCurrent.setText(r.Name())

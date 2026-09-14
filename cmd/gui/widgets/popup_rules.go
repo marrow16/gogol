@@ -45,10 +45,10 @@ type rulesPopup struct {
 }
 
 func (p *rulesPopup) rleChanged(text string) {
-	if !strings.EqualFold(text, p.core.gridHolder.grid.Rule.Rle()) {
+	if !strings.EqualFold(text, p.core.gridHolder.grid.Rule().Rle()) {
 		if r, err := logic.NewRuleRle("", text); err == nil {
 			p.core.gridHolder.grid.SetRule(r)
-			idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule, func(a, b logic.Rule) int {
+			idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule(), func(a, b logic.Rule) int {
 				return strings.Compare(a.Name(), b.Name())
 			})
 			p.permInput.setValue(r.Permutation())
@@ -67,7 +67,7 @@ func (p *rulesPopup) rleChanged(text string) {
 func (p *rulesPopup) permChanged(n int) {
 	if r, err := logic.NewRuleFromPermutation(n); err == nil {
 		p.core.gridHolder.grid.SetRule(r)
-		idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule, func(a, b logic.Rule) int {
+		idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule(), func(a, b logic.Rule) int {
 			return strings.Compare(a.Name(), b.Name())
 		})
 		p.rleInput.setText(r.Rle())
@@ -85,7 +85,7 @@ func (p *rulesPopup) permChanged(n int) {
 func (p *rulesPopup) intChanged(n int) {
 	if r, err := logic.NewRuleFromInteger(n); err == nil {
 		p.core.gridHolder.grid.SetRule(r)
-		idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule, func(a, b logic.Rule) int {
+		idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule(), func(a, b logic.Rule) int {
 			return strings.Compare(a.Name(), b.Name())
 		})
 		p.rleInput.setText(r.Rle())
@@ -114,7 +114,7 @@ func (p *rulesPopup) refreshRules() {
 }
 
 func (p *rulesPopup) setSelected() {
-	idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule, func(a, b logic.Rule) int {
+	idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule(), func(a, b logic.Rule) int {
 		return strings.Compare(a.Name(), b.Name())
 	})
 	if found {
@@ -132,15 +132,16 @@ func (p *rulesPopup) updateInputs() {
 
 func (p *rulesPopup) refreshInputs() {
 	p.inputsDirty = false
-	p.rleInput.setText(p.core.gridHolder.grid.Rule.Rle())
-	p.permInput.setValue(p.core.gridHolder.grid.Rule.Permutation())
-	p.intInput.setValue(p.core.gridHolder.grid.Rule.Integer())
-	p.nameInput.setText(p.core.gridHolder.grid.Rule.Name())
+	rule := p.core.gridHolder.grid.Rule()
+	p.rleInput.setText(rule.Rle())
+	p.permInput.setValue(rule.Permutation())
+	p.intInput.setValue(rule.Integer())
+	p.nameInput.setText(rule.Name())
 }
 
 func (p *rulesPopup) saveRuleName() {
 	if name := p.nameInput.editor.Text(); len(name) > 0 {
-		rle := p.core.gridHolder.grid.Rule.Rle()
+		rle := p.core.gridHolder.grid.Rule().Rle()
 		if r, err := logic.NewRuleRle(name, rle); err == nil {
 			if ok := logic.AddRule(name, r); ok {
 				p.core.settings.Rules[name] = rle
@@ -177,10 +178,10 @@ func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *rulesPopup) layoutDetails() layout.FlexChild {
-	custom := p.core.gridHolder.grid.Rule.IsCustom()
+	custom := p.core.gridHolder.grid.Rule().IsCustom()
 	canSave := false
 	if custom {
-		if name := p.nameInput.editor.Text(); len(name) > 0 && name != p.core.gridHolder.grid.Rule.Name() {
+		if name := p.nameInput.editor.Text(); len(name) > 0 && name != p.core.gridHolder.grid.Rule().Name() {
 			canSave = true
 		}
 	}
@@ -190,7 +191,7 @@ func (p *rulesPopup) layoutDetails() layout.FlexChild {
 		return layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}.Layout(gtx, flexVertical(10,
 			layout.Rigid(flexHorizontal(0,
 				rigidLabel("Name: ", text.End, font.Bold, maxText),
-				conditionalFlexed(custom, p.nameInput.layout, borderedInset(2, 2, 4, 4, label(p.core.gridHolder.grid.Rule.Name()))),
+				conditionalFlexed(custom, p.nameInput.layout, borderedInset(2, 2, 4, 4, label(p.core.gridHolder.grid.Rule().Name()))),
 				conditionalRigid(custom && canSave, label(" "), nil),
 				conditionalRigid(custom && canSave, p.btnSaveName.Layout, nil),
 			)),
@@ -219,7 +220,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 		if len(p.ruleClicks) != len(p.sortedRules) {
 			p.ruleClicks = make([]widget.Clickable, len(p.sortedRules))
 		}
-		idx, ok := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule, func(a, b logic.Rule) int {
+		idx, ok := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule(), func(a, b logic.Rule) int {
 			return strings.Compare(a.Name(), b.Name())
 		})
 		if !ok {

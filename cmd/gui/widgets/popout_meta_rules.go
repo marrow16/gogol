@@ -61,7 +61,7 @@ func newMetaRulesPopout(p *menuPopup, c *Core) *metaRulesPopout {
 			window.Invalidate()
 		}).
 		onIsSelected(func(index int, r logic.Rule) bool {
-			return r.Permutation() == c.gridHolder.grid.Rule.Permutation()
+			return r.Permutation() == c.gridHolder.grid.Rule().Permutation()
 		})
 	return result
 }

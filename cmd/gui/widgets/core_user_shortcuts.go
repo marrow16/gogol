@@ -259,9 +259,9 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 			c.shortcutFiles = make([]string, 0)
 			c.shortcutFilesName = c.shortcutCurrent
 		case shortcutAddCollectedRule:
-			c.settings.CollectedRules[c.gridHolder.grid.Rule.Permutation()] = true
+			c.settings.CollectedRules[c.gridHolder.grid.Rule().Permutation()] = true
 		case shortcutRemoveCollectedRule:
-			delete(c.settings.CollectedRules, c.gridHolder.grid.Rule.Permutation())
+			delete(c.settings.CollectedRules, c.gridHolder.grid.Rule().Permutation())
 		case shortcutPreviousCollectedRule:
 			c.shortcutCollectedRuleMove(false)
 		case shortcutNextCollectedRule:
@@ -357,7 +357,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 					hmt := heatMapperTypeFrom(parts[1])
 					c.setInstrumentationHeatMapper(hmt)
 				case shortcutBornWith:
-					bw, sw := c.gridHolder.grid.Rule.BornWith(), c.gridHolder.grid.Rule.SurvivesWith()
+					bw, sw := c.gridHolder.grid.Rule().BornWith(), c.gridHolder.grid.Rule().SurvivesWith()
 					if after, ok := strings.CutPrefix(parts[1], "|"); ok {
 						var sb strings.Builder
 						for i := 0; i < 9; i++ {
@@ -405,7 +405,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 						c.setRule(r)
 					}
 				case shortcutSurvivesWith:
-					bw, sw := c.gridHolder.grid.Rule.BornWith(), c.gridHolder.grid.Rule.SurvivesWith()
+					bw, sw := c.gridHolder.grid.Rule().BornWith(), c.gridHolder.grid.Rule().SurvivesWith()
 					if after, ok := strings.CutPrefix(parts[1], "|"); ok {
 						var sb strings.Builder
 						for i := 0; i < 9; i++ {
@@ -461,7 +461,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 						}
 					}
 					if mr, err := meta.ParseRule(mrs); err == nil {
-						curr := c.gridHolder.grid.Rule.Permutation()
+						curr := c.gridHolder.grid.Rule().Permutation()
 						if next := mr.Next(curr); next != curr {
 							if r, err := logic.NewRuleFromPermutation(next); err == nil {
 								c.setRule(r)
@@ -481,7 +481,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 						}
 					}
 					if mr, err := meta.ParseRule(mrs); err == nil {
-						curr := c.gridHolder.grid.Rule.Permutation()
+						curr := c.gridHolder.grid.Rule().Permutation()
 						if prev := mr.Previous(curr); prev != curr {
 							if r, err := logic.NewRuleFromPermutation(prev); err == nil {
 								c.setRule(r)
@@ -551,7 +551,7 @@ func (c *Core) shortcutCollectedRuleMove(inc bool) {
 		}
 	}
 	slices.Sort(fr)
-	idx, found := slices.BinarySearch(fr, c.gridHolder.grid.Rule.Permutation())
+	idx, found := slices.BinarySearch(fr, c.gridHolder.grid.Rule().Permutation())
 	if !found && idx == 0 {
 		idx = -1
 	}
@@ -586,7 +586,7 @@ func (c *Core) shortcutLog(msgf string) {
 func (c *Core) shortcutFormatName(s string, repeats []int) string {
 	rIndex := 0
 	var b strings.Builder
-	rule := c.gridHolder.grid.Rule
+	rule := c.gridHolder.grid.Rule()
 	for i := 0; i < len(s); {
 		switch {
 		case strings.HasPrefix(s[i:], "%rule"):

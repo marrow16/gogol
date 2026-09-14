@@ -93,6 +93,7 @@ func (p *capturedPatternsPopout) addCapturedPattern(pattern patterns.Pattern) {
 	if len(origin) == 0 {
 		origin = "(your name)"
 	}
+	rule := p.core.gridHolder.grid.Rule()
 	p.core.settings.CapturedPatterns = append(p.core.settings.CapturedPatterns,
 		&patterns.Pattern{
 			Name:        name,
@@ -101,7 +102,7 @@ func (p *capturedPatternsPopout) addCapturedPattern(pattern patterns.Pattern) {
 			Cells:       slices.Clone(pattern.Cells),
 			Comments:    []string{"Captured by GoGoL"},
 			Origination: origin,
-			Rule:        &p.core.gridHolder.grid.Rule,
+			Rule:        &rule,
 			Filename:    name + ".rle"})
 	p.chooser.resetItems(p.core.settings.CapturedPatterns)
 	p.chooser.setText(name)

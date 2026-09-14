@@ -17,7 +17,7 @@ func TestStandard(t *testing.T) {
 	assert.Equal(t, r.Rle(), r2.Rle())
 	testCases := []struct {
 		alive   bool
-		adjs    int
+		adjs    uint8
 		changed bool
 	}{
 		{adjs: 0},
@@ -41,22 +41,9 @@ func TestStandard(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("alive=%t,adjs=%d", tc.alive, tc.adjs), func(t *testing.T) {
-			c := newTestCell(tc.alive, tc.adjs)
-			assert.Equal(t, tc.changed, r.StateChanged(c))
+			assert.Equal(t, tc.changed, r.StateChanged(tc.alive, tc.adjs))
 		})
 	}
-}
-
-func newTestCell(alive bool, adjsAlive int) *Cell {
-	result := &Cell{
-		Alive: alive,
-	}
-	for c := range 8 {
-		result.Adjacents[c] = &Cell{
-			Alive: c < adjsAlive,
-		}
-	}
-	return result
 }
 
 func TestFlippedStandard(t *testing.T) {
@@ -64,7 +51,7 @@ func TestFlippedStandard(t *testing.T) {
 	require.NoError(t, err)
 	testCases := []struct {
 		alive   bool
-		adjs    int
+		adjs    uint8
 		changed bool
 	}{
 		{adjs: 0},
@@ -88,8 +75,7 @@ func TestFlippedStandard(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("alive=%t,adjs=%d", tc.alive, tc.adjs), func(t *testing.T) {
-			c := newTestCell(tc.alive, tc.adjs)
-			assert.Equal(t, tc.changed, r.StateChanged(c))
+			assert.Equal(t, tc.changed, r.StateChanged(tc.alive, tc.adjs))
 		})
 	}
 }
@@ -98,7 +84,7 @@ func TestAntiLife(t *testing.T) {
 	r := Rules["AntiLife"]
 	testCases := []struct {
 		alive   bool
-		adjs    int
+		adjs    uint8
 		changed bool
 	}{
 		{adjs: 0, changed: true},
@@ -122,20 +108,34 @@ func TestAntiLife(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("alive=%t,adjs=%d", tc.alive, tc.adjs), func(t *testing.T) {
-			c := newTestCell(tc.alive, tc.adjs)
-			assert.Equal(t, tc.changed, r.StateChanged(c))
+			assert.Equal(t, tc.changed, r.StateChanged(tc.alive, tc.adjs))
 		})
 	}
 }
 
-func TestInvalidRule(t *testing.T) {
+func TestNewRuleRle_Errors(t *testing.T) {
+	t.Run("invalid born", func(t *testing.T) {
+		_, err := NewRuleRle("", "S3/BX")
+		require.Error(t, err)
+		require.ErrorIs(t, ErrInvalidRule, err)
+	})
 	t.Run("invalid survives", func(t *testing.T) {
 		_, err := NewRuleRle("", "SX/B3")
 		require.Error(t, err)
 		require.ErrorIs(t, ErrInvalidRule, err)
 	})
-	t.Run("invalid born", func(t *testing.T) {
-		_, err := NewRuleRle("", "S3/BX")
+	t.Run("repeated born", func(t *testing.T) {
+		_, err := NewRuleRle("", "B2/b2")
+		require.Error(t, err)
+		require.ErrorIs(t, ErrInvalidRule, err)
+	})
+	t.Run("repeated survives", func(t *testing.T) {
+		_, err := NewRuleRle("", "S2/s2")
+		require.Error(t, err)
+		require.ErrorIs(t, ErrInvalidRule, err)
+	})
+	t.Run("empty", func(t *testing.T) {
+		_, err := NewRuleRle("", "")
 		require.Error(t, err)
 		require.ErrorIs(t, ErrInvalidRule, err)
 	})
@@ -155,11 +155,18 @@ func TestRlePermutationReversible(t *testing.T) {
 	for n, r := range Rules {
 		t.Run(n, func(t *testing.T) {
 			assert.Equal(t, n, r.Name())
-			perm := r.Permutation()
-			r2, err := NewRuleFromPermutation(perm)
+			r2, err := NewRuleFromPermutation(r.Permutation())
 			assert.NoError(t, err)
 			assert.Equal(t, r.Rle(), r2.Rle())
 			assert.Equal(t, r.Name(), r2.Name())
+			assert.Equal(t, r.Permutation(), r2.Permutation())
+			assert.Equal(t, r.Integer(), r2.Integer())
+			r2, err = NewRuleFromInteger(r.Integer())
+			assert.NoError(t, err)
+			assert.Equal(t, r.Rle(), r2.Rle())
+			assert.Equal(t, r.Name(), r2.Name())
+			assert.Equal(t, r.Permutation(), r2.Permutation())
+			assert.Equal(t, r.Integer(), r2.Integer())
 		})
 	}
 	r, err := NewRuleRle("", "S0/B0")
@@ -168,15 +175,16 @@ func TestRlePermutationReversible(t *testing.T) {
 	assert.Equal(t, "Custom B0/S0 (513)", r.Name())
 }
 
-func TestNewRuleEvaluatorFromPermutation_ZeroPerm(t *testing.T) {
+func TestNewRuleFromPermutation_Zero(t *testing.T) {
 	r, err := NewRuleFromPermutation(0)
 	require.NoError(t, err)
 	assert.Equal(t, "B/S", r.Rle())
 	assert.Equal(t, "Custom B/S (0)", r.Name())
 	assert.Equal(t, 0, r.Permutation())
+	assert.True(t, r.IsCustom())
 }
 
-func TestNewRuleEvaluatorFromPermutation_BadPerm(t *testing.T) {
+func TestNewRuleFromPermutation_Errors(t *testing.T) {
 	_, err := NewRuleFromPermutation(-1)
 	require.Error(t, err)
 	require.Equal(t, ErrInvalidPermutation, err)
@@ -184,6 +192,16 @@ func TestNewRuleEvaluatorFromPermutation_BadPerm(t *testing.T) {
 	_, err = NewRuleFromPermutation(1 << 18)
 	require.Error(t, err)
 	require.Equal(t, ErrInvalidPermutation, err)
+}
+
+func TestNewRuleFromInteger_Errors(t *testing.T) {
+	_, err := NewRuleFromInteger(-1)
+	require.Error(t, err)
+	require.Equal(t, ErrInvalidInteger, err)
+
+	_, err = NewRuleFromInteger(1 << 18)
+	require.Error(t, err)
+	require.Equal(t, ErrInvalidInteger, err)
 }
 
 func TestRule_Integer(t *testing.T) {
@@ -199,4 +217,25 @@ func TestPermutationToInteger(t *testing.T) {
 func TestIntegerToPermutation(t *testing.T) {
 	i := IntegerToPermutation(StandardRule.Integer())
 	require.Equal(t, 4108, i)
+}
+
+func TestRuleLibrary(t *testing.T) {
+	require.Equal(t, len(Rules), len(rleToName))
+	for n, r := range Rules {
+		t.Run(n, func(t *testing.T) {
+			name := rleToName[r.Rle()]
+			require.Equal(t, n, name)
+		})
+	}
+	r, err := NewRuleFromPermutation(0)
+	require.NoError(t, err)
+	defer func() {
+		delete(Rules, "BS")
+		delete(rleToName, "B/S")
+	}()
+	l1, l2 := len(Rules), len(rleToName)
+	assert.True(t, AddRule("BS", r))
+	assert.Equal(t, l1+1, len(Rules))
+	assert.Equal(t, l2+1, len(rleToName))
+	assert.False(t, AddRule("BS", r))
 }
