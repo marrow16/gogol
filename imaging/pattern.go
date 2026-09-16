@@ -66,7 +66,7 @@ func PatternImagePaletted(p patterns.Pattern, cfg Config) *image.Paletted {
 		ht++
 	}
 	img := image.NewPaletted(
-		image.Rectangle{Max: image.Point{wd, ht}},
+		image.Rectangle{Max: image.Point{X: wd, Y: ht}},
 		color.Palette{DeadIndex: cfg.DeadColor,
 			AliveIndex:  cfg.AliveColor,
 			BorderIndex: cfg.BorderColor,

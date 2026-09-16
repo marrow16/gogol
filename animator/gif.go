@@ -146,10 +146,7 @@ func (e *gifEncoder) writeImageBlock(pm *image.Paletted) {
 	paddedSize := log2(len(pm.Palette)) // Size of Local Color Table: 2^(1+n).
 	e.writeByte(0)                      // Use the global color table.
 
-	litWidth := paddedSize + 1
-	if litWidth < 2 {
-		litWidth = 2
-	}
+	litWidth := max(paddedSize+1, 2)
 	e.writeByte(uint8(litWidth)) // LZW Minimum Code Size.
 
 	bw := blockWriter{e: e}

@@ -37,14 +37,14 @@ func newSizingPopout(p *menuPopup, c *Core) *sizingPopout {
 		btnFitScreen:    newButton("Fit screen"),
 		chkKeepOnResize: newCheckBox("Keep cells", c.settings.KeepCellsOnResize),
 	}
-	result.height = newNumberInput(4, 2, 9999, 10, nil).setValue(int(c.settings.Height))
-	result.width = newNumberInput(4, 2, 9999, 10, nil).setValue(int(c.settings.Width))
+	result.height = newNumberInput(4, 2, 9999, 10, nil).setValue(c.settings.Height)
+	result.width = newNumberInput(4, 2, 9999, 10, nil).setValue(c.settings.Width)
 	result.cellSize = newNumberInput(3, 1, 32, 1, func(v int) {
 		result.core.setCellSize(v)
-	}).setValue(int(c.settings.CellSize))
+	}).setValue(c.settings.CellSize)
 	result.randomize = newNumberInput(3, 0, 100, 10, func(v int) {
 		result.core.setRandomization(v)
-	}).setValue(int(c.settings.Randomization))
+	}).setValue(c.settings.Randomization)
 	result.inputs = []*numberInput[int]{
 		result.height, result.width, result.cellSize, result.randomize,
 	}

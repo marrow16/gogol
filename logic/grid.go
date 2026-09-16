@@ -10,7 +10,7 @@ import (
 
 var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-func nullRender(row, col int, alive, changed bool) {}
+func nullRender(_, _ int, _, _ bool) {}
 
 type RenderCell func(row, col int, alive, changed bool)
 

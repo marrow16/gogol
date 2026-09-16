@@ -40,7 +40,7 @@ func newImportGridPopout(p *menuPopup, c *Core) *importGridPopout {
 func (p *importGridPopout) reset() {
 }
 
-func (p *importGridPopout) clearError(text string) {
+func (p *importGridPopout) clearError(_ string) {
 	p.error = nil
 }
 
@@ -66,7 +66,7 @@ func (p *importGridPopout) importGrid() {
 					boundary = logic.BoundaryModeFromString(after, boundary)
 				} else if after, ok := strings.CutPrefix(c, "Step: "); ok {
 					if n, err := strconv.ParseUint(after, 10, 64); err == nil {
-						step = uint64(n)
+						step = n
 					}
 				}
 			}

@@ -98,7 +98,7 @@ func SymmetricDifference(evaluators ...Evaluator) iter.Seq[uint32] {
 
 func Complement(evaluators ...Evaluator) iter.Seq[uint32] {
 	return func(yield func(uint32) bool) {
-		for permutation := uint32(0); permutation < 1<<18; permutation++ {
+		for permutation := range uint32(1 << 18) {
 			matched := false
 			for _, evaluator := range evaluators {
 				if evaluator.Matches(permutation) {

@@ -100,7 +100,7 @@ func (p *rulesPopup) intChanged(n int) {
 	}
 }
 
-func (p *rulesPopup) nameChanged(text string) {}
+func (p *rulesPopup) nameChanged(_ string) {}
 
 func (p *rulesPopup) refreshRules() {
 	p.sortedRules = make([]logic.Rule, 0, len(logic.Rules))
@@ -243,7 +243,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 						if !p.rleInput.isFocused(gtx) && !p.permInput.isFocused(gtx) && !p.intInput.isFocused(gtx) && !p.nameInput.isFocused(gtx) {
 							bg = popupSelectedFocusedBackground
 						}
-						fill(gtx, bg, image.Point{pgtx.Constraints.Max.X, rowDims.Size.Y})
+						fill(gtx, bg, image.Point{X: pgtx.Constraints.Max.X, Y: rowDims.Size.Y})
 					}
 					gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 					r := p.sortedRules[index]

@@ -120,7 +120,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 		} else if after, ok = strings.CutPrefix(token, shortcutIterateCollectedRules); ok {
 			if parts, err := shortcutCommasSplitter.Split(after); err == nil && len(parts) >= 1 {
 				useParts := make([]string, 0, len(parts))
-				for i := 0; i < len(parts); i++ {
+				for i := range parts {
 					if strings.HasPrefix(parts[i], shortcutRepeat) {
 						useParts = append(useParts, strings.Join(parts[i:], ","))
 						break
@@ -598,7 +598,9 @@ func (c *Core) shortcutCollectedRuleMove(inc bool) {
 func (c *Core) shortcutLog(msgf string) {
 	if fp, err := resolveSavePath("./output.log"); err == nil {
 		if f, err := os.OpenFile(fp, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
-			defer f.Close()
+			defer func() {
+				_ = f.Close()
+			}()
 			if (strings.HasPrefix(msgf, `"`) && strings.HasSuffix(msgf, `"`)) || (strings.HasPrefix(msgf, `'`) && strings.HasSuffix(msgf, `'`)) {
 				msgf = msgf[1 : len(msgf)-1]
 			}

@@ -59,12 +59,12 @@ func TestRule_MatchingPermutations(t *testing.T) {
 	}
 	assert.Equal(t, "B(+1) / S(+457,!3,-01,-12) / P(0-131071)", b1Plus.String())
 	count := 0
-	for _ = range b1Plus.MatchingPermutations() {
+	for range b1Plus.MatchingPermutations() {
 		count++
 	}
 	assert.Equal(t, 2560, count)
 	count = 0
-	for _ = range b1Plus.MatchingPermutations() {
+	for range b1Plus.MatchingPermutations() {
 		count++
 		break
 	}
@@ -86,12 +86,12 @@ func TestRule_MatchingRules(t *testing.T) {
 	}
 	assert.Equal(t, "B(+1) / S(+457,!3,-01,-12) / P(0-131071)", b1Plus.String())
 	count := 0
-	for _ = range b1Plus.MatchingRules() {
+	for range b1Plus.MatchingRules() {
 		count++
 	}
 	assert.Equal(t, 2560, count)
 	count = 0
-	for _ = range b1Plus.MatchingRules() {
+	for range b1Plus.MatchingRules() {
 		count++
 		break
 	}
@@ -242,12 +242,12 @@ func TestCompositeRule_MatchingPermutations(t *testing.T) {
 	}
 	cr := AnyOf(b1Plus, b2Plus)
 	count := 0
-	for _ = range cr.MatchingPermutations() {
+	for range cr.MatchingPermutations() {
 		count++
 	}
 	assert.Equal(t, 3840, count)
 	count = 0
-	for _ = range cr.MatchingPermutations() {
+	for range cr.MatchingPermutations() {
 		count++
 		break
 	}
@@ -281,12 +281,12 @@ func TestCompositeRule_MatchingRules(t *testing.T) {
 	}
 	cr := AnyOf(b1Plus, b2Plus)
 	count := 0
-	for _ = range cr.MatchingRules() {
+	for range cr.MatchingRules() {
 		count++
 	}
 	assert.Equal(t, 3840, count)
 	count = 0
-	for _ = range cr.MatchingRules() {
+	for range cr.MatchingRules() {
 		count++
 		break
 	}

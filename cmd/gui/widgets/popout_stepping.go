@@ -26,10 +26,10 @@ func newSteppingPopout(p *menuPopup, c *Core) *steppingPopout {
 		} else {
 			result.stepDelay.setValue(0)
 		}
-	}).setValue(int(c.settings.StepDelay))
+	}).setValue(c.settings.StepDelay)
 	result.stepAheadSize = newNumberInput(4, 1, 9999, 100, func(v int) {
 		result.core.settings.StepAheadBy = v
-	}).setValue(int(c.settings.StepAheadBy))
+	}).setValue(c.settings.StepAheadBy)
 	return result
 }
 

@@ -22,9 +22,8 @@ func Load(filename string) (*Recipe, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, errors.New("recipe file not found")
-		} else {
-			return nil, err
 		}
+		return nil, err
 	}
 	defer func() {
 		_ = f.Close()

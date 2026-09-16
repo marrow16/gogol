@@ -3,7 +3,6 @@ package widgets
 import (
 	"errors"
 	"gioui.org/font"
-	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -35,14 +34,6 @@ var altKeyName = func() string {
 	}
 	return "Alt+"
 }()
-var modKey = func() key.Modifiers {
-	if runtime.GOOS == "darwin" {
-		return key.ModAlt
-	}
-	return key.ModCtrl
-}()
-
-var isMac = runtime.GOOS == "darwin"
 
 var (
 	backgroundColor                = color.NRGBA{R: 147, G: 147, B: 147, A: 255}
@@ -151,7 +142,7 @@ func fill(gtx layout.Context, c color.NRGBA, size image.Point) {
 }
 
 func horizontalLine(gtx layout.Context, c color.NRGBA, width, thickness int) {
-	paint.FillShape(gtx.Ops, c, clip.Rect{Max: image.Point{width, thickness}}.Op())
+	paint.FillShape(gtx.Ops, c, clip.Rect{Max: image.Point{X: width, Y: thickness}}.Op())
 }
 
 func border(gtx layout.Context, dims layout.Dimensions, top, left, bottom, right bool) {
@@ -162,10 +153,10 @@ func border(gtx layout.Context, dims layout.Dimensions, top, left, bottom, right
 		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Max: image.Point{X: 1, Y: dims.Size.Y}}.Op())
 	}
 	if bottom {
-		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{0, dims.Size.Y - 1}, Max: image.Point{dims.Size.X, dims.Size.Y}}.Op())
+		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{X: 0, Y: dims.Size.Y - 1}, Max: image.Point{X: dims.Size.X, Y: dims.Size.Y}}.Op())
 	}
 	if right {
-		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{dims.Size.X - 1, 0}, Max: image.Point{dims.Size.X, dims.Size.Y}}.Op())
+		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{X: dims.Size.X - 1, Y: 0}, Max: image.Point{X: dims.Size.X, Y: dims.Size.Y}}.Op())
 	}
 }
 
@@ -234,8 +225,8 @@ func linkLabel(btn *widget.Clickable, s string) layout.Widget {
 				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 					thickness := gtx.Dp(1)
 					rect := clip.Rect{
-						Min: image.Point{0, gtx.Constraints.Min.Y - thickness},
-						Max: image.Point{gtx.Constraints.Min.X, gtx.Constraints.Min.Y},
+						Min: image.Point{X: 0, Y: gtx.Constraints.Min.Y - thickness},
+						Max: image.Point{X: gtx.Constraints.Min.X, Y: gtx.Constraints.Min.Y},
 					}
 					defer rect.Push(gtx.Ops).Pop()
 					paint.ColorOp{Color: popupLinkColor}.Add(gtx.Ops)
@@ -380,7 +371,7 @@ func popoutLayout(gtx layout.Context, w layout.Widget) layout.Dimensions {
 
 func measureText(gtx layout.Context, text string) layout.Dimensions {
 	gtx.Constraints.Min = image.Point{}
-	gtx.Constraints.Max = image.Point{1e6, 1e6}
+	gtx.Constraints.Max = image.Point{X: 1e6, Y: 1e6}
 	macro := op.Record(gtx.Ops)
 	dims := material.Label(theme, theme.TextSize, text).Layout(gtx)
 	_ = macro.Stop()

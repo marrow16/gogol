@@ -90,9 +90,7 @@ func newPatternsPopout(p *menuPopup, c *Core) *patternsPopout {
 	return result
 }
 
-func (p *patternsPopout) patternSelected(pattern *patterns.Pattern) {
-	//fmt.Printf("Pattern selected: %+v\n", pattern)
-}
+func (p *patternsPopout) patternSelected(_ *patterns.Pattern) {}
 
 func (p *patternsPopout) setSelected(name string) {
 	p.chooser.opened = false

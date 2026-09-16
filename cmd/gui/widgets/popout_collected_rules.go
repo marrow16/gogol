@@ -89,7 +89,7 @@ func (p *collectedRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 	))
 }
 
-func (p *collectedRulesPopout) layoutRule(gtx layout.Context, index int, r logic.Rule) layout.Dimensions {
+func (p *collectedRulesPopout) layoutRule(gtx layout.Context, _ int, r logic.Rule) layout.Dimensions {
 	name := r.Rle()
 	if !r.IsCustom() {
 		name += ` "` + r.Name() + `"`

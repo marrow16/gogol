@@ -15,9 +15,8 @@ type Rule struct {
 func (r Rule) StateChanged(alive bool, adjsAlive uint8) (changed bool) {
 	if alive {
 		return !r.survivesWith[adjsAlive]
-	} else {
-		return r.bornWith[adjsAlive]
 	}
+	return r.bornWith[adjsAlive]
 }
 
 func (r Rule) Rle() string {

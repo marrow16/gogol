@@ -114,7 +114,7 @@ func (f *fileFinder) navigateEntry(entry *dirEntry) {
 	f.result = entry
 }
 
-func (f *fileFinder) layoutEntry(gtx layout.Context, i int, entry *dirEntry) layout.Dimensions {
+func (f *fileFinder) layoutEntry(gtx layout.Context, _ int, entry *dirEntry) layout.Dimensions {
 	allowed := !entry.isFile || f.canSelect(entry)
 	return layout.Flex{Axis: layout.Horizontal, Gap: 6}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -188,14 +188,14 @@ func (f *fileFinder) layout(gtx layout.Context) {
 	f.setCurrentDir()
 	gtx.Execute(key.FocusCmd{Tag: &f.list.tag})
 	layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		f.header(gtx),
+		f.header(),
 		f.breadcrumbs(gtx),
-		f.body(gtx),
+		f.body(),
 		f.footer(gtx),
 	)
 }
 
-func (f *fileFinder) header(gtx layout.Context) layout.FlexChild {
+func (f *fileFinder) header() layout.FlexChild {
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Inset{Top: 8, Left: 8, Bottom: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			lbl := material.Label(theme, (theme.TextSize*5)/4, f.title)
@@ -248,11 +248,11 @@ func (f *fileFinder) breadcrumbs(gtx layout.Context) layout.FlexChild {
 	})
 }
 
-func (f *fileFinder) body(gtx layout.Context) layout.FlexChild {
+func (f *fileFinder) body() layout.FlexChild {
 	return layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Gap: 8}.Layout(gtx,
 			f.filesList(gtx),
-			f.preview(gtx),
+			f.preview(),
 		)
 	})
 }
@@ -389,7 +389,7 @@ func (f *fileFinder) handleNavKeys(k string) {
 	}
 }
 
-func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
+func (f *fileFinder) preview() layout.FlexChild {
 	return layout.Flexed(3.5, func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Inset{Top: 4, Left: 4, Bottom: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return f.entryPreview(f.result)(gtx)
@@ -572,7 +572,9 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	pattern, err := patterns.PatternRleDecoder(f)
 	if err != nil {
 		extra := [][2]string{
@@ -663,7 +665,9 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	var img image.Image
 	switch filepath.Ext(e.name) {
 	case ".png":
@@ -706,14 +710,13 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 				return layout.Dimensions{
 					Size: image.Point{X: w, Y: h},
 				}
-			} else {
-				size := img.Bounds().Size()
-				stack := clip.Rect{Max: size}.Push(gtx.Ops)
-				defer stack.Pop()
-				paint.NewImageOp(img).Add(gtx.Ops)
-				paint.PaintOp{}.Add(gtx.Ops)
-				return layout.Dimensions{Size: size}
 			}
+			size := img.Bounds().Size()
+			stack := clip.Rect{Max: size}.Push(gtx.Ops)
+			defer stack.Pop()
+			paint.NewImageOp(img).Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
+			return layout.Dimensions{Size: size}
 		}),
 	), nil, img, nil
 }
@@ -723,7 +726,9 @@ func (e *dirEntry) buildPreviewJson() (layout.Widget, [][2]string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	var js any
 	if err := json.NewDecoder(f).Decode(&js); err != nil {
 		extra := [][2]string{{"JSON error:", err.Error()}}

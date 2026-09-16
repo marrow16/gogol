@@ -216,7 +216,7 @@ func (s *Settings) PatternFromGrid(grid *logic.Grid) (patterns.Pattern, error) {
 
 func LoadPatternsLibrary(path string) (*int, error) {
 	count := 0
-	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() && strings.HasSuffix(info.Name(), ".rle") {
 			if err := LoadPattern(path); err == nil {
 				count++
@@ -226,9 +226,8 @@ func LoadPatternsLibrary(path string) (*int, error) {
 	})
 	if count > 0 {
 		return &count, nil
-	} else {
-		return nil, errors.New("No .rle files found")
 	}
+	return nil, errors.New("No .rle files found")
 }
 
 func LoadPattern(path string) error {

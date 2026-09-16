@@ -91,9 +91,8 @@ func (p *metaRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 					return p.layoutMetaRule(gtx, editorHt)
 				} else if currName == "" {
 					return label("No meta rule selected (select or enter new name)")(gtx)
-				} else {
-					return flexHorizontal(0, rigid(p.btnCreate.Layout))(gtx)
 				}
+				return flexHorizontal(0, rigid(p.btnCreate.Layout))(gtx)
 			}),
 		)(gtx)
 		p.chooser.layoutDropdown(gtx)
@@ -159,9 +158,8 @@ func (p *metaRulesPopout) layoutNavButtons(gtx layout.Context) layout.Dimensions
 			}
 		}
 		return flexHorizontal(0, rigid(p.btnAddAll.Layout))(gtx)
-	} else {
-		return label("No matched rules found")(gtx)
 	}
+	return label("No matched rules found")(gtx)
 }
 
 func (p *metaRulesPopout) layoutEditor(gtx layout.Context, editorHt int) layout.Dimensions {

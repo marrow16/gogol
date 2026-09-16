@@ -35,7 +35,7 @@ func newLoadPatternsPopout(p *menuPopup, c *Core) *loadPatternsPopout {
 func (p *loadPatternsPopout) reset() {
 }
 
-func (p *loadPatternsPopout) clearError(text string) {
+func (p *loadPatternsPopout) clearError(_ string) {
 	p.error = nil
 	p.loaded = nil
 }

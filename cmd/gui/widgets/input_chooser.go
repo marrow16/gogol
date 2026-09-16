@@ -335,12 +335,9 @@ func (i *chooser[T]) changed() {
 
 func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 	if i.opened && len(i.filteredItems) > 0 {
-		stack := op.Offset(image.Point{0, i.dims.Size.Y}).Push(gtx.Ops)
+		stack := op.Offset(image.Point{X: 0, Y: i.dims.Size.Y}).Push(gtx.Ops)
 		rowDims := measureText(gtx, "Xy")
-		showRows := i.dropdownRows
-		if len(i.filteredItems) < showRows {
-			showRows = len(i.filteredItems)
-		}
+		showRows := min(len(i.filteredItems), i.dropdownRows)
 		height := rowDims.Size.Y * showRows
 		width := i.dims.Size.X
 		layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -350,7 +347,7 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 				pgtx.Constraints.Max.X = width
 				pgtx.Constraints.Min.Y = height
 				pgtx.Constraints.Max.Y = height
-				fill(gtx, popupBackground, image.Point{width, height})
+				fill(gtx, popupBackground, image.Point{X: width, Y: height})
 				i.list.Axis = layout.Vertical
 				if len(i.rowClicks) != len(i.filteredItems) {
 					i.rowClicks = make([]widget.Clickable, len(i.filteredItems))
@@ -373,15 +370,14 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 					}
 					return i.rowClicks[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if lbl == i.editor.Text() {
-							fill(gtx, popupSelectedBackground, image.Point{width - fillAdj, rowDims.Size.Y})
+							fill(gtx, popupSelectedBackground, image.Point{X: width - fillAdj, Y: rowDims.Size.Y})
 						}
 						gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 						return layout.Inset{Left: 3, Right: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							if i.middleEllipsis {
 								return label(middleEllipsis(gtx, lbl, gtx.Constraints.Max.X))(gtx)
-							} else {
-								return label(lbl)(gtx)
 							}
+							return label(lbl)(gtx)
 						})
 					})
 				})

@@ -108,11 +108,10 @@ func (n *Number) raw() string {
 func (n *Number) int() int {
 	if nn, err := strconv.Atoi(string(*n)); err == nil {
 		return nn
-	} else {
-		s := strings.TrimSuffix(strings.TrimPrefix(string(*n), "\""), "\"")
-		if nn, err := strconv.ParseInt(s, 0, 64); err == nil {
-			return int(nn)
-		}
+	}
+	s := strings.TrimSuffix(strings.TrimPrefix(string(*n), `\`), `\`)
+	if nn, err := strconv.ParseInt(s, 0, 64); err == nil {
+		return int(nn)
 	}
 	return 0
 }
@@ -136,15 +135,14 @@ func (n *Number) toPattern(gridHeight, gridWidth int, y, x int) patterns.Pattern
 	if nn, err := strconv.Atoi(v); err == nil && len(prefixes) == 0 {
 		if nn < 2 {
 			return patterns.Pattern{Height: 1, Width: 1, Cells: []bool{nn == 1}}
-		} else {
-			cells := make([]bool, 0, 16)
-			for nn > 0 {
-				cells = append(cells, nn%2 == 1)
-				nn = nn >> 1
-			}
-			slices.Reverse(cells)
-			return patterns.Pattern{Height: 1, Width: len(cells), Cells: cells}
 		}
+		cells := make([]bool, 0, 16)
+		for nn > 0 {
+			cells = append(cells, nn%2 == 1)
+			nn = nn >> 1
+		}
+		slices.Reverse(cells)
+		return patterns.Pattern{Height: 1, Width: len(cells), Cells: cells}
 	} else if nn, err := strconv.ParseInt(v, 0, 64); err == nil {
 		wd := len(v)
 		switch {
@@ -181,7 +179,7 @@ func (n *Number) toPattern(gridHeight, gridWidth int, y, x int) patterns.Pattern
 		if prefixes["fw"] || prefixes["fillwidth"] || prefixes["fill-width"] {
 			nw := ((gridWidth - x) / wd) + 1
 			newCells := make([]bool, 0, nw*wd)
-			for i := 0; i < nw; i++ {
+			for range nw {
 				newCells = append(newCells, cells...)
 			}
 			wd = len(newCells)

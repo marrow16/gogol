@@ -27,14 +27,14 @@ func ScaleSparse(src *image.Paletted, scale float32) *image.NRGBA {
 	dstStride := dst.Stride
 	srcW := sb.Dx()
 	srcH := sb.Dy()
-	for sy := 0; sy < srcH; sy++ {
+	for sy := range srcH {
 		srcOff := sy * srcStride
 		dy := int(float32(sy) * scale)
 		if dy >= h {
 			dy = h - 1
 		}
 		dstRow := dy * dstStride
-		for sx := 0; sx < srcW; sx++ {
+		for sx := range srcW {
 			pi := srcPix[srcOff+sx]
 			if pi == DeadIndex {
 				continue

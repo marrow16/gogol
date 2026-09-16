@@ -11,7 +11,7 @@ func DrawCellBorders(img *image.NRGBA, width, height, cellSize int, c color.NRGB
 	// horizontal borders...
 	for y := 0; y < height; y += cellSize {
 		i := y * stride
-		for x := 0; x < width; x++ {
+		for range width {
 			pix[i] = c.R
 			pix[i+1] = c.G
 			pix[i+2] = c.B
@@ -22,7 +22,7 @@ func DrawCellBorders(img *image.NRGBA, width, height, cellSize int, c color.NRGB
 	// vertical borders...
 	for x := 0; x < width; x += cellSize {
 		i := x * 4
-		for y := 0; y < height; y++ {
+		for range height {
 			pix[i] = c.R
 			pix[i+1] = c.G
 			pix[i+2] = c.B
@@ -46,7 +46,7 @@ func DrawCellBordersPaletted(img *image.Paletted, width, height, cellSize int, c
 	// vertical borders...
 	for x := 0; x < width; x += cellSize {
 		i := x
-		for y := 0; y < height; y++ {
+		for range height {
 			pix[i] = c
 			i += stride
 		}

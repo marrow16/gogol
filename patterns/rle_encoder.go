@@ -83,7 +83,7 @@ func (w *rleWriter) writeData(width, height int, cells []bool) {
 	}
 	pendingRows := 0
 	written := false
-	for r := 0; r < height; r++ {
+	for r := range height {
 		row := cells[r*width : (r+1)*width]
 		// trim trailing dead cells...
 		for len(row) > 0 && !row[len(row)-1] {

@@ -268,7 +268,7 @@ func (p *menuPopup) layoutPopouts(gtx layout.Context) {
 	call := macro.Stop()
 	x := -dims.Size.X
 	y := p.selectedItemY()
-	stack := op.Offset(image.Point{x, y}).Push(gtx.Ops)
+	stack := op.Offset(image.Point{X: x, Y: y}).Push(gtx.Ops)
 	defer stack.Pop()
 	fill(gtx, popupBackground, dims.Size)
 	border(gtx, dims, true, true, true, true)
@@ -414,44 +414,43 @@ func (i *menuItem) layout(gtx layout.Context, width int) layout.Dimensions {
 		dims.Size.Y = (dims.Size.Y * 2) / 3
 		i.height = dims.Size.Y
 		// draw separator line...
-		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{0, dims.Size.Y / 2}, Max: image.Point{dims.Size.X, (dims.Size.Y / 2) + 1}}.Op())
+		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{X: 0, Y: dims.Size.Y / 2}, Max: image.Point{X: dims.Size.X, Y: (dims.Size.Y / 2) + 1}}.Op())
 		return dims
-	} else {
-		for i.clickable.Clicked(gtx) {
-			if i.popout != popoutNone {
-				i.parent.poppedOut = true
-			}
-			i.parent.setSelected(i.index)
-			if i.fn != nil {
-				i.fn()
-			}
-		}
-		return material.Clickable(gtx, &i.clickable, func(gtx layout.Context) layout.Dimensions {
-			extra := unit.Dp(0)
-			if len(i.key) == 0 {
-				sz1 := measureText(gtx, "C")
-				sz2 := measureText(gtx, modKeyName)
-				extra = gtx.Metric.PxToDp(max(sz1.Size.Y, sz2.Size.Y) - min(sz1.Size.Y, sz2.Size.Y))
-			}
-			gtx.Constraints.Min.X = width
-			gtx.Constraints.Max.X = width
-			macro := op.Record(gtx.Ops)
-			dims := layout.Inset{Top: 2, Left: 4, Right: 4, Bottom: 2 + extra}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-					conditionalRigid(i.popout != popoutNone, label("< "), nil),
-					flexed(label(i.label)),
-					conditionalRigid(i.key != "", label(i.key), nil),
-				)
-			})
-			call := macro.Stop()
-			if i.index == i.parent.selected {
-				fill(gtx, popupSelectedBackground, dims.Size)
-			}
-			call.Add(gtx.Ops)
-			i.height = dims.Size.Y
-			return dims
-		})
 	}
+	for i.clickable.Clicked(gtx) {
+		if i.popout != popoutNone {
+			i.parent.poppedOut = true
+		}
+		i.parent.setSelected(i.index)
+		if i.fn != nil {
+			i.fn()
+		}
+	}
+	return material.Clickable(gtx, &i.clickable, func(gtx layout.Context) layout.Dimensions {
+		extra := unit.Dp(0)
+		if len(i.key) == 0 {
+			sz1 := measureText(gtx, "C")
+			sz2 := measureText(gtx, modKeyName)
+			extra = gtx.Metric.PxToDp(max(sz1.Size.Y, sz2.Size.Y) - min(sz1.Size.Y, sz2.Size.Y))
+		}
+		gtx.Constraints.Min.X = width
+		gtx.Constraints.Max.X = width
+		macro := op.Record(gtx.Ops)
+		dims := layout.Inset{Top: 2, Left: 4, Right: 4, Bottom: 2 + extra}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				conditionalRigid(i.popout != popoutNone, label("< "), nil),
+				flexed(label(i.label)),
+				conditionalRigid(i.key != "", label(i.key), nil),
+			)
+		})
+		call := macro.Stop()
+		if i.index == i.parent.selected {
+			fill(gtx, popupSelectedBackground, dims.Size)
+		}
+		call.Add(gtx.Ops)
+		i.height = dims.Size.Y
+		return dims
+	})
 }
 
 type popoutType int

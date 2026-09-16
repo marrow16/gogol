@@ -63,18 +63,18 @@ func TestIntersection(t *testing.T) {
 		Permutations: Ranges{{0, (512 * 256) - 1}},
 	}
 	count := 0
-	for _ = range Intersection(b1Plus, b2Plus) {
+	for range Intersection(b1Plus, b2Plus) {
 		count++
 	}
 	assert.Equal(t, 1280, count)
 	count = 0
-	for _ = range Intersection(b1Plus, b2Plus) {
+	for range Intersection(b1Plus, b2Plus) {
 		count++
 		break
 	}
 	assert.Equal(t, 1, count)
 	count = 0
-	for _ = range Intersection() {
+	for range Intersection() {
 		count++
 	}
 	assert.Equal(t, 0, count)
@@ -106,12 +106,12 @@ func TestDifference(t *testing.T) {
 		Permutations: Ranges{{0, (512 * 256) - 1}},
 	}
 	count := 0
-	for _ = range Difference(b1Plus, b2Plus) {
+	for range Difference(b1Plus, b2Plus) {
 		count++
 	}
 	assert.Equal(t, 1280, count)
 	count = 0
-	for _ = range Difference(b1Plus, b2Plus) {
+	for range Difference(b1Plus, b2Plus) {
 		count++
 		break
 	}
@@ -144,12 +144,12 @@ func TestUnion(t *testing.T) {
 		Permutations: Ranges{{0, (512 * 256) - 1}},
 	}
 	count := 0
-	for _ = range Union(b1Plus, b2Plus) {
+	for range Union(b1Plus, b2Plus) {
 		count++
 	}
 	assert.Equal(t, 3840, count)
 	count = 0
-	for _ = range Union(b1Plus, b2Plus) {
+	for range Union(b1Plus, b2Plus) {
 		count++
 		break
 	}
@@ -182,12 +182,12 @@ func TestSymmetricDifference(t *testing.T) {
 		Permutations: Ranges{{0, (512 * 256) - 1}},
 	}
 	count := 0
-	for _ = range SymmetricDifference(b1Plus, b2Plus) {
+	for range SymmetricDifference(b1Plus, b2Plus) {
 		count++
 	}
 	assert.Equal(t, 2560, count)
 	count = 0
-	for _ = range SymmetricDifference(b1Plus, b2Plus) {
+	for range SymmetricDifference(b1Plus, b2Plus) {
 		count++
 		break
 	}
@@ -208,12 +208,12 @@ func TestComplement(t *testing.T) {
 		Permutations: Ranges{{0, (512 * 256) - 1}},
 	}
 	count := 0
-	for _ = range Complement(b1Plus) {
+	for range Complement(b1Plus) {
 		count++
 	}
 	assert.Equal(t, 259584, count)
 	count = 0
-	for _ = range Complement(b1Plus) {
+	for range Complement(b1Plus) {
 		count++
 		break
 	}
@@ -232,7 +232,7 @@ func TestComplement(t *testing.T) {
 		Permutations: Ranges{{0, (512 * 256) - 1}},
 	}
 	count = 0
-	for _ = range Complement(b1Plus, b2Plus) {
+	for range Complement(b1Plus, b2Plus) {
 		count++
 	}
 	assert.Equal(t, 258304, count)

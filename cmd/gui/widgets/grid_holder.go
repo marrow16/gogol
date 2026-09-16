@@ -88,12 +88,12 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 	size := gtx.Constraints.Max
 	viewport := image.Rectangle{Max: size}
 	canvasSize := image.Point{
-		int(float32(g.canvas.Bounds().Dx()) * g.zoom),
-		int(float32(g.canvas.Bounds().Dy()) * g.zoom)}
+		X: int(float32(g.canvas.Bounds().Dx()) * g.zoom),
+		Y: int(float32(g.canvas.Bounds().Dy()) * g.zoom)}
 	g.pan = clampPan(g.pan, canvasSize, size)
 	canvasRect := image.Rectangle{
-		Min: image.Point{int(g.pan.X), int(g.pan.Y)},
-		Max: image.Point{int(g.pan.X) + canvasSize.X, int(g.pan.Y) + canvasSize.Y}}
+		Min: image.Point{X: int(g.pan.X), Y: int(g.pan.Y)},
+		Max: image.Point{X: int(g.pan.X) + canvasSize.X, Y: int(g.pan.Y) + canvasSize.Y}}
 	eventFilters := []event.Filter{
 		pointer.Filter{
 			Target:  &g.clickable,
@@ -170,7 +170,7 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 	g.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		imgOp := g.imageOp()
 		zoom := op.Affine(
-			f32.Affine2D{}.Scale(f32.Point{0, 0}, f32.Point{g.zoom, g.zoom}),
+			f32.Affine2D{}.Scale(f32.Point{X: 0, Y: 0}, f32.Point{X: g.zoom, Y: g.zoom}),
 		).Push(gtx.Ops)
 		imgOp.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
@@ -447,39 +447,41 @@ func placementColors(alive, dead color.NRGBA) (placeAlive, placeDead color.NRGBA
 	return placementAliveColor(alive), dead
 }
 
+//goland:noinspection GrazieStyle
 func placementAliveColor(c color.NRGBA) color.NRGBA {
 	h, s, v := rgbToHSV(c.R, c.G, c.B)
 	if s < 0.01 {
 		// Greys have no useful hue, so force green.
 		h = 120
 		s = 1
-		v = maxFloat(v, 0.85)
+		v = max(v, 0.85)
 	} else {
 		h += 180
 		if h >= 360 {
 			h -= 360
 		}
-		s = maxFloat(s, 0.75)
-		v = maxFloat(v, 0.75)
+		s = max(s, 0.75)
+		v = max(v, 0.75)
 	}
 	r, g, b := hsvToRGB(h, s, v)
 	return color.NRGBA{R: r, G: g, B: b, A: 255}
 }
 
+//goland:noinspection GrazieStyle
 func placementDeadColor(c color.NRGBA) color.NRGBA {
 	h, s, v := rgbToHSV(c.R, c.G, c.B)
 	if s < 0.01 {
 		// Greys have no useful hue, so force green.
 		h = 0
 		s = 1
-		v = maxFloat(v, 0.85)
+		v = max(v, 0.85)
 	} else {
 		h += 180
 		if h >= 360 {
 			h -= 360
 		}
-		s = maxFloat(s, 0.75)
-		v = maxFloat(v, 0.75)
+		s = max(s, 0.75)
+		v = max(v, 0.75)
 	}
 	r, g, b := hsvToRGB(h, s, v)
 	return color.NRGBA{R: r, G: g, B: b, A: 255}
@@ -489,8 +491,8 @@ func rgbToHSV(r8, g8, b8 uint8) (h, s, v float64) {
 	r := float64(r8) / 255
 	g := float64(g8) / 255
 	b := float64(b8) / 255
-	maxC := maxFloat(r, maxFloat(g, b))
-	minC := minFloat(r, minFloat(g, b))
+	maxC := max(r, max(g, b))
+	minC := min(r, min(g, b))
 	delta := maxC - minC
 	v = maxC
 	if maxC == 0 {
@@ -553,25 +555,4 @@ func floatToByte(v float64) uint8 {
 		return 255
 	}
 	return uint8(v + 0.5)
-}
-
-func minFloat(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func maxFloat(a, b float64) float64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func abs(v int) int {
-	if v < 0 {
-		return -v
-	}
-	return v
 }

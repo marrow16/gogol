@@ -32,8 +32,8 @@ func CellsImage(cells [][]bool, cfg Config) *image.NRGBA {
 	cellSize := cfg.CellSize
 	c := cfg.AliveColor
 	cellWidth := cellSize - offset
-	for row := 0; row < height; row++ {
-		for col := 0; col < width; col++ {
+	for row := range height {
+		for col := range width {
 			if !cells[row][col] {
 				continue
 			}
@@ -85,8 +85,8 @@ func CellsImagePaletted(cells [][]bool, cfg Config) *image.Paletted {
 	stride := img.Stride
 	cellSize := cfg.CellSize
 	cellWidth := cellSize - offset
-	for row := 0; row < height; row++ {
-		for col := 0; col < width; col++ {
+	for row := range height {
+		for col := range width {
 			if !cells[row][col] {
 				continue
 			}

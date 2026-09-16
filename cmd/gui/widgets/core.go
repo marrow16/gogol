@@ -239,7 +239,7 @@ func (c *Core) handleKeys(gtx layout.Context) {
 					c.showHelp(-1)
 				default:
 					if gtx.Focused(&c.gridHolder.clickable) && (c.gridHolder.editor.active || c.gridHolder.overlay != nil) {
-						// in edit mode or place pattern but we swallowed the key - pass it to grid...
+						// in edit mode or place pattern, but we swallowed the key - pass it to grid...
 						c.gridHolder.handleKeys(gtx, evt)
 					}
 				}

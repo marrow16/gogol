@@ -197,7 +197,7 @@ type testRenderer struct {
 	deads   int
 }
 
-func (t *testRenderer) render(row, col int, alive, changed bool) {
+func (t *testRenderer) render(_, _ int, alive, changed bool) {
 	t.called++
 	if changed {
 		t.changes++
@@ -385,7 +385,7 @@ func TestGrid_LimitAliveAdjacents(t *testing.T) {
 		tr := &testRenderer{}
 		g.SetRenderer(tr.render)
 		g.LimitAliveAdjacents(2)
-		for idx, _ := range g.cells {
+		for idx := range g.cells {
 			assert.LessOrEqual(t, g.aliveAdjacentCount(idx), uint8(2))
 		}
 		assert.Greater(t, tr.called, 0)
@@ -402,7 +402,7 @@ func TestGrid_LimitAliveAdjacents(t *testing.T) {
 		g.RandomizePopulation(100)
 		require.Equal(t, 100, g.Population())
 		g.LimitAliveAdjacents(2)
-		for idx, _ := range g.cells {
+		for idx := range g.cells {
 			assert.LessOrEqual(t, g.aliveAdjacentCount(idx), uint8(2))
 		}
 
@@ -419,7 +419,7 @@ func TestGrid_LimitAliveAdjacents(t *testing.T) {
 		g.RandomizePopulation(100)
 		require.Equal(t, 100, g.Population())
 		g.LimitAliveAdjacents(3)
-		for idx, _ := range g.cells {
+		for idx := range g.cells {
 			assert.LessOrEqual(t, g.aliveAdjacentCount(idx), uint8(3))
 		}
 
@@ -436,7 +436,7 @@ func TestGrid_LimitAliveAdjacents(t *testing.T) {
 		g.RandomizePopulation(100)
 		require.Equal(t, 100, g.Population())
 		g.LimitAliveAdjacents(2)
-		for idx, _ := range g.cells {
+		for idx := range g.cells {
 			assert.LessOrEqual(t, g.aliveAdjacentCount(idx), uint8(2))
 		}
 
@@ -453,7 +453,7 @@ func TestGrid_LimitAliveAdjacents(t *testing.T) {
 		g.RandomizePopulation(100)
 		require.Equal(t, 100, g.Population())
 		g.LimitAliveAdjacents(3)
-		for idx, _ := range g.cells {
+		for idx := range g.cells {
 			assert.LessOrEqual(t, g.aliveAdjacentCount(idx), uint8(3))
 		}
 
@@ -470,7 +470,7 @@ func TestGrid_LimitAliveAdjacents(t *testing.T) {
 		g.RandomizePopulation(100)
 		require.Equal(t, 100, g.Population())
 		g.LimitAliveAdjacents(2)
-		for idx, _ := range g.cells {
+		for idx := range g.cells {
 			assert.LessOrEqual(t, g.aliveAdjacentCount(idx), uint8(2))
 		}
 
@@ -487,7 +487,7 @@ func TestGrid_LimitAliveAdjacents(t *testing.T) {
 		g.RandomizePopulation(100)
 		require.Equal(t, 100, g.Population())
 		g.LimitAliveAdjacents(5)
-		for idx, _ := range g.cells {
+		for idx := range g.cells {
 			assert.LessOrEqual(t, g.aliveAdjacentCount(idx), uint8(5))
 		}
 
@@ -659,11 +659,11 @@ var _ StepInstrumentation = (*testInstrument)(nil)
 var _ StepStopInstrumentation = (*testInstrument)(nil)
 var _ DualUseInstrumentation = (*testInstrument)(nil)
 
-func (t *testInstrument) Instrument(step uint64, locations []int) {
+func (t *testInstrument) Instrument(_ uint64, _ []int) {
 	t.called++
 }
 
-func (t *testInstrument) InstrumentStop(step uint64, locations []int) bool {
+func (t *testInstrument) InstrumentStop(_ uint64, _ []int) bool {
 	t.called++
 	return t.stop
 }

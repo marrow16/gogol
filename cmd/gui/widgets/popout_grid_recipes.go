@@ -48,7 +48,7 @@ func (p *gridRecipesPopout) sortedRecipes() []string {
 	return result
 }
 
-func (p *gridRecipesPopout) recipeSelected(recipe *string) {
+func (p *gridRecipesPopout) recipeSelected(_ *string) {
 	p.error = nil
 }
 

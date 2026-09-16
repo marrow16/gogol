@@ -114,9 +114,8 @@ func (p *instrumentationPopout) layout(gtx layout.Context) layout.Dimensions {
 				desc.TextSize = desc.TextSize - 2
 				desc.Font.Style = font.Italic
 				return desc.Layout(gtx)
-			} else {
-				return p.layoutRepeat(gtx)
 			}
+			return p.layoutRepeat(gtx)
 		}),
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
@@ -133,9 +132,8 @@ func (p *instrumentationPopout) layout(gtx layout.Context) layout.Dimensions {
 				return desc.Layout(gtx)
 			} else if p.core.instrumentRecord != nil {
 				return p.layoutRecord(gtx)
-			} else {
-				return layout.Dimensions{}
 			}
+			return layout.Dimensions{}
 		}),
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
@@ -152,9 +150,8 @@ func (p *instrumentationPopout) layout(gtx layout.Context) layout.Dimensions {
 				return desc.Layout(gtx)
 			} else if p.core.instrumentHeatMap != nil {
 				return p.layoutHeatMap(gtx)
-			} else {
-				return layout.Dimensions{}
 			}
+			return layout.Dimensions{}
 		}),
 	))
 }
@@ -297,12 +294,10 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context) layout.Dimensio
 					return flexHorizontal(20,
 						rigidLabel("Saved to:", 0, 0, 0),
 						rigid(linkLabel(&p.linkAnimation, filepath.Base(p.animationResult.filename))))(gtx)
-				} else {
-					return errorLabel(p.animationResult.err)(gtx)
 				}
-			} else {
-				return layout.Dimensions{}
+				return errorLabel(p.animationResult.err)(gtx)
 			}
+			return layout.Dimensions{}
 		}),
 	))
 }

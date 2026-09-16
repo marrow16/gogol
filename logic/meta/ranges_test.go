@@ -14,7 +14,7 @@ func TestRanges(t *testing.T) {
 	}
 	assert.Equal(t, "(0,100-200)", r.String())
 	count := 0
-	for perm := uint32(0); perm < 300; perm++ {
+	for perm := range uint32(300) {
 		if r.Matches(perm) {
 			count++
 			rule, err := logic.NewRuleFromPermutation(int(perm))
@@ -31,12 +31,12 @@ func TestRanges_MatchingPermutations(t *testing.T) {
 		{200, 100},
 	}
 	count := 0
-	for _ = range r.MatchingPermutations() {
+	for range r.MatchingPermutations() {
 		count++
 	}
 	assert.Equal(t, 102, count)
 	count = 0
-	for _ = range r.MatchingPermutations() {
+	for range r.MatchingPermutations() {
 		count++
 		break
 	}
@@ -49,12 +49,12 @@ func TestRanges_MatchingRules(t *testing.T) {
 		{200, 100},
 	}
 	count := 0
-	for _ = range r.MatchingRules() {
+	for range r.MatchingRules() {
 		count++
 	}
 	assert.Equal(t, 102, count)
 	count = 0
-	for _ = range r.MatchingRules() {
+	for range r.MatchingRules() {
 		count++
 		break
 	}

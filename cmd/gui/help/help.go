@@ -394,7 +394,7 @@ func (h *holder) header(gtx layout.Context) layout.FlexChild {
 	})
 }
 
-func (h *holder) doSearch(gtx layout.Context, s string) {
+func (h *holder) doSearch(s string) {
 	h.resultsList.ScrollTo(0)
 	if s = strings.TrimSpace(s); len(s) > 1 {
 		h.buildSearchIndex()
@@ -462,7 +462,7 @@ func (h *holder) searchHeader(gtx layout.Context) layout.FlexChild {
 			break
 		}
 		if _, ok = ev.(widget.ChangeEvent); ok {
-			h.doSearch(gtx, h.searchEdit.Text())
+			h.doSearch(h.searchEdit.Text())
 		}
 	}
 	for {

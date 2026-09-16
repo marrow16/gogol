@@ -296,7 +296,9 @@ func (p *capturedPatternsPopout) readPaste(gtx layout.Context) {
 		}
 		if evt, ok := evt.(transfer.DataEvent); ok {
 			r := evt.Open()
-			defer r.Close()
+			defer func() {
+				_ = r.Close()
+			}()
 			if pattern, err := patterns.NewPatternFromRle(r); err == nil {
 				if len(pattern.Name) == 0 {
 					pattern.Name = strconv.Itoa(len(p.core.settings.CapturedPatterns)+1) + " (Pasted " + time.Now().Format("2006-01-02 15-04-05") + ")"

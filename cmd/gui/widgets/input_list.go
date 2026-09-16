@@ -42,7 +42,7 @@ func newListControl[T any](items []T, border bool) *listControl[T] {
 	return result
 }
 
-func (l *listControl[T]) isSelected(index int, item T) bool {
+func (l *listControl[T]) isSelected(index int, _ T) bool {
 	return l.selectedIndex == index
 }
 
@@ -72,7 +72,7 @@ func (l *listControl[T]) resetItems(items []T) {
 	l.clickables = make([]widget.Clickable, 0)
 }
 
-func (l *listControl[T]) isFocused(gtx layout.Context) bool {
+func (l *listControl[T]) isFocused(_ layout.Context) bool {
 	return l.focused
 }
 
@@ -127,10 +127,7 @@ func (l *listControl[T]) Layout(gtx layout.Context) layout.Dimensions {
 					}
 				}
 			case key.NamePageUp:
-				np := l.selectedIndex - (l.list.Position.Count - 1)
-				if np < 0 {
-					np = 0
-				}
+				np := max(l.selectedIndex-(l.list.Position.Count-1), 0)
 				l.selectedIndex = np
 				l.list.Position.Offset = 0
 				l.list.ScrollTo(l.selectedIndex)

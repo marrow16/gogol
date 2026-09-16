@@ -106,7 +106,7 @@ func (r *Recipe) doDos(grid *logic.Grid, cy, cx int, dos []Do, last *lastDimensi
 					cy, cx = do.Move.move(cy, cx, last.height, last.width)
 				}
 				repeats := calcRepeats(do.Repeat, ptn.Height, ptn.Width, grid.Height(), grid.Width(), cy, cx)
-				for i := 0; i < repeats; i++ {
+				for range repeats {
 					if do.Move != nil && !do.Move.isAfter() {
 						cy, cx = do.Move.move(cy, cx, last.height, last.width)
 					}
@@ -128,7 +128,7 @@ func (r *Recipe) doDos(grid *logic.Grid, cy, cx int, dos []Do, last *lastDimensi
 				}
 				do.VarOps.performOnVar(v, true)
 				repeats := calcRepeats(do.Repeat, ptn.Height, ptn.Width, grid.Height(), grid.Width(), cy, cx)
-				for i := 0; i < repeats; i++ {
+				for range repeats {
 					if do.Move != nil && !do.Move.isAfter() {
 						cy, cx = do.Move.move(cy, cx, last.height, last.width)
 					}

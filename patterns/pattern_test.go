@@ -68,15 +68,15 @@ func TestPattern_Draw(t *testing.T) {
 		false, false, false, false, false})
 	require.NoError(t, err)
 
-	g, err := logic.NewGrid(5, 5, 0, 0)
+	g, err := logic.NewGrid(5, 5, logic.StandardRule, 0, 0)
 	require.NoError(t, err)
 
 	p.Draw(g, 0, 0, Rotate0)
-	assert.True(t, g.GetCell(1, 3).Alive)
-	assert.True(t, g.GetCell(2, 1).Alive)
-	assert.True(t, g.GetCell(2, 3).Alive)
-	assert.True(t, g.GetCell(3, 2).Alive)
-	assert.True(t, g.GetCell(3, 3).Alive)
+	assert.True(t, g.GetCell(1, 3))
+	assert.True(t, g.GetCell(2, 1))
+	assert.True(t, g.GetCell(2, 3))
+	assert.True(t, g.GetCell(3, 2))
+	assert.True(t, g.GetCell(3, 3))
 }
 
 func TestPattern_DrawTo(t *testing.T) {
@@ -115,7 +115,7 @@ func TestNewPatternFromGrid_Errors(t *testing.T) {
 }
 
 func TestNewPatternFromGridPortion(t *testing.T) {
-	g, err := logic.NewGrid(3, 3, 0, 0)
+	g, err := logic.NewGrid(3, 3, logic.StandardRule, 0, 0)
 	require.NoError(t, err)
 	g.SetCell(1, 1, true)
 	g.SetCell(1, 2, true)

@@ -65,7 +65,7 @@ func (p Pattern) Trimmed() Pattern {
 		return p
 	}
 	cells := make([]bool, width*height)
-	for row := 0; row < height; row++ {
+	for row := range height {
 		src := (minRow+row)*p.Width + minCol
 		dst := row * width
 		copy(cells[dst:dst+width], p.Cells[src:src+width])

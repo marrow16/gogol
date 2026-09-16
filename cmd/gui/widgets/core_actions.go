@@ -731,12 +731,16 @@ func (c *Core) saveHeatMapImage() {
 	c.stop()
 	if c.instrumentHeatMap != nil {
 		if all, ok := c.instrumentHeatMap.(*allHeatMapInstrument); ok {
+			fs := make([]*os.File, 0, len(all.instruments))
+			defer func() {
+				for _, f := range fs {
+					_ = f.Close()
+				}
+			}()
 			for hmt, hm := range all.heatMappers {
 				filename := c.nowFilename("Heat Map "+hmt.String(), ".png")
 				if f, err := saveFile(filename, false); err == nil {
-					defer func() {
-						_ = f.Close()
-					}()
+					fs = append(fs, f)
 					img := imaging.HeatMap(hm, c.settings.Height, c.settings.Width, imaging.Config{
 						CellSize:    c.settings.CellSize,
 						Borders:     c.settings.CellBorders,

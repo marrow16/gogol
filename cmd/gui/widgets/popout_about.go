@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	gogolGuiVersion = "1.3.55"
+	gogolGuiVersion = "1.3.56"
 	gogolRepo       = "https://github.com/marrow16/gogol"
 )
 
@@ -51,7 +51,7 @@ func (p *aboutPopout) layout(gtx layout.Context) layout.Dimensions {
 	))
 }
 
-func (p *aboutPopout) hasFocus(gtx layout.Context) bool {
+func (p *aboutPopout) hasFocus(_ layout.Context) bool {
 	return false
 }
 
