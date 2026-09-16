@@ -22,8 +22,8 @@ func TestRule(t *testing.T) {
 	}
 	assert.Equal(t, "B(+1) / S(+457,!3,-01,-12) / P(0-131071)", b1Plus.String())
 	count := 0
-	for b := 0; b < 512; b++ {
-		for s := 0; s < 512; s++ {
+	for b := range 512 {
+		for s := range 512 {
 			perm := (b * 512) + s
 			if b1Plus.Matches(uint32(perm)) {
 				count++
@@ -193,8 +193,8 @@ func TestCompositeRule(t *testing.T) {
 		NoneOfMode: 0,
 		OneOfMode:  0,
 	}
-	for b := 0; b < 512; b++ {
-		for s := 0; s < 512; s++ {
+	for b := range 512 {
+		for s := range 512 {
 			perm := (b * 512) + s
 			for mode, evaluator := range modes {
 				if evaluator.Matches(uint32(perm)) {

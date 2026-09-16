@@ -13,10 +13,11 @@ func (c CompositeInstrument) Instrument(step uint64, locations []int) {
 }
 
 func (c CompositeInstrument) InstrumentStop(step uint64, locations []int) bool {
+	stopped := false
 	for _, inst := range c {
 		if inst.InstrumentStop(step, locations) {
-			return true
+			stopped = true
 		}
 	}
-	return false
+	return stopped
 }

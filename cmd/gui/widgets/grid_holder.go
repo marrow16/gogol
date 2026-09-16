@@ -308,6 +308,11 @@ func (g *gridHolder) imageOp() paint.ImageOp {
 	return g.imgOp
 }
 
+func (g *gridHolder) invalidate() {
+	g.imgOp = paint.NewImageOp(g.canvas)
+	g.dirty = false
+}
+
 type underlay struct {
 	pattern  patterns.Pattern
 	row, col int
@@ -364,32 +369,37 @@ func (g *gridHolder) buildHeatMap(heatMap logic.HeatMap) {
 
 func (g *gridHolder) renderCell(row, col int, alive, changed bool) {
 	if changed {
-		var clr *color.NRGBA
+		cr, cg, cb, ca := g.core.settings.CellDeadColor.R, g.core.settings.CellDeadColor.G, g.core.settings.CellDeadColor.B, g.core.settings.CellDeadColor.A
 		if alive {
-			clr = &g.core.settings.CellAliveColor
+			cr, cg, cb, ca = g.core.settings.CellAliveColor.R, g.core.settings.CellAliveColor.G, g.core.settings.CellAliveColor.B, g.core.settings.CellAliveColor.A
+		}
+		if cellSize := g.core.settings.CellSize; cellSize == 1 {
+			p := row*g.canvas.Stride + (col << 2)
+			g.canvas.Pix[p] = cr
+			g.canvas.Pix[p+1] = cg
+			g.canvas.Pix[p+2] = cb
+			g.canvas.Pix[p+3] = ca
 		} else {
-			clr = &g.core.settings.CellDeadColor
-		}
-		offset := 0
-		cellSize := g.core.settings.CellSize
-		if g.core.settings.CellBorders && cellSize > 2 {
-			offset = 1
-		}
-		xMin := col*cellSize + offset
-		xMax := xMin + cellSize - offset
-		yMin := row*cellSize + offset
-		yMax := yMin + cellSize - offset
-		i := yMin*g.canvas.Stride + (xMin << 2)
-		for y := yMin; y < yMax; y++ {
-			p := i
-			for x := xMin; x < xMax; x++ {
-				g.canvas.Pix[p] = clr.R
-				g.canvas.Pix[p+1] = clr.G
-				g.canvas.Pix[p+2] = clr.B
-				g.canvas.Pix[p+3] = clr.A
-				p += 4
+			offset := 0
+			if g.core.settings.CellBorders && cellSize > 2 {
+				offset = 1
 			}
-			i += g.canvas.Stride
+			xMin := col*cellSize + offset
+			xMax := xMin + cellSize - offset
+			yMin := row*cellSize + offset
+			yMax := yMin + cellSize - offset
+			i := yMin*g.canvas.Stride + (xMin << 2)
+			for y := yMin; y < yMax; y++ {
+				p := i
+				for x := xMin; x < xMax; x++ {
+					g.canvas.Pix[p] = cr
+					g.canvas.Pix[p+1] = cg
+					g.canvas.Pix[p+2] = cb
+					g.canvas.Pix[p+3] = ca
+					p += 4
+				}
+				i += g.canvas.Stride
+			}
 		}
 		g.dirty = true
 	}

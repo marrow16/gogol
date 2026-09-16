@@ -259,6 +259,62 @@ func TestGrid_RandomChanges(t *testing.T) {
 	assert.Equal(t, tr.changes, tr.called)
 }
 
+func TestGrid_RandomAdditions(t *testing.T) {
+	g, err := NewGrid(100, 100, StandardRule, WrapAll, DeadBoundary)
+	require.NoError(t, err)
+	tr := &testRenderer{}
+	g.SetRenderer(tr.render)
+
+	g.RandomizePopulation(10)
+	assert.Equal(t, 1000, g.Population())
+	assert.Equal(t, 10000, tr.called)
+	assert.Equal(t, 10000, tr.changes)
+	assert.Equal(t, 1000, tr.alives)
+	assert.Equal(t, 9000, tr.deads)
+
+	g.RandomAdditions(10)
+	assert.Equal(t, 1900, g.Population())
+	assert.Equal(t, 10900, tr.called)
+	assert.Equal(t, 10900, tr.changes)
+	assert.Equal(t, 1900, tr.alives)
+	assert.Equal(t, 9000, tr.deads)
+
+	g.RandomAdditions(0)
+	assert.Equal(t, 1900, g.Population())
+	assert.Equal(t, 10900, tr.called)
+	assert.Equal(t, 10900, tr.changes)
+	assert.Equal(t, 1900, tr.alives)
+	assert.Equal(t, 9000, tr.deads)
+}
+
+func TestGrid_RandomCull(t *testing.T) {
+	g, err := NewGrid(100, 100, StandardRule, WrapAll, DeadBoundary)
+	require.NoError(t, err)
+	tr := &testRenderer{}
+	g.SetRenderer(tr.render)
+
+	g.RandomizePopulation(10)
+	assert.Equal(t, 1000, g.Population())
+	assert.Equal(t, 10000, tr.called)
+	assert.Equal(t, 10000, tr.changes)
+	assert.Equal(t, 1000, tr.alives)
+	assert.Equal(t, 9000, tr.deads)
+
+	g.RandomCull(50)
+	assert.Equal(t, 500, g.Population())
+	assert.Equal(t, 10500, tr.called)
+	assert.Equal(t, 10500, tr.changes)
+	assert.Equal(t, 1000, tr.alives)
+	assert.Equal(t, 9500, tr.deads)
+
+	g.RandomCull(0)
+	assert.Equal(t, 500, g.Population())
+	assert.Equal(t, 10500, tr.called)
+	assert.Equal(t, 10500, tr.changes)
+	assert.Equal(t, 1000, tr.alives)
+	assert.Equal(t, 9500, tr.deads)
+}
+
 func TestGrid_RandomizePopulation(t *testing.T) {
 	g, err := NewGrid(10, 10, StandardRule, WrapAll, DeadBoundary)
 	require.NoError(t, err)
@@ -326,11 +382,13 @@ func TestGrid_LimitAliveAdjacents(t *testing.T) {
 		require.NoError(t, err)
 		g.RandomizePopulation(100)
 		require.Equal(t, 100, g.Population())
+		tr := &testRenderer{}
+		g.SetRenderer(tr.render)
 		g.LimitAliveAdjacents(2)
 		for idx, _ := range g.cells {
 			assert.LessOrEqual(t, g.aliveAdjacentCount(idx), uint8(2))
 		}
-
+		assert.Greater(t, tr.called, 0)
 		g.RandomizePopulation(100)
 		require.Equal(t, 100, g.Population())
 		g.LimitAliveAdjacents(8)

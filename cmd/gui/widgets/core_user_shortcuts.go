@@ -35,6 +35,7 @@ func (c *Core) userShortcutKeys(kn key.Name) bool {
 	go func() {
 		defer func() {
 			c.shortcutRunning = false
+			c.gridHolder.invalidate()
 			window.Invalidate()
 		}()
 		c.runUserShortcut(shortcut, nil, "")
@@ -76,7 +77,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 							useParts = append(useParts, parts[i])
 						}
 					}
-					for i := 0; i < nTimes; i++ {
+					for i := range nTimes {
 						c.runUserShortcut(useParts, append(repeats, i), nameFmt)
 					}
 				}
@@ -190,6 +191,10 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 			}
 		case shortcutRandomChanges:
 			c.randomChanges()
+		case shortcutRandomAdditions:
+			c.randomAdditions()
+		case shortcutRandomCull:
+			c.randomCull()
 		case shortcutStepDelayDec:
 			if c.settings.StepDelay > 0 {
 				c.settings.StepDelay--
@@ -287,6 +292,26 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 100 {
 						c.settings.Randomization = n
 					}
+				case shortcutRandomize:
+					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 100 {
+						c.randomize(n)
+					}
+				case shortcutRandomizePopulation:
+					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 100 {
+						c.randomizePopulation(n)
+					}
+				case shortcutRandomChanges:
+					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 100 {
+						c.randomChanges(n)
+					}
+				case shortcutRandomAdditions:
+					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 100 {
+						c.randomAdditions(n)
+					}
+				case shortcutRandomCull:
+					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 100 {
+						c.randomCull(n)
+					}
 				case shortcutMaxAdjacents:
 					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 0 && n <= 8 {
 						c.maximumAdjacents(n)
@@ -360,7 +385,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 					bw, sw := c.gridHolder.grid.Rule().BornWith(), c.gridHolder.grid.Rule().SurvivesWith()
 					if after, ok := strings.CutPrefix(parts[1], "|"); ok {
 						var sb strings.Builder
-						for i := 0; i < 9; i++ {
+						for i := range 9 {
 							ch := rune(i + 48)
 							if strings.ContainsRune(after, ch) || strings.ContainsRune(bw, ch) {
 								sb.WriteRune(ch)
@@ -369,7 +394,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 						bw = sb.String()
 					} else if after, ok = strings.CutPrefix(parts[1], "&"); ok {
 						var sb strings.Builder
-						for i := 0; i < 9; i++ {
+						for i := range 9 {
 							ch := rune(i + 48)
 							if strings.ContainsRune(after, ch) && strings.ContainsRune(bw, ch) {
 								sb.WriteRune(ch)
@@ -379,14 +404,14 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 					} else if after, ok = strings.CutPrefix(parts[1], "!"); ok {
 						var sb strings.Builder
 						if len(after) == 0 {
-							for i := 0; i < 9; i++ {
+							for i := range 9 {
 								ch := rune(i + 48)
 								if !strings.ContainsRune(bw, ch) {
 									sb.WriteRune(ch)
 								}
 							}
 						} else {
-							for i := 0; i < 9; i++ {
+							for i := range 9 {
 								ch := rune(i + 48)
 								if strings.ContainsRune(after, ch) {
 									if !strings.ContainsRune(bw, ch) {
@@ -408,7 +433,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 					bw, sw := c.gridHolder.grid.Rule().BornWith(), c.gridHolder.grid.Rule().SurvivesWith()
 					if after, ok := strings.CutPrefix(parts[1], "|"); ok {
 						var sb strings.Builder
-						for i := 0; i < 9; i++ {
+						for i := range 9 {
 							ch := rune(i + 48)
 							if strings.ContainsRune(after, ch) || strings.ContainsRune(sw, ch) {
 								sb.WriteRune(ch)
@@ -417,7 +442,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 						sw = sb.String()
 					} else if after, ok = strings.CutPrefix(parts[1], "&"); ok {
 						var sb strings.Builder
-						for i := 0; i < 9; i++ {
+						for i := range 9 {
 							ch := rune(i + 48)
 							if strings.ContainsRune(after, ch) && strings.ContainsRune(sw, ch) {
 								sb.WriteRune(ch)
@@ -427,14 +452,14 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 					} else if after, ok = strings.CutPrefix(parts[1], "!"); ok {
 						var sb strings.Builder
 						if len(after) == 0 {
-							for i := 0; i < 9; i++ {
+							for i := range 9 {
 								ch := rune(i + 48)
 								if !strings.ContainsRune(sw, ch) {
 									sb.WriteRune(ch)
 								}
 							}
 						} else {
-							for i := 0; i < 9; i++ {
+							for i := range 9 {
 								ch := rune(i + 48)
 								if strings.ContainsRune(after, ch) {
 									if !strings.ContainsRune(sw, ch) {
@@ -710,6 +735,8 @@ const (
 	shortcutRandomizationInc      = "randomization++"
 	shortcutRandomization         = "randomization"
 	shortcutRandomChanges         = "random-changes"
+	shortcutRandomAdditions       = "random-additions"
+	shortcutRandomCull            = "random-cull"
 	shortcutRandomizePopulation   = "randomize-population"
 	shortcutMaxAdjacents          = "max-adjacents"
 	shortcutStepDelayDec          = "step-delay--"

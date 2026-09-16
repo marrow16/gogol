@@ -473,6 +473,8 @@ func (g *Grid) Clear() {
 }
 
 func (g *Grid) Draw() {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
 	idx := 0
 	for row := range g.height {
 		for col := range g.width {
@@ -483,6 +485,8 @@ func (g *Grid) Draw() {
 }
 
 func (g *Grid) DrawTo(render func(row, col int, alive bool)) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
 	idx := 0
 	for row := range g.height {
 		for col := range g.width {
@@ -539,12 +543,64 @@ func (g *Grid) RandomChanges(rf int) {
 	}
 }
 
+func (g *Grid) RandomAdditions(rf int) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.StepCount.Store(0)
+	if rf <= 0 {
+		return
+	}
+	candidates := make([]int, 0, g.width*g.height)
+	for idx, c := range g.cells {
+		if c != aliveCell {
+			candidates = append(candidates, idx)
+		}
+	}
+	total := len(candidates)
+	rf = min(rf, 100)
+	alive := (total*rf + 50) / 100
+	order := rng.Perm(len(candidates))
+	for _, n := range order[:alive] {
+		idx := candidates[n]
+		row := idx / g.width
+		col := idx % g.width
+		g.renderer(row, col, true, true)
+		g.cells[idx] = aliveCell
+	}
+}
+
+func (g *Grid) RandomCull(rf int) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.StepCount.Store(0)
+	if rf <= 0 {
+		return
+	}
+	candidates := make([]int, 0, g.width*g.height)
+	for idx, c := range g.cells {
+		if c == aliveCell {
+			candidates = append(candidates, idx)
+		}
+	}
+	total := len(candidates)
+	rf = min(rf, 100)
+	cull := (total*rf + 50) / 100
+	order := rng.Perm(len(candidates))
+	for _, n := range order[:cull] {
+		idx := candidates[n]
+		row := idx / g.width
+		col := idx % g.width
+		g.renderer(row, col, false, true)
+		g.cells[idx] = deadCell
+	}
+}
+
 func (g *Grid) RandomizePopulation(rf int) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 	g.StepCount.Store(0)
 	switch {
-	case rf == 0:
+	case rf <= 0:
 		// all dead
 		idx := 0
 		for row := range g.height {
@@ -594,48 +650,15 @@ func (g *Grid) RandomizePopulation(rf int) {
 func (g *Grid) Step() (bool, int) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	g.changesBuffer = g.changesBuffer[:0]
-	idx := 0
-	rowFn := fnIdxTop
-	for row := 0; row < g.height; row++ {
-		leftFn := g.changeFns[rowFn|fnIdxLeft]
-		innerFn := g.changeFns[rowFn]
-		rightFn := g.changeFns[rowFn|fnIdxRight]
-		// left
-		if leftFn(idx) {
-			g.changesBuffer = append(g.changesBuffer, idx)
-			g.renderer(row, 0, g.cells[idx] == deadCell, true)
-		}
-		idx++
-		// inner
-		for col := 1; col < g.width-1; col++ {
-			if innerFn(idx) {
-				g.changesBuffer = append(g.changesBuffer, idx)
-				g.renderer(row, col, g.cells[idx] == deadCell, true)
-			}
-			idx++
-		}
-		// right
-		if rightFn(idx) {
-			g.changesBuffer = append(g.changesBuffer, idx)
-			g.renderer(row, g.width-1, g.cells[idx] == deadCell, true)
-		}
-		idx++
-		if row == 0 {
-			rowFn = fnIdxInner
-		} else if row == g.height-2 {
-			rowFn = fnIdxBottom
-		}
-	}
-	l := len(g.changesBuffer)
-	if l == 0 {
+	changes := g.step()
+	if changes == 0 {
 		return false, 0
 	}
-	for _, idx = range g.changesBuffer {
-		g.cells[idx] ^= 1
+	for _, idx := range g.changesBuffer {
+		g.cells[idx] ^= aliveCell
 	}
 	g.StepCount.Add(1)
-	return true, l
+	return true, changes
 }
 
 func (g *Grid) StepAhead(by int) int {
@@ -644,42 +667,12 @@ func (g *Grid) StepAhead(by int) int {
 	count := uint64(0)
 	changes := 0
 	for range by {
-		g.changesBuffer = g.changesBuffer[:0]
-		idx := 0
-		rowFn := fnIdxTop
-		for row := 0; row < g.height; row++ {
-			leftFn := g.changeFns[rowFn|fnIdxLeft]
-			innerFn := g.changeFns[rowFn]
-			rightFn := g.changeFns[rowFn|fnIdxRight]
-			// left
-			if leftFn(idx) {
-				g.changesBuffer = append(g.changesBuffer, idx)
-			}
-			idx++
-			// inner
-			for col := 1; col < g.width-1; col++ {
-				if innerFn(idx) {
-					g.changesBuffer = append(g.changesBuffer, idx)
-				}
-				idx++
-			}
-			// right
-			if rightFn(idx) {
-				g.changesBuffer = append(g.changesBuffer, idx)
-			}
-			idx++
-			if row == 0 {
-				rowFn = fnIdxInner
-			} else if row == g.height-2 {
-				rowFn = fnIdxBottom
-			}
-		}
-		changes = len(g.changesBuffer)
+		changes = g.stepNoRender()
 		if changes == 0 {
 			break
 		}
 		count++
-		for _, idx = range g.changesBuffer {
+		for _, idx := range g.changesBuffer {
 			g.cells[idx] ^= aliveCell
 		}
 	}
@@ -697,49 +690,16 @@ func (g *Grid) StepWithInstrumentation(instrument StepInstrumentation) (bool, in
 	}
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	g.changesBuffer = g.changesBuffer[:0]
-	idx := 0
-	rowFn := fnIdxTop
-	for row := 0; row < g.height; row++ {
-		leftFn := g.changeFns[rowFn|fnIdxLeft]
-		innerFn := g.changeFns[rowFn]
-		rightFn := g.changeFns[rowFn|fnIdxRight]
-		// left
-		if leftFn(idx) {
-			g.changesBuffer = append(g.changesBuffer, idx)
-			g.renderer(row, 0, g.cells[idx] == deadCell, true)
-		}
-		idx++
-		// inner
-		for col := 1; col < g.width-1; col++ {
-			if innerFn(idx) {
-				g.changesBuffer = append(g.changesBuffer, idx)
-				g.renderer(row, col, g.cells[idx] == deadCell, true)
-			}
-			idx++
-		}
-		// right
-		if rightFn(idx) {
-			g.changesBuffer = append(g.changesBuffer, idx)
-			g.renderer(row, g.width-1, g.cells[idx] == deadCell, true)
-		}
-		idx++
-		if row == 0 {
-			rowFn = fnIdxInner
-		} else if row == g.height-2 {
-			rowFn = fnIdxBottom
-		}
-	}
-	l := len(g.changesBuffer)
-	if l == 0 {
+	changes := g.step()
+	if changes == 0 {
 		return false, 0
 	}
-	for _, idx = range g.changesBuffer {
-		g.cells[idx] ^= 1
+	for _, idx := range g.changesBuffer {
+		g.cells[idx] ^= aliveCell
 	}
 	step := g.StepCount.Add(1)
 	instrument.Instrument(step, g.changesBuffer)
-	return true, l
+	return true, changes
 }
 
 // StepAheadWithInstrumentation
@@ -761,43 +721,13 @@ func (g *Grid) StepAheadWithInstrumentation(by int, instrument StepStopInstrumen
 	step := g.StepCount.Load() + 1
 	changes := 0
 	for range by {
-		g.changesBuffer = g.changesBuffer[:0]
-		idx := 0
-		rowFn := fnIdxTop
-		for row := 0; row < g.height; row++ {
-			leftFn := g.changeFns[rowFn|fnIdxLeft]
-			innerFn := g.changeFns[rowFn]
-			rightFn := g.changeFns[rowFn|fnIdxRight]
-			// left
-			if leftFn(idx) {
-				g.changesBuffer = append(g.changesBuffer, idx)
-			}
-			idx++
-			// inner
-			for col := 1; col < g.width-1; col++ {
-				if innerFn(idx) {
-					g.changesBuffer = append(g.changesBuffer, idx)
-				}
-				idx++
-			}
-			// right
-			if rightFn(idx) {
-				g.changesBuffer = append(g.changesBuffer, idx)
-			}
-			idx++
-			if row == 0 {
-				rowFn = fnIdxInner
-			} else if row == g.height-2 {
-				rowFn = fnIdxBottom
-			}
-		}
-		changes = len(g.changesBuffer)
+		changes = g.stepNoRender()
 		if changes == 0 {
 			reason = NoChangesDetected
 			break
 		}
-		for _, idx = range g.changesBuffer {
-			g.cells[idx] ^= 1
+		for _, idx := range g.changesBuffer {
+			g.cells[idx] ^= aliveCell
 		}
 		count++
 		if instrument.InstrumentStop(step, g.changesBuffer) {
@@ -810,9 +740,78 @@ func (g *Grid) StepAheadWithInstrumentation(by int, instrument StepStopInstrumen
 	return reason, changes
 }
 
+func (g *Grid) step() int {
+	g.changesBuffer = g.changesBuffer[:0]
+	idx := 0
+	rowFn := fnIdxTop
+	for row := range g.height {
+		leftFn := g.changeFns[rowFn|fnIdxLeft]
+		innerFn := g.changeFns[rowFn]
+		rightFn := g.changeFns[rowFn|fnIdxRight]
+		// left
+		if leftFn(idx) {
+			g.changesBuffer = append(g.changesBuffer, idx)
+			g.renderer(row, 0, g.cells[idx] == deadCell, true)
+		}
+		idx++
+		// inner
+		for col := 1; col < g.width-1; col++ {
+			if innerFn(idx) {
+				g.changesBuffer = append(g.changesBuffer, idx)
+				g.renderer(row, col, g.cells[idx] == deadCell, true)
+			}
+			idx++
+		}
+		// right
+		if rightFn(idx) {
+			g.changesBuffer = append(g.changesBuffer, idx)
+			g.renderer(row, g.width-1, g.cells[idx] == deadCell, true)
+		}
+		idx++
+		if row == 0 {
+			rowFn = fnIdxInner
+		} else if row == g.height-2 {
+			rowFn = fnIdxBottom
+		}
+	}
+	return len(g.changesBuffer)
+}
+
+func (g *Grid) stepNoRender() int {
+	g.changesBuffer = g.changesBuffer[:0]
+	idx := 0
+	rowFn := fnIdxTop
+	for row := range g.height {
+		leftFn := g.changeFns[rowFn|fnIdxLeft]
+		innerFn := g.changeFns[rowFn]
+		rightFn := g.changeFns[rowFn|fnIdxRight]
+		// left
+		if leftFn(idx) {
+			g.changesBuffer = append(g.changesBuffer, idx)
+		}
+		idx++
+		// inner
+		for col := 1; col < g.width-1; col++ {
+			if innerFn(idx) {
+				g.changesBuffer = append(g.changesBuffer, idx)
+			}
+			idx++
+		}
+		// right
+		if rightFn(idx) {
+			g.changesBuffer = append(g.changesBuffer, idx)
+		}
+		idx++
+		if row == 0 {
+			rowFn = fnIdxInner
+		} else if row == g.height-2 {
+			rowFn = fnIdxBottom
+		}
+	}
+	return len(g.changesBuffer)
+}
+
 // LimitAliveAdjacents limits the number of alive neighbours across the entire grid
-//
-// Note: this does not render changed cells!
 func (g *Grid) LimitAliveAdjacents(maximum int) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
@@ -823,6 +822,13 @@ func (g *Grid) LimitAliveAdjacents(maximum int) {
 	case maximum <= 0:
 		g.StepCount.Store(0)
 		clear(g.cells)
+		idx := 0
+		for row := range g.height {
+			for col := range g.width {
+				g.renderer(row, col, false, true)
+			}
+			idx++
+		}
 		return
 	}
 	total := len(g.cells)
@@ -865,6 +871,7 @@ func (g *Grid) LimitAliveAdjacents(maximum int) {
 		}
 		killIdx := live[rng.Intn(liveCount)]
 		g.cells[killIdx] = deadCell
+		g.renderer(killIdx/g.width, killIdx%g.width, false, true)
 		// killing this cell reduces the alive-neighbour count of EVERY real neighbour - alive or dead...
 		g.forEachAdjacentIndex(killIdx, func(adjIdx int) {
 			old := counts[adjIdx]
