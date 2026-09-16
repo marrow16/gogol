@@ -49,8 +49,8 @@ func (r Rule) MatchesRule(rule logic.Rule) bool {
 
 func (r Rule) MatchingPermutations() iter.Seq[uint32] {
 	return func(yield func(uint32) bool) {
-		for b := 0; b < 512; b++ {
-			for s := 0; s < 512; s++ {
+		for b := range 512 {
+			for s := range 512 {
 				perm := uint32((b * 512) + s)
 				if r.Matches(perm) {
 					if !yield(perm) {
@@ -64,8 +64,8 @@ func (r Rule) MatchingPermutations() iter.Seq[uint32] {
 
 func (r Rule) MatchingRules() iter.Seq[logic.Rule] {
 	return func(yield func(logic.Rule) bool) {
-		for b := 0; b < 512; b++ {
-			for s := 0; s < 512; s++ {
+		for b := range 512 {
+			for s := range 512 {
 				perm := uint32((b * 512) + s)
 				if r.Matches(perm) {
 					rule, _ := logic.NewRuleFromPermutation(int(perm))
@@ -251,8 +251,8 @@ func (cr CompositeRule) MatchesRule(rule logic.Rule) bool {
 
 func (cr CompositeRule) MatchingPermutations() iter.Seq[uint32] {
 	return func(yield func(uint32) bool) {
-		for b := 0; b < 512; b++ {
-			for s := 0; s < 512; s++ {
+		for b := range 512 {
+			for s := range 512 {
 				perm := uint32((b * 512) + s)
 				if cr.Matches(perm) {
 					if !yield(perm) {
@@ -266,8 +266,8 @@ func (cr CompositeRule) MatchingPermutations() iter.Seq[uint32] {
 
 func (cr CompositeRule) MatchingRules() iter.Seq[logic.Rule] {
 	return func(yield func(logic.Rule) bool) {
-		for b := 0; b < 512; b++ {
-			for s := 0; s < 512; s++ {
+		for b := range 512 {
+			for s := range 512 {
 				perm := uint32((b * 512) + s)
 				if cr.Matches(perm) {
 					rule, _ := logic.NewRuleFromPermutation(int(perm))

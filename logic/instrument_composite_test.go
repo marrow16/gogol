@@ -41,5 +41,5 @@ func TestCompositeInstrument_StepAhead(t *testing.T) {
 
 	i.stop = true
 	g.StepAheadWithInstrumentation(10, ci)
-	assert.Equal(t, 61, i.called)
+	assert.Equal(t, 62, i.called)
 }

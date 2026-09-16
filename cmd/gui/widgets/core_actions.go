@@ -56,8 +56,7 @@ func (c *Core) start() {
 				if !stepped {
 					c.hertz.Store(0)
 					c.changes.Store(0)
-					time.Sleep(50 * time.Millisecond)
-					c.gridHolder.dirty = true
+					c.gridHolder.invalidate()
 					window.Invalidate()
 					return
 				}
@@ -112,8 +111,7 @@ func (c *Core) start() {
 				if !stepped {
 					c.hertz.Store(0)
 					c.changes.Store(0)
-					time.Sleep(50 * time.Millisecond)
-					c.gridHolder.dirty = true
+					c.gridHolder.invalidate()
 					window.Invalidate()
 					return
 				}
@@ -125,8 +123,7 @@ func (c *Core) start() {
 					rateStart = time.Now()
 				}
 				if !ignoreRepeat && c.instrumentRepeat != nil && c.instrumentRepeat.Found {
-					time.Sleep(50 * time.Millisecond)
-					c.gridHolder.dirty = true
+					c.gridHolder.invalidate()
 					window.Invalidate()
 					return
 				}
@@ -476,15 +473,23 @@ func (c *Core) increaseGridHeight() {
 	c.resetInstrumentation()
 }
 
-func (c *Core) randomize() {
+func (c *Core) randomize(rf ...int) {
 	c.stop()
-	c.gridHolder.grid.Randomize(c.settings.Randomization)
+	if len(rf) > 0 {
+		c.gridHolder.grid.Randomize(rf[0])
+	} else {
+		c.gridHolder.grid.Randomize(c.settings.Randomization)
+	}
 	c.resetInstrumentation()
 }
 
-func (c *Core) randomizePopulation() {
+func (c *Core) randomizePopulation(rf ...int) {
 	c.stop()
-	c.gridHolder.grid.RandomizePopulation(c.settings.Randomization)
+	if len(rf) > 0 {
+		c.gridHolder.grid.RandomizePopulation(rf[0])
+	} else {
+		c.gridHolder.grid.RandomizePopulation(c.settings.Randomization)
+	}
 	c.resetInstrumentation()
 }
 
@@ -496,13 +501,36 @@ func (c *Core) population() int {
 func (c *Core) maximumAdjacents(mx int) {
 	c.stop()
 	c.gridHolder.grid.LimitAliveAdjacents(mx)
-	c.gridHolder.grid.Draw()
 	c.resetInstrumentation()
 }
 
-func (c *Core) randomChanges() {
+func (c *Core) randomChanges(rf ...int) {
 	c.stop()
-	c.gridHolder.grid.RandomChanges(c.settings.Randomization)
+	if len(rf) > 0 {
+		c.gridHolder.grid.RandomChanges(rf[0])
+	} else {
+		c.gridHolder.grid.RandomChanges(c.settings.Randomization)
+	}
+	c.resetInstrumentation()
+}
+
+func (c *Core) randomAdditions(rf ...int) {
+	c.stop()
+	if len(rf) > 0 {
+		c.gridHolder.grid.RandomAdditions(rf[0])
+	} else {
+		c.gridHolder.grid.RandomAdditions(c.settings.Randomization)
+	}
+	c.resetInstrumentation()
+}
+
+func (c *Core) randomCull(rf ...int) {
+	c.stop()
+	if len(rf) > 0 {
+		c.gridHolder.grid.RandomCull(rf[0])
+	} else {
+		c.gridHolder.grid.RandomCull(c.settings.Randomization)
+	}
 	c.resetInstrumentation()
 }
 
