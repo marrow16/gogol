@@ -116,8 +116,10 @@ type Settings struct {
 	Rules               map[string]string
 	Patterns            []string
 	PatternLibraries    []string
+	SelectedPattern     string
 	CapturedPatterns    []*patterns.Pattern
 	Recipes             []string
+	SelectedRecipe      string
 	SavedGrid           *logic.Grid
 	Recording           bool
 	RepeatDetection     bool
@@ -126,6 +128,7 @@ type Settings struct {
 	Shortcuts           map[string][]string
 	ExportImage         bool
 	MetaRules           map[string]string
+	SelectedMetaRule    string
 	CollectedRules      map[int]bool
 	AnimationFormat     string
 	Fps                 int
@@ -172,9 +175,11 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				Rules:               s.Rules,
 				Patterns:            s.Patterns,
 				PatternLibraries:    s.PatternLibraries,
+				SelectedPattern:     s.SelectedPattern,
 				CapturedPatterns:    capturedPatterns,
 				Originator:          s.Originator,
 				Recipes:             s.Recipes,
+				SelectedRecipe:      s.SelectedRecipe,
 				Recording:           s.Recording,
 				RepeatDetection:     s.RepeatDetection,
 				HeatMappingType:     s.HeatMappingType,
@@ -182,6 +187,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				Shortcuts:           s.Shortcuts,
 				ExportImage:         s.ExportImage,
 				MetaRules:           s.MetaRules,
+				SelectedMetaRule:    s.SelectedMetaRule,
 				CollectedRules:      fr,
 				AnimationFormat:     s.AnimationFormat,
 				Fps:                 s.Fps,
@@ -329,8 +335,10 @@ func (s *Settings) fromPrefs(p prefs) {
 	}
 	s.Patterns = p.Patterns
 	s.PatternLibraries = p.PatternLibraries
+	s.SelectedPattern = p.SelectedPattern
 	s.Originator = p.Originator
 	s.Recipes = p.Recipes
+	s.SelectedRecipe = p.SelectedRecipe
 	s.Recording = p.Recording
 	s.RepeatDetection = p.RepeatDetection
 	s.HeatMappingType = p.HeatMappingType
@@ -345,6 +353,7 @@ func (s *Settings) fromPrefs(p prefs) {
 	if p.MetaRules != nil {
 		s.MetaRules = p.MetaRules
 	}
+	s.SelectedMetaRule = p.SelectedMetaRule
 	for _, fr := range p.CollectedRules {
 		s.CollectedRules[fr] = true
 	}
@@ -407,10 +416,12 @@ type prefs struct {
 	Rules               map[string]string   `json:"rules,omitempty"`
 	Patterns            []string            `json:"patterns,omitempty"`
 	PatternLibraries    []string            `json:"pattern_libraries,omitempty"`
+	SelectedPattern     string              `json:"selected_pattern,omitempty"`
 	CapturedPatterns    []string            `json:"captured_patterns,omitempty"`
 	Originator          string              `json:"originator,omitempty"`
 	Grid                string              `json:"grid,omitempty"`
 	Recipes             []string            `json:"recipes,omitempty"`
+	SelectedRecipe      string              `json:"selected_recipe,omitempty"`
 	Recording           bool                `json:"recording"`
 	RepeatDetection     bool                `json:"repeat_detection"`
 	HeatMappingType     string              `json:"heat_mapping_type"`
@@ -418,6 +429,7 @@ type prefs struct {
 	Shortcuts           map[string][]string `json:"shortcuts"`
 	ExportImage         bool                `json:"export_image"`
 	MetaRules           map[string]string   `json:"meta_rules"`
+	SelectedMetaRule    string              `json:"selected_meta_rule,omitempty"`
 	CollectedRules      []int               `json:"collected_rules"`
 	AnimationFormat     string              `json:"animation_format"`
 	Fps                 int                 `json:"fps"`

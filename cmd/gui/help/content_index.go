@@ -1,0 +1,25 @@
+package help
+
+var contentIndex = content{
+	About, "\n",
+	CapturedPatterns, "\n",
+	CollectedRules, "\n",
+	Colors, "\n",
+	Editor, "\n",
+	FileFinder, "\n",
+	GridRecipes, indent{indent: 20, content: content{GridRecipesReference}},
+	HeatMap, "\n",
+	ImportGrid, "\n",
+	Instrumentation, "\n",
+	Keys, "\n",
+	LoadPatterns, "\n",
+	MainMenu, "\n",
+	MetaRules, indent{indent: 20, content: content{MetaRulesRef}},
+	Patterns, "\n",
+	PlacePattern, "\n",
+	Rules, "\n",
+	ShortCuts, indent{indent: 20, content: content{ShortCutsRef}},
+	SizingWrapping, "\n",
+	StatusBar, "\n",
+	Stepping, "\n",
+}

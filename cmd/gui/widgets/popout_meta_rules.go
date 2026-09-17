@@ -51,6 +51,7 @@ func newMetaRulesPopout(p *menuPopup, c *Core) *metaRulesPopout {
 			return name
 		},
 	)
+	result.chooser.setText(c.settings.SelectedMetaRule)
 	result.mode = &widget.Enum{Value: metaRuleEdit}
 	result.radioEdit = newRadioButton(result.mode, metaRuleEdit, "Edit")
 	result.radioMatches = newRadioButton(result.mode, metaRuleMatches, "Matching Rules")
@@ -259,6 +260,7 @@ func (p *metaRulesPopout) reset() {
 
 func (p *metaRulesPopout) metaRuleSelected(name *string) {
 	if name != nil {
+		p.core.settings.SelectedMetaRule = *name
 		p.parseError = nil
 		mrs := strings.ReplaceAll(p.core.settings.MetaRules[*name], "\t", "    ")
 		p.editor.SetText(mrs)

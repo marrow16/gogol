@@ -86,11 +86,16 @@ func newPatternsPopout(p *menuPopup, c *Core) *patternsPopout {
 			return pattern.String()
 		},
 	)
+	result.chooser.setText(c.settings.SelectedPattern)
 	result.resetPatterns(true)
 	return result
 }
 
-func (p *patternsPopout) patternSelected(_ *patterns.Pattern) {}
+func (p *patternsPopout) patternSelected(pattern *patterns.Pattern) {
+	if pattern != nil {
+		p.core.settings.SelectedPattern = pattern.Name
+	}
+}
 
 func (p *patternsPopout) setSelected(name string) {
 	p.chooser.opened = false

@@ -38,6 +38,7 @@ func newGridRecipesPopout(p *menuPopup, c *Core) *gridRecipesPopout {
 	)
 	result.chooser.middleEllipsis = true
 	result.chooser.onSubmit(result.submitFilename)
+	result.chooser.setText(c.settings.SelectedRecipe)
 	c.gridRecipes = result
 	return result
 }
@@ -48,7 +49,10 @@ func (p *gridRecipesPopout) sortedRecipes() []string {
 	return result
 }
 
-func (p *gridRecipesPopout) recipeSelected(_ *string) {
+func (p *gridRecipesPopout) recipeSelected(s *string) {
+	if s != nil {
+		p.core.settings.SelectedRecipe = *s
+	}
 	p.error = nil
 }
 

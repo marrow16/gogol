@@ -87,6 +87,7 @@ type fileFinder struct {
 
 	checkCurrent bool
 	currentDir   *dirEntry
+	backTo       *dirEntry
 	list         *listControl[*dirEntry]
 	scannedDir   *dirEntry
 	currentPath  []*dirEntry
@@ -211,6 +212,7 @@ func (f *fileFinder) header() layout.FlexChild {
 func (f *fileFinder) breadcrumbs(gtx layout.Context) layout.FlexChild {
 	for i, d := range f.currentPath {
 		if d.clickable.Clicked(gtx) {
+			f.backTo = f.currentDir
 			f.currentPath = f.currentPath[:i+1]
 			f.currentDir = f.currentPath[len(f.currentPath)-1]
 			f.result = nil
@@ -252,13 +254,13 @@ func (f *fileFinder) body() layout.FlexChild {
 	return layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Gap: 8}.Layout(gtx,
 			f.filesList(gtx),
-			f.preview(),
+			f.preview(gtx),
 		)
 	})
 }
 
 func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
-	var backTo *dirEntry
+	//var backTo *dirEntry
 	for {
 		ev, ok := gtx.Event(f.keyFilters...)
 		if !ok {
@@ -273,7 +275,7 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 				f.core.showHelp(-1)
 			case key.NameDeleteBackward, key.NameLeftArrow:
 				if len(f.currentPath) > 1 {
-					backTo = f.currentDir
+					f.backTo = f.currentDir
 					f.result = nil
 					f.currentPath = f.currentPath[:len(f.currentPath)-1]
 					f.currentDir = f.currentPath[len(f.currentPath)-1]
@@ -324,18 +326,19 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 		})
 		items := append(dirs, files...)
 		f.list.resetItems(items)
-		if backTo != nil {
+		if f.backTo != nil {
 			for i, e := range items {
 				if e.isFile {
 					break
 				}
-				if e.path == backTo.path {
+				if e.path == f.backTo.path {
 					f.list.selectedIndex = i
 					f.result = e
 					f.list.list.ScrollTo(f.list.selectedIndex)
 					break
 				}
 			}
+			f.backTo = nil
 		}
 		if f.result == nil && len(items) > 0 {
 			f.result = items[0]
@@ -389,7 +392,12 @@ func (f *fileFinder) handleNavKeys(k string) {
 	}
 }
 
-func (f *fileFinder) preview() layout.FlexChild {
+func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
+	if f.result != nil && f.result.previewClickable != nil {
+		if f.result.previewClickable.Clicked(gtx) {
+			f.result.clicked()
+		}
+	}
 	return layout.Flexed(3.5, func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Inset{Top: 4, Left: 4, Bottom: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return f.entryPreview(f.result)(gtx)
@@ -523,14 +531,16 @@ type dirEntry struct {
 	isFile    bool
 	clickable *widget.Clickable
 
-	mutex          sync.Mutex
-	previewLoading bool
-	preview        layout.Widget
-	previewExtra   [][2]string
-	previewImage   image.Image
-	previewError   error
-	previewScrollV *widget.List
-	previewScrollH *widget.List
+	mutex            sync.Mutex
+	previewLoading   bool
+	preview          layout.Widget
+	previewExtra     [][2]string
+	previewImage     image.Image
+	previewError     error
+	previewScrollV   *widget.List
+	previewScrollH   *widget.List
+	previewClickable *widget.Clickable
+	previewZoom      float32
 }
 
 func (e *dirEntry) buildPreview(allowExts map[string]struct{}) {
@@ -588,9 +598,15 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 		{"Dimensions:", strconv.Itoa(pattern.Width) + "x" + strconv.Itoa(pattern.Height)},
 	}
 	if pattern.Rule != nil {
-		extra = append(extra, [2]string{
-			"Rule", pattern.Rule.Rle(),
-		})
+		if pattern.Rule.IsCustom() {
+			extra = append(extra, [2]string{
+				"Rule", pattern.Rule.Rle(),
+			})
+		} else {
+			extra = append(extra, [2]string{
+				"Rule", fmt.Sprintf("%s %q", pattern.Rule.Rle(), pattern.Rule.Name()),
+			})
+		}
 	}
 	extra = append(extra,
 		[2]string{"Origin:", pattern.Origination},
@@ -631,7 +647,6 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 					BorderColor: color.NRGBA{R: 128, G: 128, B: 128, A: 128},
 				})
 			}
-
 			b := img.Bounds()
 			iw := float32(b.Dx())
 			ih := float32(b.Dy())
@@ -654,6 +669,11 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 			}
 		}),
 	), extra, nil, e2
+}
+
+func (e *dirEntry) clicked() {
+	e.previewZoom *= 1.25
+	window.Invalidate()
 }
 
 func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, error) {
@@ -681,6 +701,8 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 		extra := [][2]string{{"PNG error:", err.Error()}}
 		return p, extra, nil, nil
 	}
+	e.previewClickable = &widget.Clickable{}
+	e.previewZoom = 1.0
 	return flexVertical(0,
 		rigid(p),
 		rigid(func(gtx layout.Context) layout.Dimensions {
@@ -688,35 +710,62 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(16)}}
 		}),
 		flexed(func(gtx layout.Context) layout.Dimensions {
-			img := e.previewImage
-			b := img.Bounds()
-			if b.Dx() > gtx.Constraints.Max.X || b.Dy() > gtx.Constraints.Max.Y {
-				iw := float32(b.Dx())
-				ih := float32(b.Dy())
-				maxW := float32(gtx.Constraints.Max.X)
-				maxH := float32(gtx.Constraints.Max.Y)
-				scale := min(maxW/iw, maxH/ih)
-				w := int(iw * scale)
-				h := int(ih * scale)
-				stack := op.Affine(
-					f32.Affine2D{}.Scale(
-						f32.Point{},
-						f32.Point{X: scale, Y: scale},
-					),
-				).Push(gtx.Ops)
+			return material.Clickable(gtx, e.previewClickable, func(gtx layout.Context) layout.Dimensions {
+				img := e.previewImage
+				b := img.Bounds()
+				if b.Dx() > gtx.Constraints.Max.X || b.Dy() > gtx.Constraints.Max.Y {
+					iw := float32(b.Dx())
+					ih := float32(b.Dy())
+					maxW := float32(gtx.Constraints.Max.X)
+					maxH := float32(gtx.Constraints.Max.Y)
+					scale := min(maxW/iw, maxH/ih)
+					w := int(iw * scale)
+					h := int(ih * scale)
+					stack := op.Affine(
+						f32.Affine2D{}.Scale(
+							f32.Point{},
+							f32.Point{X: scale, Y: scale},
+						),
+					).Push(gtx.Ops)
+					defer stack.Pop()
+					paint.NewImageOp(img).Add(gtx.Ops)
+					paint.PaintOp{}.Add(gtx.Ops)
+					return layout.Dimensions{
+						Size: image.Point{X: w, Y: h},
+					}
+				} else if e.previewZoom > 1.0 {
+					iw := float32(b.Dx())
+					ih := float32(b.Dy())
+					maxW := float32(gtx.Constraints.Max.X)
+					maxH := float32(gtx.Constraints.Max.Y)
+					fitScale := min(float32(1), min(maxW/iw, maxH/ih))
+					scale := fitScale * e.previewZoom
+					w := int(iw * scale)
+					h := int(ih * scale)
+					if w > gtx.Constraints.Max.X || h > gtx.Constraints.Max.Y {
+						e.previewZoom = 1.0
+					} else {
+						stack := op.Affine(
+							f32.Affine2D{}.Scale(
+								f32.Point{},
+								f32.Point{X: scale, Y: scale},
+							),
+						).Push(gtx.Ops)
+						defer stack.Pop()
+						paint.NewImageOp(img).Add(gtx.Ops)
+						paint.PaintOp{}.Add(gtx.Ops)
+						return layout.Dimensions{
+							Size: image.Point{X: w, Y: h},
+						}
+					}
+				}
+				size := img.Bounds().Size()
+				stack := clip.Rect{Max: size}.Push(gtx.Ops)
 				defer stack.Pop()
 				paint.NewImageOp(img).Add(gtx.Ops)
 				paint.PaintOp{}.Add(gtx.Ops)
-				return layout.Dimensions{
-					Size: image.Point{X: w, Y: h},
-				}
-			}
-			size := img.Bounds().Size()
-			stack := clip.Rect{Max: size}.Push(gtx.Ops)
-			defer stack.Pop()
-			paint.NewImageOp(img).Add(gtx.Ops)
-			paint.PaintOp{}.Add(gtx.Ops)
-			return layout.Dimensions{Size: size}
+				return layout.Dimensions{Size: size}
+			})
 		}),
 	), nil, img, nil
 }
