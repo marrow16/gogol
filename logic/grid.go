@@ -445,6 +445,12 @@ func (g *Grid) GetCell(row, col int) (alive bool) {
 func (g *Grid) SetCell(row, col int, alive bool) (changed bool) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
+	if row < 0 {
+		row += g.height
+	}
+	if col < 0 {
+		col += g.width
+	}
 	if row >= 0 && row < g.height && col >= 0 && col < g.width {
 		g.StepCount.Store(0)
 		idx := (row * g.width) + col

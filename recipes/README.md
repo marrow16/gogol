@@ -187,6 +187,9 @@ Defines an absolute placement position on the grid, e.g.
 ```
 Both the `x` and `y` properties are optional - if not specified, the current position is used.
 
+* `x` property can also be specified as `"gw"`, `"gridwidth"` or `"grid-width"` to denote right-most position.
+* `y` property can also be specified as `"gh"`, `"gridheight"` or `"grid-height"` to denote bottom-most position.
+
 ##### `move` property
 Defines a relative position to the current position, e.g.
 ```json

@@ -344,12 +344,22 @@ type Position struct {
 	Y *Number `json:"y"`
 }
 
-func (p *Position) move(cy, cx int) (int, int) {
+func (p *Position) move(cy, cx int, gh, gw int) (int, int) {
 	if p.Y != nil {
-		cy = p.Y.int()
+		switch strings.ToLower(p.Y.raw()) {
+		case "gh", "gridheight", "grid-height":
+			cy = gh - 1
+		default:
+			cy = p.Y.int()
+		}
 	}
 	if p.X != nil {
-		cx = p.X.int()
+		switch strings.ToLower(p.X.raw()) {
+		case "gw", "gridwidth", "grid-width":
+			cx = gw - 1
+		default:
+			cx = p.X.int()
+		}
 	}
 	return cy, cx
 }

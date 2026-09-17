@@ -72,6 +72,8 @@ func (r *Recipe) Run(origGrid *logic.Grid, allowResize bool) (newGrid *logic.Gri
 			newGrid.SetAll(rule, wm, bm)
 			newGrid.Clear()
 		}
+	} else {
+		newGrid.Clear()
 	}
 	r.doDos(newGrid, 0, 0, r.Do, &lastDimensions{})
 	return
@@ -85,7 +87,7 @@ type lastDimensions struct {
 func (r *Recipe) doDos(grid *logic.Grid, cy, cx int, dos []Do, last *lastDimensions) {
 	for _, do := range dos {
 		if do.At != nil {
-			cy, cx = do.At.move(cy, cx)
+			cy, cx = do.At.move(cy, cx, grid.Height(), grid.Width())
 		}
 		if do.Move != nil && !do.Move.isAfter() {
 			cy, cx = do.Move.move(cy, cx, last.height, last.width)
