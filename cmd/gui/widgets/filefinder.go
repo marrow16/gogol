@@ -362,13 +362,13 @@ func (f *fileFinder) handleNavKeys(k string) {
 			if strings.HasPrefix(strings.ToUpper(curr.name), k) && idx+1 < len(f.list.items) &&
 				strings.HasPrefix(strings.ToUpper(f.list.items[idx+1].name), k) {
 				f.list.selectedIndex++
-				f.list.list.ScrollTo(f.list.selectedIndex)
+				f.list.ensureVisible(f.list.selectedIndex)
 				f.navigateEntry(f.list.items[f.list.selectedIndex])
 			} else {
 				for i, e := range f.list.items {
 					if strings.HasPrefix(strings.ToUpper(e.name), k) {
 						f.list.selectedIndex = i
-						f.list.list.ScrollTo(f.list.selectedIndex)
+						f.list.ensureVisible(f.list.selectedIndex)
 						f.navigateEntry(f.list.items[f.list.selectedIndex])
 						break
 					}
@@ -377,13 +377,13 @@ func (f *fileFinder) handleNavKeys(k string) {
 		} else if strings.HasPrefix(strings.ToUpper(curr.name), k) && idx+1 < len(f.list.items) &&
 			strings.HasPrefix(strings.ToUpper(f.list.items[idx+1].name), k) {
 			f.list.selectedIndex++
-			f.list.list.ScrollTo(f.list.selectedIndex)
+			f.list.ensureVisible(f.list.selectedIndex)
 			f.navigateEntry(f.list.items[f.list.selectedIndex])
 		} else {
 			for i, e := range f.list.items {
 				if strings.HasPrefix(strings.ToUpper(e.name), k) {
 					f.list.selectedIndex = i
-					f.list.list.ScrollTo(f.list.selectedIndex)
+					f.list.ensureVisible(f.list.selectedIndex)
 					f.navigateEntry(f.list.items[f.list.selectedIndex])
 					break
 				}

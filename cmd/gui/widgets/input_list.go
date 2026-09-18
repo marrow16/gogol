@@ -107,8 +107,7 @@ func (l *listControl[T]) Layout(gtx layout.Context) layout.Dimensions {
 			case key.NameDownArrow:
 				if l.selectedIndex < len(l.items)-1 {
 					l.selectedIndex++
-					l.list.Position.Offset = 0
-					l.list.ScrollTo(l.selectedIndex)
+					l.ensureVisible(l.selectedIndex)
 					if l.navigateItemFn != nil {
 						l.navigateItemFn(l.items[l.selectedIndex])
 					} else if l.selectItemFn != nil {
@@ -118,8 +117,7 @@ func (l *listControl[T]) Layout(gtx layout.Context) layout.Dimensions {
 			case key.NameUpArrow:
 				if l.selectedIndex > 0 {
 					l.selectedIndex--
-					l.list.Position.Offset = 0
-					l.list.ScrollTo(l.selectedIndex)
+					l.ensureVisible(l.selectedIndex)
 					if l.navigateItemFn != nil {
 						l.navigateItemFn(l.items[l.selectedIndex])
 					} else if l.selectItemFn != nil {
@@ -129,8 +127,7 @@ func (l *listControl[T]) Layout(gtx layout.Context) layout.Dimensions {
 			case key.NamePageUp:
 				np := max(l.selectedIndex-(l.list.Position.Count-1), 0)
 				l.selectedIndex = np
-				l.list.Position.Offset = 0
-				l.list.ScrollTo(l.selectedIndex)
+				l.ensureVisible(l.selectedIndex)
 				if l.navigateItemFn != nil {
 					l.navigateItemFn(l.items[l.selectedIndex])
 				} else if l.selectItemFn != nil {
@@ -142,8 +139,7 @@ func (l *listControl[T]) Layout(gtx layout.Context) layout.Dimensions {
 					np = len(l.items) - 1
 				}
 				l.selectedIndex = np
-				l.list.Position.Offset = 0
-				l.list.ScrollTo(l.selectedIndex)
+				l.ensureVisible(l.selectedIndex)
 				if l.navigateItemFn != nil {
 					l.navigateItemFn(l.items[l.selectedIndex])
 				} else if l.selectItemFn != nil {
@@ -151,8 +147,7 @@ func (l *listControl[T]) Layout(gtx layout.Context) layout.Dimensions {
 				}
 			case key.NameHome:
 				l.selectedIndex = 0
-				l.list.Position.Offset = 0
-				l.list.ScrollTo(l.selectedIndex)
+				l.ensureVisible(l.selectedIndex)
 				if l.navigateItemFn != nil {
 					l.navigateItemFn(l.items[l.selectedIndex])
 				} else if l.selectItemFn != nil {
@@ -160,8 +155,7 @@ func (l *listControl[T]) Layout(gtx layout.Context) layout.Dimensions {
 				}
 			case key.NameEnd:
 				l.selectedIndex = len(l.items) - 1
-				l.list.Position.Offset = 0
-				l.list.ScrollTo(l.selectedIndex)
+				l.ensureVisible(l.selectedIndex)
 				if l.navigateItemFn != nil {
 					l.navigateItemFn(l.items[l.selectedIndex])
 				} else if l.selectItemFn != nil {
@@ -191,6 +185,15 @@ func (l *listControl[T]) Layout(gtx layout.Context) layout.Dimensions {
 	event.Op(gtx.Ops, &l.tag)
 	call.Add(gtx.Ops)
 	return dims
+}
+
+func (l *listControl[T]) ensureVisible(idx int) {
+	if idx >= (l.list.Position.First + l.list.Position.Count - 1) {
+		l.list.ScrollTo(idx)
+	}
+	if l.selectedIndex < l.list.Position.First {
+		l.list.ScrollTo(idx)
+	}
 }
 
 func (l *listControl[T]) layoutList(gtx layout.Context) layout.Dimensions {
