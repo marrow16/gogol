@@ -188,6 +188,19 @@ func TestGrid_SetCell(t *testing.T) {
 	assert.Equal(t, 2, tr.changes)
 	assert.Equal(t, 2, tr.alives)
 	assert.Equal(t, 2, tr.deads)
+
+	// negative row & col...
+	g, err = NewGrid(3, 3, StandardRule, WrapAll, DeadBoundary)
+	require.NoError(t, err)
+	g.StepCount.Store(1)
+	tr = &testRenderer{}
+	g.SetRenderer(tr.render)
+	assert.True(t, g.SetCell(-1, -1, true))
+	assert.Equal(t, 1, tr.called)
+	assert.Equal(t, 1, tr.changes)
+	assert.Equal(t, 1, tr.alives)
+	assert.Equal(t, uint64(0), g.StepCount.Load())
+	assert.True(t, g.GetCell(2, 2))
 }
 
 type testRenderer struct {

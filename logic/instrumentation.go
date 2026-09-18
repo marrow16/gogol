@@ -41,14 +41,7 @@ type HeatLocation struct {
 	Value float64
 }
 
-type ActivityLocation struct {
-	Row   int
-	Col   int
-	Value uint64
-}
-
 type HeatMap interface {
 	HeatMap() iter.Seq[HeatLocation]
-	Maximum() uint64
 	StepsCount() uint64
 }

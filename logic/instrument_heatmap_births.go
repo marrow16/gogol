@@ -3,18 +3,11 @@ package logic
 import "iter"
 
 func NewBirthsHeatMapInstrument(g *Grid, decay float32) *BirthsHeatMapInstrument {
-	if decay < 0 {
-		decay = 0
-	}
-	if decay > 1 {
-		decay = 1
-	}
 	return &BirthsHeatMapInstrument{
 		grid:   g,
 		values: make([]float32, g.height*g.width),
 		step:   g.StepCount.Load(),
-		steps:  0,
-		decay:  decay,
+		decay:  max(0, min(decay, 1)),
 	}
 }
 
@@ -66,10 +59,6 @@ func (h *BirthsHeatMapInstrument) HeatMap() iter.Seq[HeatLocation] {
 			}
 		}
 	}
-}
-
-func (h *BirthsHeatMapInstrument) Maximum() uint64 {
-	return 1
 }
 
 func (h *BirthsHeatMapInstrument) StepsCount() uint64 {
