@@ -13,7 +13,6 @@ func NewActivityHeatMapInstrument(g *Grid) *ActivityHeatMapInstrument {
 type ActivityHeatMapInstrument struct {
 	grid   *Grid
 	counts []uint64
-	max    uint64
 	steps  uint64
 	step   uint64
 }
@@ -34,47 +33,31 @@ func (h *ActivityHeatMapInstrument) Instrument(step uint64, locations []int) {
 		h.steps++
 		for _, idx := range locations {
 			h.counts[idx]++
-			if m := h.counts[idx]; m > h.max {
-				h.max = m
-			}
-		}
-	}
-}
-
-func (h *ActivityHeatMapInstrument) Activity() iter.Seq[ActivityLocation] {
-	return func(yield func(ActivityLocation) bool) {
-		for i, v := range h.counts {
-			if !yield(ActivityLocation{
-				Row:   i / h.grid.width,
-				Col:   i % h.grid.width,
-				Value: v,
-			}) {
-				return
-			}
 		}
 	}
 }
 
 func (h *ActivityHeatMapInstrument) HeatMap() iter.Seq[HeatLocation] {
 	return func(yield func(HeatLocation) bool) {
+		hmax := float64(0)
+		for _, count := range h.counts {
+			hmax = max(hmax, float64(count))
+		}
+		width := h.grid.width
 		for i, v := range h.counts {
 			value := 0.0
-			if h.max > 0 {
-				value = float64(v) / float64(h.max)
+			if hmax > 0 {
+				value = float64(v) / hmax
 			}
 			if !yield(HeatLocation{
-				Row:   i / h.grid.width,
-				Col:   i % h.grid.width,
+				Row:   i / width,
+				Col:   i % width,
 				Value: value,
 			}) {
 				return
 			}
 		}
 	}
-}
-
-func (h *ActivityHeatMapInstrument) Maximum() uint64 {
-	return h.max
 }
 
 func (h *ActivityHeatMapInstrument) StepsCount() uint64 {

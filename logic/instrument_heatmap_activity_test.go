@@ -19,14 +19,7 @@ func TestActivityHeatMapInstrument_Step(t *testing.T) {
 		g.StepWithInstrumentation(i)
 	}
 	assert.Equal(t, uint64(100), i.StepsCount())
-	assert.Equal(t, uint64(12), i.Maximum())
 	count := 0
-	for al := range i.Activity() {
-		count++
-		assert.True(t, al.Value == 0 || (al.Value >= 8 && al.Value <= i.Maximum()), al.Value)
-	}
-	assert.Equal(t, 50, count)
-	count = 0
 	for hl := range i.HeatMap() {
 		count++
 		assert.True(t, hl.Value >= 0 && hl.Value <= 1, hl.Value)
@@ -45,17 +38,17 @@ func TestActivityHeatMapInstrument_StepAhead(t *testing.T) {
 	i := NewActivityHeatMapInstrument(g)
 	g.StepAheadWithInstrumentation(100, i)
 	assert.Equal(t, uint64(100), i.StepsCount())
-	assert.Equal(t, uint64(12), i.Maximum())
 	count := 0
-	for al := range i.Activity() {
-		count++
-		assert.True(t, al.Value == 0 || (al.Value >= 8 && al.Value <= i.Maximum()), al.Value)
-	}
-	assert.Equal(t, 50, count)
-	count = 0
 	for hl := range i.HeatMap() {
 		count++
 		assert.True(t, hl.Value >= 0 && hl.Value <= 1, hl.Value)
 	}
 	assert.Equal(t, 50, count)
+	// coverage on break...
+	count = 0
+	for range i.HeatMap() {
+		count++
+		break
+	}
+	assert.Equal(t, 1, count)
 }

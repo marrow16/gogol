@@ -19,7 +19,6 @@ func TestOccupancyHeatMapInstrument_Step(t *testing.T) {
 		g.StepWithInstrumentation(i)
 	}
 	assert.Equal(t, uint64(100), i.StepsCount())
-	assert.Equal(t, uint64(15), i.Maximum())
 	count := 0
 	for hl := range i.HeatMap() {
 		count++
@@ -39,11 +38,17 @@ func TestOccupancyHeatMapInstrument_StepAhead(t *testing.T) {
 	i := NewOccupancyHeatMapInstrument(g)
 	g.StepAheadWithInstrumentation(100, i)
 	assert.Equal(t, uint64(100), i.StepsCount())
-	assert.Equal(t, uint64(15), i.Maximum())
 	count := 0
 	for hl := range i.HeatMap() {
 		count++
 		assert.True(t, hl.Value >= 0 && hl.Value <= 1, hl.Value)
 	}
 	assert.Equal(t, 50, count)
+	// coverage on break...
+	count = 0
+	for range i.HeatMap() {
+		count++
+		break
+	}
+	assert.Equal(t, 1, count)
 }

@@ -119,10 +119,6 @@ func (a *allHeatMapInstrument) HeatMap() iter.Seq[logic.HeatLocation] {
 	return a.heatMappers[a.showType].HeatMap()
 }
 
-func (a *allHeatMapInstrument) Maximum() uint64 {
-	return a.heatMappers[a.showType].Maximum()
-}
-
 func (a *allHeatMapInstrument) StepsCount() uint64 {
 	return a.heatMappers[a.showType].StepsCount()
 }

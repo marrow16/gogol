@@ -326,7 +326,7 @@ func (p *instrumentationPopout) saveAnimation() {
 }
 
 func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context) layout.Dimensions {
-	labelMax := measureMaxText(gtx, font.Bold, "Steps: ", "Type: ", "Maximum: ").Size.X
+	labelMax := measureMaxText(gtx, font.Bold, "Steps: ", "Type: ").Size.X
 	return layout.Inset{Left: 16, Bottom: 4}.Layout(gtx, flexVertical(0,
 		rigid(flexHorizontal(20,
 			rigidLabel("Type:", text.End, 0, labelMax),
@@ -342,10 +342,6 @@ func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context) layout.Dimensi
 			rigid(p.radioFreshness.Layout),
 			rigid(p.radioPhaseParity.Layout),
 			rigid(p.radioAll.Layout),
-		)),
-		rigid(flexHorizontal(20,
-			rigidLabel("Maximum:", text.End, 0, labelMax),
-			rigidLabel(commas(strconv.FormatUint(p.core.instrumentHeatMap.Maximum(), 10)), 0, 0, 0),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Steps:", text.End, 0, labelMax),

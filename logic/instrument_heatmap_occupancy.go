@@ -3,21 +3,28 @@ package logic
 import "iter"
 
 func NewOccupancyHeatMapInstrument(g *Grid) *OccupancyHeatMapInstrument {
+	l := g.height * g.width
+	step := g.StepCount.Load()
 	result := &OccupancyHeatMapInstrument{
-		grid:   g,
-		counts: make([]uint64, g.height*g.width),
-		step:   g.StepCount.Load(),
+		grid:       g,
+		counts:     make([]uint64, l),
+		aliveSince: make([]uint64, l),
+		step:       step,
 	}
-	result.initialise()
+	for idx, c := range g.cells {
+		if c == aliveCell {
+			result.aliveSince[idx] = step
+		}
+	}
 	return result
 }
 
 type OccupancyHeatMapInstrument struct {
-	grid   *Grid
-	counts []uint64
-	max    uint64
-	steps  uint64
-	step   uint64
+	grid       *Grid
+	counts     []uint64
+	aliveSince []uint64
+	steps      uint64
+	step       uint64
 }
 
 var _ HeatMap = (*OccupancyHeatMapInstrument)(nil)
@@ -25,30 +32,22 @@ var _ StepInstrumentation = (*OccupancyHeatMapInstrument)(nil)
 var _ StepStopInstrumentation = (*OccupancyHeatMapInstrument)(nil)
 var _ DualUseInstrumentation = (*OccupancyHeatMapInstrument)(nil)
 
-func (h *OccupancyHeatMapInstrument) initialise() {
-	for idx, c := range h.grid.cells {
-		if c == aliveCell {
-			h.counts[idx] = 1
-			h.max = 1
-		}
-	}
-}
-
-func (h *OccupancyHeatMapInstrument) InstrumentStop(step uint64, _ []int) bool {
-	h.Instrument(step, nil)
+func (h *OccupancyHeatMapInstrument) InstrumentStop(step uint64, locations []int) bool {
+	h.Instrument(step, locations)
 	return false
 }
 
-func (h *OccupancyHeatMapInstrument) Instrument(step uint64, _ []int) {
+func (h *OccupancyHeatMapInstrument) Instrument(step uint64, locations []int) {
 	if step > h.step {
 		h.step = step
 		h.steps++
-		for idx, c := range h.grid.cells {
-			if c == aliveCell {
-				h.counts[idx]++
-				if m := h.counts[idx]; m > h.max {
-					h.max = m
-				}
+		for _, idx := range locations {
+			if h.grid.cells[idx] == aliveCell {
+				// became alive on this step...
+				h.aliveSince[idx] = step
+			} else {
+				// became dead on this step...
+				h.counts[idx] += step - h.aliveSince[idx]
 			}
 		}
 	}
@@ -56,24 +55,31 @@ func (h *OccupancyHeatMapInstrument) Instrument(step uint64, _ []int) {
 
 func (h *OccupancyHeatMapInstrument) HeatMap() iter.Seq[HeatLocation] {
 	return func(yield func(HeatLocation) bool) {
-		for i, v := range h.counts {
+		var hmax uint64
+		for idx, count := range h.counts {
+			if h.grid.cells[idx] == aliveCell {
+				count += h.step - h.aliveSince[idx] + 1
+			}
+			hmax = max(hmax, count)
+		}
+		width := h.grid.width
+		for idx, count := range h.counts {
+			if h.grid.cells[idx] == aliveCell {
+				count += h.step - h.aliveSince[idx] + 1
+			}
 			value := 0.0
-			if h.max > 0 {
-				value = float64(v) / float64(h.max)
+			if hmax > 0 {
+				value = float64(count) / float64(hmax)
 			}
 			if !yield(HeatLocation{
-				Row:   i / h.grid.width,
-				Col:   i % h.grid.width,
+				Row:   idx / width,
+				Col:   idx % width,
 				Value: value,
 			}) {
 				return
 			}
 		}
 	}
-}
-
-func (h *OccupancyHeatMapInstrument) Maximum() uint64 {
-	return h.max
 }
 
 func (h *OccupancyHeatMapInstrument) StepsCount() uint64 {

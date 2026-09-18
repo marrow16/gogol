@@ -19,13 +19,19 @@ func TestFreshnessHeatMapInstrument_Step(t *testing.T) {
 		g.StepWithInstrumentation(i)
 	}
 	assert.Equal(t, uint64(100), i.StepsCount())
-	assert.Equal(t, uint64(1), i.Maximum())
 	count := 0
 	for hl := range i.HeatMap() {
 		count++
 		assert.True(t, hl.Value >= 0 && hl.Value <= 1, hl.Value)
 	}
 	assert.Equal(t, 50, count)
+	// coverage on break...
+	count = 0
+	for range i.HeatMap() {
+		count++
+		break
+	}
+	assert.Equal(t, 1, count)
 }
 
 func TestFreshnessHeatMapInstrument_StepAhead(t *testing.T) {
@@ -39,7 +45,6 @@ func TestFreshnessHeatMapInstrument_StepAhead(t *testing.T) {
 	i := NewFreshnessHeatMapInstrument(g, 0.95)
 	g.StepAheadWithInstrumentation(100, i)
 	assert.Equal(t, uint64(100), i.StepsCount())
-	assert.Equal(t, uint64(1), i.Maximum())
 	count := 0
 	for hl := range i.HeatMap() {
 		count++
