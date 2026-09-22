@@ -362,7 +362,7 @@ func (g *gridHolder) buildHeatMap(heatMap logic.HeatMap) {
 		DeadColor:   g.core.settings.CellDeadColor,
 		AliveColor:  g.core.settings.CellAliveColor,
 		BorderColor: g.core.settings.CellBorderColor,
-	}, nil)
+	}, g.core.settings.HeatMapColors)
 	// build the pre-prepared image op...
 	g.heatMapImgOp = paint.NewImageOp(g.heatMapCanvas)
 }

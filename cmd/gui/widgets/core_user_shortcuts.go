@@ -156,7 +156,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 			_ = c.export()
 		case shortcutExportImage:
 			c.stop()
-			_ = c.exportImage()
+			_ = c.exportImage(nil)
 		case shortcutClear:
 			c.clear()
 		case shortcutSnapshot:
@@ -229,13 +229,13 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 		case shortcutRepeatDetect:
 			c.setInstrumentationRepeat(true)
 		case shortcutHeatMap:
-			c.setInstrumentationHeatMapper(activityHeatMapper)
+			c.setInstrumentationHeatMapper(logic.ActivityHeatMapper)
 		case shortcutHeatMapSave:
 			c.stop()
-			c.saveHeatMapImage()
+			c.saveHeatMapImage(nil)
 		case shortcutHeatMapReveal:
 			c.stop()
-			if c.heatMapperType != noHeatMapper && c.instrumentHeatMap != nil {
+			if c.heatMapperType != logic.NoHeatMapper && c.instrumentHeatMap != nil {
 				c.gridHolder.buildHeatMap(c.instrumentHeatMap)
 				c.mode = heatMapMode
 				window.Invalidate()
@@ -276,6 +276,8 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 				switch parts[0] {
 				case shortcutName:
 					nameFmt += parts[1]
+				case "-" + shortcutName:
+					nameFmt = parts[1]
 				case shortcutStepAhead:
 					if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 && n <= 9999 {
 						c.settings.StepAheadBy = n
@@ -378,9 +380,27 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 					if b, err := strconv.ParseBool(parts[1]); err == nil {
 						c.setInstrumentationRepeat(b)
 					}
+				case shortcutHeatMapSave:
+					c.stop()
+					c.saveHeatMapImage(c.shortcutMetadata(parts[1]))
+				case shortcutExportImage:
+					c.stop()
+					_ = c.exportImage(c.shortcutMetadata(parts[1]))
 				case shortcutHeatMap:
-					hmt := heatMapperTypeFrom(parts[1])
+					hmt := logic.HeatMapperTypeFrom(parts[1])
 					c.setInstrumentationHeatMapper(hmt)
+				case shortcutHeatMapColors:
+					clrs := make([]color.NRGBA, 0)
+					for s := range strings.SplitSeq(parts[1], ";") {
+						if clr, ok := parseColor(s); ok {
+							clrs = append(clrs, clr)
+						}
+					}
+					if len(clrs) >= 2 {
+						c.settings.HeatMapColors = clrs
+					} else {
+						c.settings.HeatMapColors = nil
+					}
 				case shortcutBornWith:
 					bw, sw := c.gridHolder.grid.Rule().BornWith(), c.gridHolder.grid.Rule().SurvivesWith()
 					if after, ok := strings.CutPrefix(parts[1], "|"); ok {
@@ -524,7 +544,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 						c.setCellBorders(b)
 					}
 				case shortcutCellSize:
-					if n, err := strconv.Atoi(parts[1]); err == nil && n >= 3 && n <= 100 {
+					if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 && n <= 100 {
 						c.setCellSize(n)
 					}
 				case shortcutCellColorAlive:
@@ -610,6 +630,16 @@ func (c *Core) shortcutLog(msgf string) {
 	}
 }
 
+func (c *Core) shortcutMetadata(s string) [][2]string {
+	result := make([][2]string, 0)
+	for item := range strings.SplitSeq(s, ";") {
+		if parts := strings.SplitN(item, "=", 2); len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
+			result = append(result, [2]string{parts[0], c.shortcutFormatName(parts[1], nil)})
+		}
+	}
+	return result
+}
+
 func (c *Core) shortcutFormatName(s string, repeats []int) string {
 	rIndex := 0
 	var b strings.Builder
@@ -689,8 +719,6 @@ func (c *Core) shortcutFormatName(s string, repeats []int) string {
 			}
 			rIndex++
 			i += 2
-		case s[i] == '%':
-			i++
 		default:
 			b.WriteByte(s[i])
 			i++
@@ -770,6 +798,7 @@ const (
 	shortcutRepeatDetect          = "repeat-detect"
 	shortcutRepeatDetectSave      = "repeat-detect-save"
 	shortcutHeatMap               = "heat-map"
+	shortcutHeatMapColors         = "heat-map-colors"
 	shortcutHeatMapSave           = "heat-map-save"
 	shortcutHeatMapReveal         = "heat-map-reveal"
 	shortcutNextMetaRule          = "next-meta-rule"

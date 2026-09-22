@@ -15,6 +15,7 @@ func TestOccupancyHeatMapInstrument_Step(t *testing.T) {
 	g.SetCell(2, 1, true)
 	g.SetCell(2, 2, true)
 	i := NewOccupancyHeatMapInstrument(g)
+	assert.Equal(t, OccupancyHeatMapper, i.Type())
 	for range 100 {
 		g.StepWithInstrumentation(i)
 	}

@@ -24,6 +24,10 @@ var _ StepInstrumentation = (*BirthsHeatMapInstrument)(nil)
 var _ StepStopInstrumentation = (*BirthsHeatMapInstrument)(nil)
 var _ DualUseInstrumentation = (*BirthsHeatMapInstrument)(nil)
 
+func (h *BirthsHeatMapInstrument) Type() HeatMapperType {
+	return BirthsHeatMapper
+}
+
 func (h *BirthsHeatMapInstrument) InstrumentStop(step uint64, locations []int) bool {
 	h.Instrument(step, locations)
 	return false

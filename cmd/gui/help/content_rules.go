@@ -28,6 +28,11 @@ var contentRules = content{
 		"Is an alternative rule numbering system defined by ", url("https://conwaylife.com/wiki/Rule_integer", "conwaylife.com/wiki"), ".",
 		"\n", italic("(GoGoL prefers to use the permutation numbering system because it keeps behaviours together by numeric proximity)"),
 	}},
+	button("Add Collected"), " / ", button("Remove Collected"),
+	indent{indent: 20, spaceAfter: 8, content: content{
+		"Use these buttons to add or removed the current rule to/from ", CollectedRules.link("collected rules"), ".\n",
+		"Which button displayed indicates whether the current rule is currently collected.",
+	}},
 	h4("Changing rule with keys"),
 	"The current rule can be altered at any point (without opening the rule popup) by using the following shortcut keys:",
 	indent{indent: 20, content: content{

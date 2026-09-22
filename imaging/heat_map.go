@@ -9,14 +9,14 @@ import (
 
 // HeatMap creates a heat map image for the given heat mapper
 //
-// the colorizer arg is an optional func for converting heat map values to a color -
-// if this is nil, the default colorizer is used
+// the colors arg is an optional slice of colors to use for the heat map (if len is less than 2, default colors are used)
 //
 // Note: logic.HeatMap does not know about original grid dimensions, so rows and cols size have to be supplied and
 // **must** match the original grid size!
-func HeatMap(heatMap logic.HeatMap, rows, cols int, cfg Config, colorizer func(v float64) color.NRGBA) *image.NRGBA {
-	if colorizer == nil {
-		colorizer = heatColor
+func HeatMap(heatMap logic.HeatMap, rows, cols int, cfg Config, colors []color.NRGBA) *image.NRGBA {
+	useColors := colors
+	if len(useColors) < 2 {
+		useColors = heatColors
 	}
 	wd := cols * cfg.CellSize
 	ht := rows * cfg.CellSize
@@ -44,12 +44,12 @@ func HeatMap(heatMap logic.HeatMap, rows, cols int, cfg Config, colorizer func(v
 	}
 	cellSize := cfg.CellSize
 	cellWidth := cellSize - offset
-	colors := make(map[float64]color.NRGBA)
+	colorCache := make(map[float64]color.NRGBA)
 	for pt := range heatMap.HeatMap() {
-		clr, ok := colors[pt.Value]
+		clr, ok := colorCache[pt.Value]
 		if !ok {
-			clr = colorizer(pt.Value)
-			colors[pt.Value] = clr
+			clr = heatColor(pt.Value, useColors)
+			colorCache[pt.Value] = clr
 		}
 		xMin := pt.Col*cellSize + offset
 		yMin := pt.Row*cellSize + offset
@@ -84,7 +84,7 @@ var heatColors = []color.NRGBA{
 }
 
 // heatColor returns a color for v in the range [0,1]
-func heatColor(v float64) color.NRGBA {
+func heatColor(v float64, heatColors []color.NRGBA) color.NRGBA {
 	if v <= 0 {
 		return heatColors[0]
 	}

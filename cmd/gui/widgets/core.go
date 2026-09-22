@@ -44,8 +44,8 @@ func NewCore(s *settings.Settings) (*Core, error) {
 		core.instrumentRepeat = logic.NewRepeatInstrument(core.gridHolder.grid)
 	}
 	if s.HeatMappingType != "" {
-		core.heatMapperType = heatMapperTypeFrom(s.HeatMappingType)
-		core.instrumentHeatMap = core.heatMapperType.newHeatMapper(core.gridHolder.grid, s.HeatMappingHalfLife)
+		core.heatMapperType = logic.HeatMapperTypeFrom(s.HeatMappingType)
+		core.instrumentHeatMap = core.heatMapperType.New(core.gridHolder.grid, s.HeatMappingHalfLife)
 	}
 	core.updateInstrumentation()
 	return core, err
@@ -93,11 +93,12 @@ type Core struct {
 	snapshots     []patterns.Pattern
 	snapshotsStep []uint64
 
-	instrumentRepeat  *logic.RepeatInstrument
-	instrumentRecord  *logic.RecordInstrument
-	instrumentHeatMap logic.HeatMap
-	heatMapperType    heatMapperType
-	instrumentation   logic.CompositeInstrument
+	instrumentRepeat   *logic.RepeatInstrument
+	instrumentRecord   *logic.RecordInstrument
+	instrumentHeatMap  logic.HeatMap
+	heatMapperType     logic.HeatMapperType
+	showHeatMapperType logic.HeatMapperType
+	instrumentation    logic.CompositeInstrument
 
 	shortcutRunning      bool
 	shortcutCurrent      string
@@ -168,9 +169,8 @@ func (c *Core) modeDisplay() string {
 				s = strconv.Itoa(c.gridHolder.editor.row) + "x" + strconv.Itoa(c.gridHolder.editor.col) + " " + s
 			}
 		case heatMapMode:
-			if c.heatMapperType == allHeatMapper {
-				hm := c.instrumentHeatMap.(*allHeatMapInstrument)
-				s = s + " - " + hm.showType.String() + " (Esc exit)"
+			if c.heatMapperType == logic.AllHeatMapper {
+				s = s + " - " + c.showHeatMapperType.String() + " (Esc exit)"
 			} else {
 				s = s + " - " + c.heatMapperType.String() + " (Esc exit)"
 			}
@@ -178,6 +178,22 @@ func (c *Core) modeDisplay() string {
 		return s
 	}
 	return ""
+}
+
+func (c *Core) showingHeatMapType() logic.HeatMapperType {
+	switch c.showHeatMapperType {
+	case logic.AgeHeatMapper, logic.BirthsHeatMapper, logic.FreshnessHeatMapper, logic.LongevityHeatMapper, logic.OccupancyHeatMapper, logic.PhaseParityHeatMapper:
+		return c.showHeatMapperType
+	}
+	c.showHeatMapperType = logic.ActivityHeatMapper
+	return c.showHeatMapperType
+}
+
+func (c *Core) cycleShowingHeatMapType() {
+	c.showHeatMapperType++
+	if c.showHeatMapperType < logic.ActivityHeatMapper || c.showHeatMapperType > logic.PhaseParityHeatMapper {
+		c.showHeatMapperType = logic.ActivityHeatMapper
+	}
 }
 
 func (c *Core) clearMode() {
@@ -331,10 +347,17 @@ func (c *Core) startPatternPlace(gtx layout.Context, pattern *patterns.Pattern, 
 func (c *Core) nowFilename(prefix string, extension string) string {
 	if c.shortcutRunning {
 		var filename string
+		curr := strings.Replace(c.shortcutCurrent, "%hmt", "", 1)
+		sp := " "
+		if strings.Contains(curr, "%npfx") {
+			curr = strings.Replace(curr, "%npfx", "", 1)
+			prefix = ""
+			sp = ""
+		}
 		if strings.HasSuffix(c.shortcutCurrent, "/") {
-			filename = c.shortcutCurrent + prefix + extension
+			filename = strings.ReplaceAll(curr, "%", "") + prefix + extension
 		} else {
-			filename = c.shortcutCurrent + " " + prefix + extension
+			filename = strings.ReplaceAll(curr, "%", "") + sp + prefix + extension
 		}
 		if c.shortcutCollectFiles {
 			c.shortcutFiles = append(c.shortcutFiles, filename)
@@ -445,10 +468,8 @@ var altCommands = map[key.Name]func(gtx layout.Context, c *Core){
 		}
 	},
 	"H": func(gtx layout.Context, c *Core) {
-		if c.mode == heatMapMode && c.heatMapperType == allHeatMapper && c.instrumentHeatMap != nil {
-			if am, ok := c.instrumentHeatMap.(*allHeatMapInstrument); ok {
-				am.cycleShowType()
-			}
+		if c.mode == heatMapMode && c.heatMapperType == logic.AllHeatMapper && c.instrumentHeatMap != nil {
+			c.cycleShowingHeatMapType()
 		}
 		c.showHeatMap()
 	},
