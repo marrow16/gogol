@@ -95,7 +95,7 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 	kw := measureText(gtx, "Key: ")
 	ht := kw.Size.Y * 16
 	m := measureText(gtx, "M")
-	ew := m.Size.X * 30
+	ew := m.Size.X * 40
 	k := strings.ToUpper(p.key.editor.Text())
 	isAllowedKey := p.isAllowedKey(k)
 	if p.linkHelp.Clicked(gtx) {

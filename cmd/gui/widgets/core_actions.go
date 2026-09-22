@@ -791,20 +791,19 @@ func formatHeatmapMetadata(metadata [][2]string, hmt logic.HeatMapperType) [][2]
 
 func (c *Core) heatMapFilename(hmt logic.HeatMapperType, extension string) string {
 	const pfx = "Heat Map "
-	if !c.shortcutRunning {
+	if !c.isShortcutsRunning() {
 		return c.nowFilename(pfx+hmt.String(), extension)
 	}
 	var filename string
-	if strings.Contains(c.shortcutCurrent, hmtToken) {
-		filename = strings.ReplaceAll(strings.Replace(c.shortcutCurrent, hmtToken, hmt.Token(), 1), "%", "") + extension
-	} else if strings.HasSuffix(c.shortcutCurrent, "/") {
-		filename = strings.ReplaceAll(c.shortcutCurrent, "%", "") + pfx + hmt.String() + extension
+	shortcutCurrent := c.getShortcutsCurrent()
+	if strings.Contains(shortcutCurrent, hmtToken) {
+		filename = strings.ReplaceAll(strings.Replace(shortcutCurrent, hmtToken, hmt.Token(), 1), "%", "") + extension
+	} else if strings.HasSuffix(shortcutCurrent, "/") {
+		filename = strings.ReplaceAll(shortcutCurrent, "%", "") + pfx + hmt.String() + extension
 	} else {
-		filename = strings.ReplaceAll(c.shortcutCurrent, "%", "") + " " + pfx + hmt.String() + extension
+		filename = strings.ReplaceAll(shortcutCurrent, "%", "") + " " + pfx + hmt.String() + extension
 	}
-	if c.shortcutCollectFiles {
-		c.shortcutFiles = append(c.shortcutFiles, filename)
-	}
+	c.addShortcutsCollectFile(filename)
 	return filename
 }
 

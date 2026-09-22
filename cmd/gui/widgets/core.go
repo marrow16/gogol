@@ -100,12 +100,13 @@ type Core struct {
 	showHeatMapperType logic.HeatMapperType
 	instrumentation    logic.CompositeInstrument
 
+	shortcutMutex        sync.RWMutex
 	shortcutRunning      bool
 	shortcutCurrent      string
 	shortcutCollectFiles bool
 	shortcutFiles        []string
 	shortcutFilesName    string
-	shortcutStatus       atomic.Pointer[string]
+	shortcutStatus       string
 	// pattern placing...
 	placePatternCol, placePatternRow int
 	placePatternRotation             patterns.Rotation
@@ -345,23 +346,22 @@ func (c *Core) startPatternPlace(gtx layout.Context, pattern *patterns.Pattern, 
 }
 
 func (c *Core) nowFilename(prefix string, extension string) string {
-	if c.shortcutRunning {
+	if c.isShortcutsRunning() {
 		var filename string
-		curr := strings.Replace(c.shortcutCurrent, "%hmt", "", 1)
+		shortcutCurrent := c.getShortcutsCurrent()
+		curr := strings.Replace(shortcutCurrent, "%hmt", "", 1)
 		sp := " "
 		if strings.Contains(curr, "%npfx") {
 			curr = strings.Replace(curr, "%npfx", "", 1)
 			prefix = ""
 			sp = ""
 		}
-		if strings.HasSuffix(c.shortcutCurrent, "/") {
+		if strings.HasSuffix(shortcutCurrent, "/") {
 			filename = strings.ReplaceAll(curr, "%", "") + prefix + extension
 		} else {
 			filename = strings.ReplaceAll(curr, "%", "") + sp + prefix + extension
 		}
-		if c.shortcutCollectFiles {
-			c.shortcutFiles = append(c.shortcutFiles, filename)
-		}
+		c.addShortcutsCollectFile(filename)
 		return filename
 	}
 	now := time.Now()

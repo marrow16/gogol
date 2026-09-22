@@ -16,38 +16,97 @@ import (
 	"time"
 )
 
+func (c *Core) startShortcuts() {
+	c.shortcutMutex.Lock()
+	defer c.shortcutMutex.Unlock()
+	c.shortcutStatus = ""
+	c.shortcutCollectFiles = false
+	c.shortcutRunning = true
+}
+
 func (c *Core) stopShortcuts() {
 	c.shortcutRunning = false
 }
 
+func (c *Core) isShortcutsRunning() bool {
+	c.shortcutMutex.RLock()
+	defer c.shortcutMutex.RUnlock()
+	return c.shortcutRunning
+}
+
+func (c *Core) setShortcutsStatus(s string) {
+	c.shortcutMutex.Lock()
+	defer c.shortcutMutex.Unlock()
+	c.shortcutStatus = s
+}
+
+func (c *Core) getShortcutsStatus() string {
+	c.shortcutMutex.RLock()
+	defer c.shortcutMutex.RUnlock()
+	return c.shortcutStatus
+}
+
+func (c *Core) setShortcutsCurrent(s string) {
+	c.shortcutMutex.Lock()
+	defer c.shortcutMutex.Unlock()
+	c.shortcutCurrent = s
+}
+
+func (c *Core) getShortcutsCurrent() string {
+	c.shortcutMutex.RLock()
+	defer c.shortcutMutex.RUnlock()
+	return c.shortcutCurrent
+}
+
+func (c *Core) startShortcutsCollectFiles() {
+	c.shortcutMutex.Lock()
+	defer c.shortcutMutex.Unlock()
+	c.shortcutCollectFiles = true
+	c.shortcutFiles = make([]string, 0)
+	c.shortcutFilesName = c.shortcutCurrent
+}
+
+func (c *Core) addShortcutsCollectFile(filename string) {
+	c.shortcutMutex.Lock()
+	defer c.shortcutMutex.Unlock()
+	if c.shortcutCollectFiles {
+		c.shortcutFiles = append(c.shortcutFiles, filename)
+	}
+}
+
+func (c *Core) saveShortcutsCollectedFiles() {
+	c.shortcutMutex.Lock()
+	defer c.shortcutMutex.Unlock()
+	if c.shortcutCollectFiles && len(c.shortcutFiles) > 0 {
+		curr := c.shortcutFilesName
+		c.shortcutCurrent = curr
+		if f, err := saveFile(c.nowFilename("files", ".txt"), true); err == nil {
+			for _, filename := range c.shortcutFiles {
+				_, _ = f.WriteString(strings.TrimPrefix(filename, curr) + "\n")
+			}
+			_ = f.Close()
+		}
+	}
+}
+
 func (c *Core) userShortcutKeys(kn key.Name) bool {
-	if c.shortcutRunning {
+	if c.isShortcutsRunning() {
 		return false
 	}
 	shortcut, handled := c.settings.Shortcuts[string(kn)]
 	if !handled {
 		return false
 	}
-	c.shortcutRunning = true
-	c.shortcutCollectFiles = false
-	c.shortcutStatus.Store(nil)
+	c.startShortcuts()
 	window.Invalidate()
 	go func() {
 		defer func() {
-			c.shortcutRunning = false
+			c.stopShortcuts()
 			c.gridHolder.invalidate()
 			window.Invalidate()
 		}()
 		c.runUserShortcut(shortcut, nil, "")
-		if c.shortcutCollectFiles && len(c.shortcutFiles) > 0 {
-			c.shortcutCurrent = c.shortcutFilesName
-			if f, err := saveFile(c.nowFilename("files", ".txt"), true); err == nil {
-				for _, filename := range c.shortcutFiles {
-					_, _ = f.WriteString(strings.TrimPrefix(filename, c.shortcutCurrent) + "\n")
-				}
-				_ = f.Close()
-			}
-		}
+		c.saveShortcutsCollectedFiles()
 	}()
 	return true
 }
@@ -57,11 +116,10 @@ var shortcutCommasSplitter = splitter.MustCreateSplitter(',', splitter.DoubleQuo
 
 func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string) {
 	if len(repeats) > 0 {
-		st := fmt.Sprintf("%v", repeats)
-		c.shortcutStatus.Store(&st)
+		c.setShortcutsStatus(fmt.Sprintf("%v", repeats))
 	}
 	for _, token := range shortcut {
-		if !c.shortcutRunning {
+		if !c.isShortcutsRunning() {
 			break
 		}
 		if after, ok := strings.CutPrefix(token, shortcutRepeat); ok {
@@ -143,9 +201,9 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 		}
 		if len(nameFmt) == 0 {
 			now := time.Now()
-			c.shortcutCurrent = now.Format("2006-01-02 15-04-05") + fmt.Sprintf("-%03d", now.Nanosecond()/1e6)
+			c.setShortcutsCurrent(now.Format("2006-01-02 15-04-05") + fmt.Sprintf("-%03d", now.Nanosecond()/1e6))
 		} else {
-			c.shortcutCurrent = c.shortcutFormatName(nameFmt, repeats)
+			c.setShortcutsCurrent(c.shortcutFormatName(nameFmt, repeats))
 		}
 		switch token {
 		case shortcutRun:
@@ -260,9 +318,7 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 				}
 			}
 		case shortcutFiles:
-			c.shortcutCollectFiles = true
-			c.shortcutFiles = make([]string, 0)
-			c.shortcutFilesName = c.shortcutCurrent
+			c.startShortcutsCollectFiles()
 		case shortcutAddCollectedRule:
 			c.settings.CollectedRules[c.gridHolder.grid.Rule().Permutation()] = true
 		case shortcutRemoveCollectedRule:
@@ -274,6 +330,17 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 		default:
 			if parts := strings.SplitN(token, ":", 2); len(parts) == 2 {
 				switch parts[0] {
+				case shortcutBreakIf:
+					if c.shortcutStopIf(parts[1]) {
+						c.stop()
+						return
+					}
+				case shortcutStopIf:
+					if c.shortcutStopIf(parts[1]) {
+						c.stop()
+						c.stopShortcuts()
+						return
+					}
 				case shortcutName:
 					nameFmt += parts[1]
 				case "-" + shortcutName:
@@ -582,6 +649,14 @@ func (c *Core) runUserShortcut(shortcut []string, repeats []int, nameFmt string)
 	}
 }
 
+func (c *Core) shortcutStopIf(condition string) bool {
+	switch {
+	case condition == "rule-collected":
+		return c.settings.CollectedRules[c.gridHolder.grid.Rule().Permutation()]
+	}
+	return false
+}
+
 func (c *Core) shortcutCollectedRuleMove(inc bool) {
 	if len(c.settings.CollectedRules) == 0 {
 		return
@@ -817,4 +892,6 @@ const (
 	shortcutCellColorBorder       = "cell-color-border"
 	shortcutAnimationSave         = "record-animation-save"
 	shortcutAnimationFormat       = "record-animation-format"
+	shortcutBreakIf               = "break-if"
+	shortcutStopIf                = "stop-if"
 )
