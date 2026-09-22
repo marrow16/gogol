@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestActivityHeatMapInstrument_Step(t *testing.T) {
+func TestLongevityHeatMapInstrument_Step(t *testing.T) {
 	g, err := NewGrid(5, 10, StandardRule, WrapAll, DeadBoundary)
 	require.NoError(t, err)
 	g.SetCell(0, 2, true)
@@ -14,8 +14,8 @@ func TestActivityHeatMapInstrument_Step(t *testing.T) {
 	g.SetCell(1, 2, true)
 	g.SetCell(2, 1, true)
 	g.SetCell(2, 2, true)
-	i := NewActivityHeatMapInstrument(g)
-	assert.Equal(t, ActivityHeatMapper, i.Type())
+	i := NewLongevityHeatMapInstrument(g)
+	assert.Equal(t, LongevityHeatMapper, i.Type())
 	for range 100 {
 		g.StepWithInstrumentation(i)
 	}
@@ -28,7 +28,7 @@ func TestActivityHeatMapInstrument_Step(t *testing.T) {
 	assert.Equal(t, 50, count)
 }
 
-func TestActivityHeatMapInstrument_StepAhead(t *testing.T) {
+func TestLongevityHeatMapInstrument_StepAhead(t *testing.T) {
 	g, err := NewGrid(5, 10, StandardRule, WrapAll, DeadBoundary)
 	require.NoError(t, err)
 	g.SetCell(0, 2, true)
@@ -36,7 +36,7 @@ func TestActivityHeatMapInstrument_StepAhead(t *testing.T) {
 	g.SetCell(1, 2, true)
 	g.SetCell(2, 1, true)
 	g.SetCell(2, 2, true)
-	i := NewActivityHeatMapInstrument(g)
+	i := NewLongevityHeatMapInstrument(g)
 	g.StepAheadWithInstrumentation(100, i)
 	assert.Equal(t, uint64(100), i.StepsCount())
 	count := 0

@@ -15,6 +15,7 @@ func TestBirthsHeatMapInstrument_Step(t *testing.T) {
 	g.SetCell(2, 1, true)
 	g.SetCell(2, 2, true)
 	i := NewBirthsHeatMapInstrument(g, 0.95)
+	assert.Equal(t, BirthsHeatMapper, i.Type())
 	for range 100 {
 		g.StepWithInstrumentation(i)
 	}

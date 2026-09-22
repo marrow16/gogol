@@ -8,6 +8,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/animator"
+	"github.com/marrow16/gogol/logic"
 	"image"
 	"path/filepath"
 	"strconv"
@@ -38,6 +39,8 @@ type instrumentationPopout struct {
 	btnHeatMapReveal *button
 	btnHeatMapSave   *button
 	radioActivity    *radioButton
+	radioAge         *radioButton
+	radioLongevity   *radioButton
 	radioOccupancy   *radioButton
 	radioBirths      *radioButton
 	radioFreshness   *radioButton
@@ -71,12 +74,14 @@ func newInstrumentationPopout(p *menuPopup, c *Core) *instrumentationPopout {
 		btnHeatMapSave:   newButton("Save Image"),
 		heatMapType:      &widget.Enum{Value: c.heatMapperType.String()},
 	}
-	result.radioActivity = newRadioButton(result.heatMapType, activityHeatMapper.String(), "Activity")
-	result.radioOccupancy = newRadioButton(result.heatMapType, occupancyHeatMapper.String(), "Occupancy")
-	result.radioBirths = newRadioButton(result.heatMapType, birthsHeatMapper.String(), "Births")
-	result.radioFreshness = newRadioButton(result.heatMapType, freshnessHeatMapper.String(), "Freshness")
-	result.radioPhaseParity = newRadioButton(result.heatMapType, phaseParityHeatMapper.String(), "Phase Parity")
-	result.radioAll = newRadioButton(result.heatMapType, allHeatMapper.String(), "All")
+	result.radioActivity = newRadioButton(result.heatMapType, logic.ActivityHeatMapper.String(), "Activity")
+	result.radioAge = newRadioButton(result.heatMapType, logic.AgeHeatMapper.String(), "Age")
+	result.radioLongevity = newRadioButton(result.heatMapType, logic.LongevityHeatMapper.String(), "Longevity")
+	result.radioOccupancy = newRadioButton(result.heatMapType, logic.OccupancyHeatMapper.String(), "Occupancy")
+	result.radioBirths = newRadioButton(result.heatMapType, logic.BirthsHeatMapper.String(), "Births")
+	result.radioFreshness = newRadioButton(result.heatMapType, logic.FreshnessHeatMapper.String(), "Freshness")
+	result.radioPhaseParity = newRadioButton(result.heatMapType, logic.PhaseParityHeatMapper.String(), "Phase Parity")
+	result.radioAll = newRadioButton(result.heatMapType, logic.AllHeatMapper.String(), "All")
 	result.radioGif = newRadioButton(result.animationFormat, "gif", "Gif")
 	result.radioMp4 = newRadioButton(result.animationFormat, "mp4", "Mp4")
 	result.skipBackBy = newNumberInput[int](4, 1, 9999, 100, result.skipBackByChanged)
@@ -199,7 +204,7 @@ func (p *instrumentationPopout) update(gtx layout.Context) {
 		if p.chkHeatMap.Checked() {
 			p.core.setInstrumentationHeatMapper(p.selectedHeatMapType())
 		} else {
-			p.core.setInstrumentationHeatMapper(noHeatMapper)
+			p.core.setInstrumentationHeatMapper(logic.NoHeatMapper)
 		}
 	}
 	if p.heatMapType.Update(gtx) {
@@ -215,14 +220,14 @@ func (p *instrumentationPopout) update(gtx layout.Context) {
 		p.core.showHeatMap()
 	}
 	if p.btnHeatMapSave.Clicked(gtx) {
-		p.core.saveHeatMapImage()
+		p.core.saveHeatMapImage(nil)
 	}
 }
 
-func (p *instrumentationPopout) selectedHeatMapType() heatMapperType {
-	hmt := heatMapperTypeFrom(p.heatMapType.Value)
-	if hmt == noHeatMapper {
-		hmt = activityHeatMapper
+func (p *instrumentationPopout) selectedHeatMapType() logic.HeatMapperType {
+	hmt := logic.HeatMapperTypeFrom(p.heatMapType.Value)
+	if hmt == logic.NoHeatMapper {
+		hmt = logic.ActivityHeatMapper
 		p.heatMapType.Value = hmt.String()
 	}
 	return hmt
@@ -339,8 +344,22 @@ func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context) layout.Dimensi
 				gtx.Constraints.Min.X = labelMax
 				return layout.Dimensions{Size: image.Point{X: labelMax}}
 			}),
+			rigid(p.radioAge.Layout),
+			rigid(p.radioLongevity.Layout),
+		)),
+		rigid(flexHorizontal(20,
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = labelMax
+				return layout.Dimensions{Size: image.Point{X: labelMax}}
+			}),
 			rigid(p.radioFreshness.Layout),
 			rigid(p.radioPhaseParity.Layout),
+		)),
+		rigid(flexHorizontal(20,
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = labelMax
+				return layout.Dimensions{Size: image.Point{X: labelMax}}
+			}),
 			rigid(p.radioAll.Layout),
 		)),
 		rigid(flexHorizontal(20,

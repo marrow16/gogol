@@ -25,23 +25,27 @@ func newRulesPopup(parent *statusBar) *rulesPopup {
 	p.intInput = newNumberInput[int](6, 0, (1<<18)-1, 1<<9, p.intChanged)
 	p.nameInput = newInput("", 40, p.nameChanged).maximumWidth(21)
 	p.btnSaveName = newButton("Save")
+	p.btnAddCollected = newButton("Add Collected")
+	p.btnRemoveCollected = newButton("Remove Collected")
 	p.refreshRules()
 	return p
 }
 
 type rulesPopup struct {
-	core          *Core
-	parent        *statusBar
-	selectedIndex int
-	sortedRules   []logic.Rule
-	list          widget.List
-	ruleClicks    []widget.Clickable
-	rleInput      *input
-	permInput     *numberInput[int]
-	intInput      *numberInput[int]
-	nameInput     *input
-	btnSaveName   *button
-	inputsDirty   bool
+	core               *Core
+	parent             *statusBar
+	selectedIndex      int
+	sortedRules        []logic.Rule
+	list               widget.List
+	ruleClicks         []widget.Clickable
+	rleInput           *input
+	permInput          *numberInput[int]
+	intInput           *numberInput[int]
+	nameInput          *input
+	btnSaveName        *button
+	inputsDirty        bool
+	btnAddCollected    *button
+	btnRemoveCollected *button
 }
 
 func (p *rulesPopup) rleChanged(text string) {
@@ -158,6 +162,12 @@ func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnSaveName.Clicked(gtx) {
 		p.saveRuleName()
 	}
+	if p.btnAddCollected.Clicked(gtx) {
+		p.core.settings.CollectedRules[p.core.gridHolder.grid.Rule().Permutation()] = true
+	}
+	if p.btnRemoveCollected.Clicked(gtx) {
+		delete(p.core.settings.CollectedRules, p.core.gridHolder.grid.Rule().Permutation())
+	}
 	p.handleEvents(gtx)
 	rowDims := measureText(gtx, "Xy")
 	macro := op.Record(gtx.Ops)
@@ -189,24 +199,34 @@ func (p *rulesPopup) layoutDetails() layout.FlexChild {
 		horizontalLine(gtx, popupBorder, gtx.Constraints.Max.X, 1)
 		maxText := measureMaxText(gtx, font.Bold, "Rule: ", "Perm.: ", "Name: ", "Integer: ").Size.X
 		return layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}.Layout(gtx, flexVertical(10,
-			layout.Rigid(flexHorizontal(0,
+			rigid(flexHorizontal(0,
 				rigidLabel("Name: ", text.End, font.Bold, maxText),
 				conditionalFlexed(custom, p.nameInput.layout, borderedInset(2, 2, 4, 4, label(p.core.gridHolder.grid.Rule().Name()))),
 				conditionalRigid(custom && canSave, label(" "), nil),
 				conditionalRigid(custom && canSave, p.btnSaveName.Layout, nil),
 			)),
-			layout.Rigid(flexHorizontal(0,
+			rigid(flexHorizontal(0,
 				rigidLabel("Rule: ", text.End, font.Bold, maxText),
 				flexed(p.rleInput.layout),
 			)),
-			layout.Rigid(flexHorizontal(0,
+			rigid(flexHorizontal(0,
 				rigidLabel("Perm.: ", text.End, font.Bold, maxText),
 				flexed(p.permInput.layout),
 			)),
-			layout.Rigid(flexHorizontal(0,
-				rigidLabel("Integer: ", text.End, font.Bold, maxText),
-				flexed(p.intInput.layout),
-			)),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
+				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+					rigid(flexHorizontal(0,
+						rigidLabel("Integer: ", text.End, font.Bold, maxText),
+						flexed(p.intInput.layout),
+					)),
+					conditionalRigid(
+						p.core.settings.CollectedRules[p.core.gridHolder.grid.Rule().Permutation()],
+						p.btnRemoveCollected.Layout,
+						p.btnAddCollected.Layout,
+					),
+				)
+			}),
 		))
 	})
 }

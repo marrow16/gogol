@@ -2,7 +2,6 @@ package widgets
 
 import (
 	"encoding/json"
-	"image/png"
 	"os"
 	"strconv"
 	"strings"
@@ -635,13 +634,13 @@ func (c *Core) export() (err error) {
 			err = patterns.PatternRleEncode(p, f)
 		}
 		if c.settings.ExportImage {
-			_ = c.exportImage()
+			_ = c.exportImage(nil)
 		}
 	}
 	return err
 }
 
-func (c *Core) exportImage() (err error) {
+func (c *Core) exportImage(metadata [][2]string) (err error) {
 	c.stop()
 	filename := c.nowFilename("Grid Export", ".png")
 	var f *os.File
@@ -656,7 +655,7 @@ func (c *Core) exportImage() (err error) {
 			DeadColor:   c.settings.CellDeadColor,
 			BorderColor: c.settings.CellBorderColor,
 		})
-		err = png.Encode(f, img)
+		err = imaging.PngEncode(f, img, metadata)
 	}
 	return err
 }
@@ -693,9 +692,17 @@ func (c *Core) startEditMode() {
 func (c *Core) showHeatMap() {
 	c.stop()
 	c.clearMode()
-	if c.heatMapperType != noHeatMapper && c.instrumentHeatMap != nil {
+	if c.heatMapperType != logic.NoHeatMapper && c.instrumentHeatMap != nil {
 		c.statusBar.showHidePopup(popupNone)
-		c.gridHolder.buildHeatMap(c.instrumentHeatMap)
+		if c.heatMapperType == logic.AllHeatMapper {
+			if all, ok := c.instrumentHeatMap.(*logic.AllHeatMapInstrument); ok {
+				c.gridHolder.buildHeatMap(all.Specific(c.showingHeatMapType()))
+			} else {
+				c.gridHolder.buildHeatMap(c.instrumentHeatMap)
+			}
+		} else {
+			c.gridHolder.buildHeatMap(c.instrumentHeatMap)
+		}
 		c.mode = heatMapMode
 	}
 }
@@ -720,25 +727,25 @@ func (c *Core) setInstrumentationRecord(on bool) {
 	c.updateInstrumentation()
 }
 
-func (c *Core) setInstrumentationHeatMapper(hmt heatMapperType) {
+func (c *Core) setInstrumentationHeatMapper(hmt logic.HeatMapperType) {
 	c.stop()
 	c.heatMapperType = hmt
-	c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid, c.settings.HeatMappingHalfLife)
+	c.instrumentHeatMap = c.heatMapperType.New(c.gridHolder.grid, c.settings.HeatMappingHalfLife)
 	c.updateInstrumentation()
 }
 
-func (c *Core) saveHeatMapImage() {
+func (c *Core) saveHeatMapImage(metadata [][2]string) {
 	c.stop()
 	if c.instrumentHeatMap != nil {
-		if all, ok := c.instrumentHeatMap.(*allHeatMapInstrument); ok {
-			fs := make([]*os.File, 0, len(all.instruments))
+		if all, ok := c.instrumentHeatMap.(*logic.AllHeatMapInstrument); ok {
+			fs := make([]*os.File, 0)
 			defer func() {
 				for _, f := range fs {
 					_ = f.Close()
 				}
 			}()
-			for hmt, hm := range all.heatMappers {
-				filename := c.nowFilename("Heat Map "+hmt.String(), ".png")
+			for hm := range all.List() {
+				filename := c.heatMapFilename(hm.Type(), ".png")
 				if f, err := saveFile(filename, false); err == nil {
 					fs = append(fs, f)
 					img := imaging.HeatMap(hm, c.settings.Height, c.settings.Width, imaging.Config{
@@ -747,12 +754,12 @@ func (c *Core) saveHeatMapImage() {
 						AliveColor:  c.settings.CellAliveColor,
 						DeadColor:   c.settings.CellDeadColor,
 						BorderColor: c.settings.CellBorderColor,
-					}, nil)
-					_ = png.Encode(f, img)
+					}, c.settings.HeatMapColors)
+					_ = imaging.PngEncode(f, img, formatHeatmapMetadata(metadata, hm.Type()))
 				}
 			}
 		} else {
-			filename := c.nowFilename("Heat Map "+c.heatMapperType.String(), ".png")
+			filename := c.heatMapFilename(c.heatMapperType, ".png")
 			if f, err := saveFile(filename, false); err == nil {
 				defer func() {
 					_ = f.Close()
@@ -763,11 +770,42 @@ func (c *Core) saveHeatMapImage() {
 					AliveColor:  c.settings.CellAliveColor,
 					DeadColor:   c.settings.CellDeadColor,
 					BorderColor: c.settings.CellBorderColor,
-				}, nil)
-				_ = png.Encode(f, img)
+				}, c.settings.HeatMapColors)
+				_ = imaging.PngEncode(f, img, formatHeatmapMetadata(metadata, c.heatMapperType))
 			}
 		}
 	}
+}
+
+const hmtToken = "%hmt"
+
+func formatHeatmapMetadata(metadata [][2]string, hmt logic.HeatMapperType) [][2]string {
+	result := make([][2]string, 0)
+	for _, part := range metadata {
+		if len(part[0]) > 0 && len(part[1]) > 0 {
+			result = append(result, [2]string{part[0], strings.Replace(part[1], hmtToken, hmt.Token(), 1)})
+		}
+	}
+	return result
+}
+
+func (c *Core) heatMapFilename(hmt logic.HeatMapperType, extension string) string {
+	const pfx = "Heat Map "
+	if !c.shortcutRunning {
+		return c.nowFilename(pfx+hmt.String(), extension)
+	}
+	var filename string
+	if strings.Contains(c.shortcutCurrent, hmtToken) {
+		filename = strings.ReplaceAll(strings.Replace(c.shortcutCurrent, hmtToken, hmt.Token(), 1), "%", "") + extension
+	} else if strings.HasSuffix(c.shortcutCurrent, "/") {
+		filename = strings.ReplaceAll(c.shortcutCurrent, "%", "") + pfx + hmt.String() + extension
+	} else {
+		filename = strings.ReplaceAll(c.shortcutCurrent, "%", "") + " " + pfx + hmt.String() + extension
+	}
+	if c.shortcutCollectFiles {
+		c.shortcutFiles = append(c.shortcutFiles, filename)
+	}
+	return filename
 }
 
 func (c *Core) saveRepeatDetect() {
@@ -813,7 +851,7 @@ func (c *Core) resetInstrumentation() {
 	if c.instrumentRecord != nil {
 		c.instrumentRecord = logic.NewRecordInstrument(c.gridHolder.grid)
 	}
-	c.instrumentHeatMap = c.heatMapperType.newHeatMapper(c.gridHolder.grid, c.settings.HeatMappingHalfLife)
+	c.instrumentHeatMap = c.heatMapperType.New(c.gridHolder.grid, c.settings.HeatMappingHalfLife)
 	c.updateInstrumentation()
 }
 

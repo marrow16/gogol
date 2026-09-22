@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gioui.org/f32"
 	"gioui.org/font"
+	"gioui.org/io/clipboard"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -24,6 +25,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	_ "image/png"
+	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -35,11 +37,12 @@ import (
 
 func newFileFinder(core *Core) *fileFinder {
 	result := &fileFinder{
-		core:              core,
-		btnOpen:           newButton("Open"),
-		btnOpenDisabled:   newButton("Open"),
-		btnCancel:         newButton("Cancel"),
-		chkOnlySelectable: newCheckBox("Only show selectable files", false),
+		core:                     core,
+		btnOpen:                  newButton("Open"),
+		btnOpenDisabled:          newButton("Open"),
+		btnCancel:                newButton("Cancel"),
+		chkOnlySelectable:        newCheckBox("Only show selectable files", false),
+		previewMetadataClickable: &widget.Clickable{},
 	}
 	result.btnOpenDisabled.style.Background = color.NRGBA{R: 160, G: 160, B: 160, A: 255}
 	result.list = newListControl[*dirEntry](nil, false).
@@ -92,6 +95,9 @@ type fileFinder struct {
 	scannedDir   *dirEntry
 	currentPath  []*dirEntry
 	error        error
+
+	previewMetadataShowing   bool
+	previewMetadataClickable *widget.Clickable
 }
 
 func (f *fileFinder) selectEntry(entry *dirEntry, keyboard bool) {
@@ -305,12 +311,14 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 			if !isHidden(name) {
 				if entry.IsDir() {
 					dirs = append(dirs, &dirEntry{
+						parent:    f,
 						path:      path,
 						name:      name,
 						clickable: new(widget.Clickable),
 					})
 				} else if !onlySelectable || f.canSelectPath(path) {
 					files = append(files, &dirEntry{
+						parent: f,
 						path:   path,
 						name:   name,
 						isFile: true,
@@ -393,9 +401,9 @@ func (f *fileFinder) handleNavKeys(k string) {
 }
 
 func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
-	if f.result != nil && f.result.previewClickable != nil {
+	if f.result != nil && f.result.previewClickable != nil && f.result.previewClicked != nil {
 		if f.result.previewClickable.Clicked(gtx) {
-			f.result.clicked()
+			f.result.previewClicked(gtx)
 		}
 	}
 	return layout.Flexed(3.5, func(gtx layout.Context) layout.Dimensions {
@@ -473,6 +481,7 @@ func (f *fileFinder) setCurrentDir() {
 		}
 		f.checkCurrent = false
 		f.currentDir = &dirEntry{
+			parent:    f,
 			path:      home,
 			name:      info.Name(),
 			clickable: new(widget.Clickable),
@@ -488,6 +497,7 @@ func (f *fileFinder) setCurrentDir() {
 				return
 			}
 			f.currentPath = append(f.currentPath, &dirEntry{
+				parent:    f,
 				path:      parent,
 				name:      info.Name(),
 				clickable: new(widget.Clickable),
@@ -526,6 +536,7 @@ func (f *fileFinder) entryPreview(entry *dirEntry) layout.Widget {
 }
 
 type dirEntry struct {
+	parent    *fileFinder
 	path      string
 	name      string
 	isFile    bool
@@ -540,7 +551,11 @@ type dirEntry struct {
 	previewScrollV   *widget.List
 	previewScrollH   *widget.List
 	previewClickable *widget.Clickable
+	previewClicked   func(gtx layout.Context)
 	previewZoom      float32
+
+	previewMetadata      [][2]string
+	prevewMetadataWidget layout.Widget
 }
 
 func (e *dirEntry) buildPreview(allowExts map[string]struct{}) {
@@ -595,7 +610,7 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 	}
 	extra := [][2]string{
 		{"Name:", pattern.Name},
-		{"Dimensions:", strconv.Itoa(pattern.Width) + "x" + strconv.Itoa(pattern.Height)},
+		{"Dimensions:", strconv.Itoa(pattern.Width) + " x " + strconv.Itoa(pattern.Height)},
 	}
 	if pattern.Rule != nil {
 		if pattern.Rule.IsCustom() {
@@ -612,6 +627,16 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 		[2]string{"Origin:", pattern.Origination},
 		[2]string{"Comments:", strings.Join(pattern.Comments, "\n")})
 	p, e2 := e.buildPreviewCommon()
+	e.previewClickable = &widget.Clickable{}
+	e.previewClicked = func(gtx layout.Context) {
+		var buf bytes.Buffer
+		if err := patterns.PatternRleEncode(pattern, &buf); err == nil {
+			gtx.Execute(clipboard.WriteCmd{
+				Type: clipboardWriteType,
+				Data: io.NopCloser(&buf),
+			})
+		}
+	}
 	const minCellSize = 4
 	return flexVertical(0,
 		rigid(p),
@@ -621,59 +646,56 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 		}),
 		flexed(func(gtx layout.Context) layout.Dimensions {
 			maxWd, maxHt := gtx.Constraints.Max.X, gtx.Constraints.Max.Y
-			var img image.Image
-			if pattern.Width > maxWd || pattern.Height > maxHt {
-				if e.previewImage != nil {
-					img = e.previewImage
+			return material.Clickable(gtx, e.previewClickable, func(gtx layout.Context) layout.Dimensions {
+				var img image.Image
+				if pattern.Width > maxWd || pattern.Height > maxHt {
+					if e.previewImage != nil {
+						img = e.previewImage
+					} else {
+						pImg := imaging.PatternImagePaletted(pattern, imaging.Config{
+							CellSize:   1,
+							Borders:    false,
+							AliveColor: color.NRGBA{A: 255},
+							DeadColor:  color.NRGBA{R: 255, G: 255, B: 255, A: 255},
+						})
+						scale := min(float32(maxWd)/float32(pattern.Width), float32(maxHt)/float32(pattern.Height))
+						img = imaging.ScaleSparse(pImg, scale)
+						e.previewImage = img
+					}
 				} else {
-					pImg := imaging.PatternImagePaletted(pattern, imaging.Config{
-						CellSize:   1,
-						Borders:    false,
-						AliveColor: color.NRGBA{A: 255},
-						DeadColor:  color.NRGBA{R: 255, G: 255, B: 255, A: 255},
+					cellSize := min((maxWd-1)/pattern.Width, (maxHt-1)/pattern.Height)
+					borders := cellSize > minCellSize
+					img = imaging.PatternImage(pattern, imaging.Config{
+						CellSize:    cellSize,
+						Borders:     borders,
+						AliveColor:  color.NRGBA{A: 255},
+						DeadColor:   color.NRGBA{R: 255, G: 255, B: 255, A: 255},
+						BorderColor: color.NRGBA{R: 128, G: 128, B: 128, A: 128},
 					})
-					scale := min(float32(maxWd)/float32(pattern.Width), float32(maxHt)/float32(pattern.Height))
-					img = imaging.ScaleSparse(pImg, scale)
-					e.previewImage = img
 				}
-			} else {
-				cellSize := min((maxWd-1)/pattern.Width, (maxHt-1)/pattern.Height)
-				borders := cellSize > minCellSize
-				img = imaging.PatternImage(pattern, imaging.Config{
-					CellSize:    cellSize,
-					Borders:     borders,
-					AliveColor:  color.NRGBA{A: 255},
-					DeadColor:   color.NRGBA{R: 255, G: 255, B: 255, A: 255},
-					BorderColor: color.NRGBA{R: 128, G: 128, B: 128, A: 128},
-				})
-			}
-			b := img.Bounds()
-			iw := float32(b.Dx())
-			ih := float32(b.Dy())
-			maxW := float32(gtx.Constraints.Max.X)
-			maxH := float32(gtx.Constraints.Max.Y)
-			scale := min(maxW/iw, maxH/ih)
-			w := int(iw * scale)
-			h := int(ih * scale)
-			stack := op.Affine(
-				f32.Affine2D{}.Scale(
-					f32.Point{},
-					f32.Point{X: scale, Y: scale},
-				),
-			).Push(gtx.Ops)
-			defer stack.Pop()
-			paint.NewImageOp(img).Add(gtx.Ops)
-			paint.PaintOp{}.Add(gtx.Ops)
-			return layout.Dimensions{
-				Size: image.Point{X: w, Y: h},
-			}
+				b := img.Bounds()
+				iw := float32(b.Dx())
+				ih := float32(b.Dy())
+				maxW := float32(gtx.Constraints.Max.X)
+				maxH := float32(gtx.Constraints.Max.Y)
+				scale := min(maxW/iw, maxH/ih)
+				w := int(iw * scale)
+				h := int(ih * scale)
+				stack := op.Affine(
+					f32.Affine2D{}.Scale(
+						f32.Point{},
+						f32.Point{X: scale, Y: scale},
+					),
+				).Push(gtx.Ops)
+				defer stack.Pop()
+				paint.NewImageOp(img).Add(gtx.Ops)
+				paint.PaintOp{}.Add(gtx.Ops)
+				return layout.Dimensions{
+					Size: image.Point{X: w, Y: h},
+				}
+			})
 		}),
 	), extra, nil, e2
-}
-
-func (e *dirEntry) clicked() {
-	e.previewZoom *= 1.25
-	window.Invalidate()
 }
 
 func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, error) {
@@ -688,20 +710,44 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 	defer func() {
 		_ = f.Close()
 	}()
+	extras := make([][2]string, 0)
 	var img image.Image
 	switch filepath.Ext(e.name) {
 	case ".png":
-		img, err = png.Decode(f)
+		var header [26]byte
+		if _, err = io.ReadFull(f, header[:]); err == nil {
+			bitDepth := header[24]
+			colorType := header[25]
+			if _, err = f.Seek(0, io.SeekStart); err == nil {
+				if img, err = png.Decode(f); err == nil {
+					extras = append(extras, [2]string{"Dimensions:", strconv.Itoa(img.Bounds().Dx()) + " x " + strconv.Itoa(img.Bounds().Dy()) + " (" + pngColorDepth(bitDepth, colorType) + ")"})
+					if _, err := f.Seek(0, io.SeekStart); err == nil {
+						e.previewMetadata, _ = imaging.PngMetadata(f)
+					}
+				}
+			}
+		}
 	case ".jpg", ".jpeg":
 		img, err = jpeg.Decode(f)
 	case ".gif":
-		img, err = gif.Decode(f)
+		var g *gif.GIF
+		if g, err = gif.DecodeAll(f); err == nil {
+			img = g.Image[0]
+			if len(g.Image) > 1 {
+				extras = append(extras,
+					[2]string{"Dimensions:", strconv.Itoa(img.Bounds().Dx()) + " x " + strconv.Itoa(img.Bounds().Dy()) + " (" + strconv.Itoa(len(g.Image)) + " frames)"})
+			}
+		}
 	}
 	if err != nil {
-		extra := [][2]string{{"PNG error:", err.Error()}}
-		return p, extra, nil, nil
+		extras = append(extras, [2]string{"PNG error:", err.Error()})
+		return p, extras, nil, nil
 	}
 	e.previewClickable = &widget.Clickable{}
+	e.previewClicked = func(gtx layout.Context) {
+		e.previewZoom *= 1.25
+		window.Invalidate()
+	}
 	e.previewZoom = 1.0
 	return flexVertical(0,
 		rigid(p),
@@ -767,7 +813,24 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 				return layout.Dimensions{Size: size}
 			})
 		}),
-	), nil, img, nil
+	), extras, img, nil
+}
+
+func pngColorDepth(bitDepth, colorType byte) string {
+	switch colorType {
+	case 0: // Grayscale
+		return fmt.Sprintf("%d-bit grayscale", bitDepth)
+	case 2: // Truecolor
+		return fmt.Sprintf("%d-bit color", bitDepth*3)
+	case 3: // Indexed color
+		return fmt.Sprintf("%d-bit indexed color", bitDepth)
+	case 4: // Grayscale + alpha
+		return fmt.Sprintf("%d-bit grayscale + alpha", bitDepth*2)
+	case 6: // Truecolor + alpha
+		return fmt.Sprintf("%d-bit color + alpha", bitDepth*4)
+	default:
+		return "unknown"
+	}
 }
 
 func (e *dirEntry) buildPreviewJson() (layout.Widget, [][2]string, error) {
@@ -864,9 +927,51 @@ func (e *dirEntry) buildPreviewCommon() (layout.Widget, error) {
 					}),
 				)))
 			}
+			rows = append(rows, e.buildPreviewMetadata())
 			return flexVertical(4, rows...)(gtx)
 		}),
 	), nil
+}
+
+func (e *dirEntry) buildPreviewMetadata() layout.FlexChild {
+	return rigid(func(gtx layout.Context) layout.Dimensions {
+		hasMetadata := len(e.previewMetadata) > 0
+		if !hasMetadata {
+			return layout.Dimensions{}
+		}
+		if e.parent.previewMetadataClickable.Clicked(gtx) {
+			e.parent.previewMetadataShowing = !e.parent.previewMetadataShowing
+			window.Invalidate()
+		}
+		return flexVertical(8,
+			conditionalRigid(e.parent.previewMetadataShowing,
+				linkLabel(e.parent.previewMetadataClickable, "Show less"),
+				linkLabel(e.parent.previewMetadataClickable, "Show more"),
+			),
+			conditionalRigid(e.parent.previewMetadataShowing, e.buildPreviewMetadataRows(), nil),
+		)(gtx)
+	})
+}
+
+func (e *dirEntry) buildPreviewMetadataRows() layout.Widget {
+	if e.prevewMetadataWidget == nil {
+		e.prevewMetadataWidget = func(gtx layout.Context) layout.Dimensions {
+			labels := make([]string, 0, len(e.previewMetadata))
+			for _, m := range e.previewMetadata {
+				labels = append(labels, m[0]+": ")
+			}
+			labelMax := measureMaxText(gtx, font.Bold, labels...).Size.X
+			rows := make([]layout.FlexChild, 0, len(e.previewMetadata))
+			for _, m := range e.previewMetadata {
+				rows = append(rows, rigid(flexHorizontal(20,
+					rigidLabel(m[0]+":", text.End, font.Bold, labelMax),
+					rigid(label(m[1])),
+				)))
+			}
+			return flexVertical(4, rows...)(gtx)
+		}
+	}
+	return e.prevewMetadataWidget
 }
 
 func (e *dirEntry) buildPreviewDir(allowExts map[string]struct{}) (layout.Widget, image.Image, error) {

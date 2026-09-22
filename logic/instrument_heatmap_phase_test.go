@@ -15,6 +15,7 @@ func TestPhaseHeatMapInstrument_Step(t *testing.T) {
 	g.SetCell(2, 1, true)
 	g.SetCell(2, 2, true)
 	i := NewPhaseHeatMapInstrument(g)
+	assert.Equal(t, PhaseParityHeatMapper, i.Type())
 	for range 100 {
 		g.StepWithInstrumentation(i)
 	}

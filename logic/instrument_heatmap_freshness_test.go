@@ -15,6 +15,7 @@ func TestFreshnessHeatMapInstrument_Step(t *testing.T) {
 	g.SetCell(2, 1, true)
 	g.SetCell(2, 2, true)
 	i := NewFreshnessHeatMapInstrument(g, 0.95)
+	assert.Equal(t, FreshnessHeatMapper, i.Type())
 	for range 100 {
 		g.StepWithInstrumentation(i)
 	}

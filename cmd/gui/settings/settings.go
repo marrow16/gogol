@@ -111,6 +111,7 @@ type Settings struct {
 	CellAliveColor      color.NRGBA
 	CellDeadColor       color.NRGBA
 	CellBorderColor     color.NRGBA
+	HeatMapColors       []color.NRGBA
 	KeepCellsOnResize   bool
 	Originator          string
 	Rules               map[string]string
@@ -152,6 +153,10 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				}
 			}
 			slices.Sort(fr)
+			hmc := make([]string, 0)
+			for _, c := range s.HeatMapColors {
+				hmc = append(hmc, fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B))
+			}
 			p := prefs{
 				ScreenHeight:        s.ScreenHeight,
 				ScreenWidth:         s.ScreenWidth,
@@ -168,6 +173,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				CellAliveColor:      fmt.Sprintf("#%02X%02X%02X", s.CellAliveColor.R, s.CellAliveColor.G, s.CellAliveColor.B),
 				CellDeadColor:       fmt.Sprintf("#%02X%02X%02X", s.CellDeadColor.R, s.CellDeadColor.G, s.CellDeadColor.B),
 				CellBorderColor:     fmt.Sprintf("#%02X%02X%02X", s.CellBorderColor.R, s.CellBorderColor.G, s.CellBorderColor.B),
+				HeatMapColors:       hmc,
 				CellBorders:         s.CellBorders,
 				CellSize:            s.CellSize,
 				KeepCellsOnResize:   s.KeepCellsOnResize,
@@ -320,6 +326,21 @@ func (s *Settings) fromPrefs(p prefs) {
 	if c, ok := parseColor(p.CellBorderColor); ok {
 		s.CellBorderColor = c
 	}
+	if len(p.HeatMapColors) > 0 {
+		clrs := make([]color.NRGBA, 0, len(p.HeatMapColors))
+		ok := true
+		for _, clr := range p.HeatMapColors {
+			if c, k := parseColor(clr); k {
+				clrs = append(clrs, c)
+			} else {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			s.HeatMapColors = clrs
+		}
+	}
 	s.CellBorders = p.CellBorders
 	if p.CellSize > 0 {
 		s.CellSize = p.CellSize
@@ -409,6 +430,7 @@ type prefs struct {
 	CellAliveColor      string              `json:"cell_alive_color"`
 	CellDeadColor       string              `json:"cell_dead_color"`
 	CellBorderColor     string              `json:"cell_border_color"`
+	HeatMapColors       []string            `json:"heat_map_colors,omitempty"`
 	CellBorders         bool                `json:"cell_borders"`
 	CellSize            int                 `json:"cell_size"`
 	KeepCellsOnResize   bool                `json:"keep_cells_on_resize"`

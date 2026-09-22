@@ -22,6 +22,10 @@ var _ StepInstrumentation = (*ActivityHeatMapInstrument)(nil)
 var _ StepStopInstrumentation = (*ActivityHeatMapInstrument)(nil)
 var _ DualUseInstrumentation = (*ActivityHeatMapInstrument)(nil)
 
+func (h *ActivityHeatMapInstrument) Type() HeatMapperType {
+	return ActivityHeatMapper
+}
+
 func (h *ActivityHeatMapInstrument) InstrumentStop(step uint64, locations []int) bool {
 	h.Instrument(step, locations)
 	return false

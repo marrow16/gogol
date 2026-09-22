@@ -32,6 +32,10 @@ var _ StepInstrumentation = (*PhaseHeatMapInstrument)(nil)
 var _ StepStopInstrumentation = (*PhaseHeatMapInstrument)(nil)
 var _ DualUseInstrumentation = (*PhaseHeatMapInstrument)(nil)
 
+func (h *PhaseHeatMapInstrument) Type() HeatMapperType {
+	return PhaseParityHeatMapper
+}
+
 func (h *PhaseHeatMapInstrument) InstrumentStop(step uint64, locations []int) bool {
 	h.Instrument(step, locations)
 	return false
@@ -44,7 +48,7 @@ func (h *PhaseHeatMapInstrument) Instrument(step uint64, locations []int) {
 		for _, idx := range locations {
 			// grid has already changed, so the opposite of the current state was in effect up to step-1...
 			previous := h.grid.cells[idx] ^ 1
-			h.counts[idx] += h.phaseCount(previous, h.since[idx], step-1)
+			h.counts[idx] += phaseCount(previous, h.startStep, h.since[idx], step-1)
 			// current state starts at this step...
 			h.since[idx] = step
 		}
@@ -80,16 +84,16 @@ func (h *PhaseHeatMapInstrument) StepsCount() uint64 {
 }
 
 func (h *PhaseHeatMapInstrument) count(idx int) uint64 {
-	return h.counts[idx] + h.phaseCount(h.grid.cells[idx], h.since[idx], h.step)
+	return h.counts[idx] + phaseCount(h.grid.cells[idx], h.startStep, h.since[idx], h.step)
 }
 
-func (h *PhaseHeatMapInstrument) phaseCount(alive uint8, from, to uint64) uint64 {
+func phaseCount(alive uint8, startStep, from, to uint64) uint64 {
 	if from > to {
 		return 0
 	}
 	n := to - from + 1
 	count := n / 2
-	expected := uint8((h.startStep - from) & 1)
+	expected := uint8((startStep - from) & 1)
 	if n&1 != 0 && alive != expected {
 		count++
 	}

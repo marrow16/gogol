@@ -1,7 +1,5 @@
 package logic
 
-import "iter"
-
 type StepInstrumentation interface {
 	Instrument(step uint64, locations []int)
 }
@@ -33,15 +31,4 @@ func (r StopReason) String() string {
 		return "Instrument Stopped"
 	}
 	return "Unknown"
-}
-
-type HeatLocation struct {
-	Row   int
-	Col   int
-	Value float64
-}
-
-type HeatMap interface {
-	HeatMap() iter.Seq[HeatLocation]
-	StepsCount() uint64
 }
