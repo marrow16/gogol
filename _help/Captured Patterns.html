@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GoGoL Captured Patterns Help</title>
+    <style>
+        body {
+            font-size: 110%;
+        }
+        code {
+            background-color: rgba(128,128,128,0.25);
+        }
+        pre {
+            background-color: rgba(128,128,128,0.25);
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+            margin: 0;
+        }
+        h1,h2,h3,h4,h5,h6 {
+            margin: 0;
+        }
+        details {
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        .link {
+            color: rgb(102,128,230);
+        }
+        .button {
+            padding: 0 4px 0 4px;
+            border: 1px solid rgb(128,128,128);
+            border-radius: 4px;
+            background-color: rgba(128,128,128,0.25);
+        }
+        .key {
+            padding: 0 4px 0 4px;
+            border: 1px solid black;
+            border-radius: 4px;
+        }
+        .hanging {
+            display: flex;
+        }
+        table {
+            text-align: left;
+            border-collapse: collapse;
+        }
+        table.bordered, table.bordered th, table.bordered td {
+            border: 1px solid rgb(128, 128, 128);
+        }
+        table th, table td {
+            padding: var(--cell-padding);
+        }
+    </style>
+</head>
+<body>
+The <strong>Captured Patterns</strong> popout is available from the <span class="link">main menu</span>.<br><br>Captured patterns are patterns that have been obtained from a grid state - see <span class="link">edit mode</span>.<br>Briefly, in edit mode, just mark an area of the grid using <span class="key">Shift+←</span> <span class="key">Shift+→</span> <span class="key">Shift+ ↑ </span> <span class="key">Shift+ ↓ </span> keys and then press <span class="key">↩</span> to capture. Multiple patterns can be captured in a single edit session.<br><br>Once a pattern has been captured from grid edit, it will appear in the dropdown.<br>You can also add captured patterns from external sources by copying the rle content and pressing the <span class="button">Paste RLE</span> button in this popout.<br><br>Having selected a captured pattern from the dropdown - use the view modes:<div style="margin-top:8px;"><h4>Preview</h4><div style="margin-left:20px;">Shows a preview image of the captured pattern.<br><br>Use the <span class="button">Identify</span> button to search for the same pattern in currently loaded <span class="link">patterns</span>. All rotations and mirrors of the pattern will be searched - and if the <span class="button">With phases</span> is checked, GoGoL will run a short simulation on the pattern to detect transitional phases to search for.<br>On identify, the number of hashes searched and whether the pattern was found is displayed. If the pattern is found, a link is displayed and clicking on that link will take you to the <span class="link">pattern</span>.<br><em>Note: On first use of identify, GoGoL must build an in-memory hash index for loaded patterns - this can take a couple of seconds for large libraries (i.e. &gt;4000 patterns)</em></div></div><div style="margin-top:8px;"><h4>Metadata</h4><div style="margin-left:20px;">Shows editable metadata for the captured pattern.<br><br>Edit the metadata as required and then press <span class="button">Save</span> button to save the pattern to an <code>.rle</code> file. Check the <span class="button">Add to library</span> option to also add it to the <span class="link">patterns</span> library.<br><br>Use the <span class="button">Remove</span> button to remove the currently selected captured pattern or press <span class="button">Clear</span> button to clear all captured patterns.</div></div></body></html>

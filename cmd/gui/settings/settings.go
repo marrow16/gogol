@@ -20,6 +20,8 @@ func NewSettings() *Settings {
 	s := &Settings{
 		ScreenHeight:        600,
 		ScreenWidth:         900,
+		HelpHeight:          600,
+		HelpWidth:           800,
 		StepDelay:           25,
 		StepAheadBy:         2000,
 		SkipBackBy:          100,
@@ -38,6 +40,7 @@ func NewSettings() *Settings {
 		CellBorderColor:     color.NRGBA{R: 240, G: 240, B: 239, A: 255},
 		HeatMappingHalfLife: 0.996,
 		Shortcuts:           make(map[string][]string),
+		ShortcutVariables:   make(map[string]string),
 		Fps:                 20,
 		MetaRules: map[string]string{
 			"Plus Worlds": `AllOf(
@@ -95,6 +98,8 @@ func settingsPath(create bool) (string, error) {
 type Settings struct {
 	ScreenHeight        int
 	ScreenWidth         int
+	HelpHeight          int
+	HelpWidth           int
 	StepDelay           int
 	StepAheadBy         int
 	StepAheadSnapshot   bool
@@ -127,12 +132,14 @@ type Settings struct {
 	HeatMappingType     string
 	HeatMappingHalfLife float32
 	Shortcuts           map[string][]string
+	ShortcutVariables   map[string]string
 	ExportImage         bool
 	MetaRules           map[string]string
 	SelectedMetaRule    string
 	CollectedRules      map[int]bool
 	AnimationFormat     string
 	Fps                 int
+	FileFinderAdvanced  bool
 }
 
 func (s *Settings) Save(grid *logic.Grid, zoom float32) {
@@ -160,6 +167,8 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 			p := prefs{
 				ScreenHeight:        s.ScreenHeight,
 				ScreenWidth:         s.ScreenWidth,
+				HelpHeight:          s.HelpHeight,
+				HelpWidth:           s.HelpWidth,
 				Height:              s.Height,
 				Width:               s.Width,
 				Zoom:                zoom,
@@ -191,12 +200,14 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				HeatMappingType:     s.HeatMappingType,
 				HeatMappingHalfLife: s.HeatMappingHalfLife,
 				Shortcuts:           s.Shortcuts,
+				ShortcutVariables:   s.ShortcutVariables,
 				ExportImage:         s.ExportImage,
 				MetaRules:           s.MetaRules,
 				SelectedMetaRule:    s.SelectedMetaRule,
 				CollectedRules:      fr,
 				AnimationFormat:     s.AnimationFormat,
 				Fps:                 s.Fps,
+				FileFinderAdvanced:  s.FileFinderAdvanced,
 			}
 			if pattern, err := s.PatternFromGrid(grid); err == nil {
 				var buf bytes.Buffer
@@ -296,6 +307,12 @@ func (s *Settings) fromPrefs(p prefs) {
 	if p.ScreenHeight >= 100 {
 		s.ScreenHeight = p.ScreenHeight
 	}
+	if p.HelpWidth >= 100 {
+		s.HelpWidth = p.HelpWidth
+	}
+	if p.HelpHeight >= 100 {
+		s.HelpHeight = p.HelpHeight
+	}
 	if p.Height > 2 {
 		s.Height = p.Height
 	}
@@ -370,6 +387,9 @@ func (s *Settings) fromPrefs(p prefs) {
 	if p.Shortcuts != nil {
 		s.Shortcuts = p.Shortcuts
 	}
+	if p.ShortcutVariables != nil {
+		s.ShortcutVariables = p.ShortcutVariables
+	}
 	s.ExportImage = p.ExportImage
 	if p.MetaRules != nil {
 		s.MetaRules = p.MetaRules
@@ -382,6 +402,7 @@ func (s *Settings) fromPrefs(p prefs) {
 	if p.Fps >= 1 {
 		s.Fps = p.Fps
 	}
+	s.FileFinderAdvanced = p.FileFinderAdvanced
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			rule := pattern.Rule
@@ -417,6 +438,8 @@ func (s *Settings) fromPrefs(p prefs) {
 type prefs struct {
 	ScreenHeight        int                 `json:"screen_height"`
 	ScreenWidth         int                 `json:"screen_width"`
+	HelpHeight          int                 `json:"help_height"`
+	HelpWidth           int                 `json:"help_width"`
 	Height              int                 `json:"height"`
 	Width               int                 `json:"width"`
 	Zoom                float32             `json:"zoom"`
@@ -449,12 +472,14 @@ type prefs struct {
 	HeatMappingType     string              `json:"heat_mapping_type"`
 	HeatMappingHalfLife float32             `json:"heat_mapping_half_life"`
 	Shortcuts           map[string][]string `json:"shortcuts"`
+	ShortcutVariables   map[string]string   `json:"shortcut_variables,omitempty"`
 	ExportImage         bool                `json:"export_image"`
 	MetaRules           map[string]string   `json:"meta_rules"`
 	SelectedMetaRule    string              `json:"selected_meta_rule,omitempty"`
 	CollectedRules      []int               `json:"collected_rules"`
 	AnimationFormat     string              `json:"animation_format"`
 	Fps                 int                 `json:"fps"`
+	FileFinderAdvanced  bool                `json:"file_finder_advanced"`
 }
 
 var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")

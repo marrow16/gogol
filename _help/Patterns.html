@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GoGoL Patterns Help</title>
+    <style>
+        body {
+            font-size: 110%;
+        }
+        code {
+            background-color: rgba(128,128,128,0.25);
+        }
+        pre {
+            background-color: rgba(128,128,128,0.25);
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+            margin: 0;
+        }
+        h1,h2,h3,h4,h5,h6 {
+            margin: 0;
+        }
+        details {
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        .link {
+            color: rgb(102,128,230);
+        }
+        .button {
+            padding: 0 4px 0 4px;
+            border: 1px solid rgb(128,128,128);
+            border-radius: 4px;
+            background-color: rgba(128,128,128,0.25);
+        }
+        .key {
+            padding: 0 4px 0 4px;
+            border: 1px solid black;
+            border-radius: 4px;
+        }
+        .hanging {
+            display: flex;
+        }
+        table {
+            text-align: left;
+            border-collapse: collapse;
+        }
+        table.bordered, table.bordered th, table.bordered td {
+            border: 1px solid rgb(128, 128, 128);
+        }
+        table th, table td {
+            padding: var(--cell-padding);
+        }
+    </style>
+</head>
+<body>
+The <strong>Patterns</strong> popout is available from the <span class="link">main menu</span>.<br><br>This popout shows all patterns currently loaded - see <span class="link">Load Patterns</span> for adding more patterns.<br><br>Select a pattern from the dropdown - you can also type a name into that dropdown to search for pattern(s) by name.<br><br>Having selected a pattern, choose the <span class="button">Preview</span> option to view a preview of the pattern or choose <span class="button">Metadata</span> option to see the pattern metadata (from the .rle file - and including the filename).<br><br>Press the <span class="button">Place</span> button to place the pattern onto the grid <em>(see </em><span class="link"><em>Place pattern mode</em></span><em>)</em>.<br>Check the <span class="button">Interlaced</span> option to place the pattern interlaced - where dead cells in the pattern do not overwrite alive cells in the grid.<br><br>Choose the <span class="button">Search/filter</span> option to create filters for the patterns shown in the dropdown:<div style="margin-left:20px;"><div class="hanging"><div>•&nbsp;</div><div><em>All filter fields are optional - leaving them empty has no effect.</em></div></div><div class="hanging"><div>•&nbsp;</div><div>Enter a <strong>Rule</strong><em> (e.g. &#34;B3/S23&#34;)</em> to filter patterns to that rule - or check the <span class="button">Filter current rule</span> option to filter patterns to the currently active rule.</div></div><div class="hanging"><div>•&nbsp;</div><div>Use <strong>Width</strong> and <strong>Height</strong> entries to filter the patterns to ranges of specific sizes.</div></div><div class="hanging"><div>•&nbsp;</div><div>Use <strong>Name</strong>, <strong>Filename</strong>, <strong>Origin</strong> and <strong>Comment</strong> entries to search/filter pattern metadata.</div></div>Having entered your filter criteria, press the <span class="button">Apply Filter</span> button to apply - the number of found patterns will be displayed.<br>Use the <span class="button">Clear Filter</span> button to unapply the filtering.</div></body></html>

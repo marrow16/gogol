@@ -478,7 +478,7 @@ func (e *editor) endMarking(capture bool) {
 	if e.marking {
 		e.markingDirty = true
 		if pattern := e.markedPattern(); pattern != nil && capture {
-			e.g.core.statusBar.menuPopup.capturedPatternsPopout.addCapturedPattern(*pattern)
+			e.g.core.statusBar.menuPopup.capturedPatternsPopout.addCapturedPattern(*pattern, false)
 		}
 	}
 	e.marking = false

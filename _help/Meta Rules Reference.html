@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GoGoL Meta Rules Reference</title>
+    <style>
+        body {
+            font-size: 110%;
+        }
+        code {
+            background-color: rgba(128,128,128,0.25);
+        }
+        pre {
+            background-color: rgba(128,128,128,0.25);
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+            margin: 0;
+        }
+        h1,h2,h3,h4,h5,h6 {
+            margin: 0;
+        }
+        details {
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        .link {
+            color: rgb(102,128,230);
+        }
+        .button {
+            padding: 0 4px 0 4px;
+            border: 1px solid rgb(128,128,128);
+            border-radius: 4px;
+            background-color: rgba(128,128,128,0.25);
+        }
+        .key {
+            padding: 0 4px 0 4px;
+            border: 1px solid black;
+            border-radius: 4px;
+        }
+        .hanging {
+            display: flex;
+        }
+        table {
+            text-align: left;
+            border-collapse: collapse;
+        }
+        table.bordered, table.bordered th, table.bordered td {
+            border: 1px solid rgb(128, 128, 128);
+        }
+        table th, table td {
+            padding: var(--cell-padding);
+        }
+    </style>
+</head>
+<body>
+<details open><summary>Meta Rules normative syntax</summary>The following provides the normative reference for Meta Rules syntax:<div style="margin-left:20px;"><pre>meta-rule     = predicates
+
+predicates    = predicate ["," predicate]...
+predicate     = rule | all-of | any-of | none-of | one-of
+
+all-of        = "AllOf(" predicates ")"
+any-of        = "AnyOf(" predicates ")"
+none-of       = "NoneOf(" predicates ")"
+one-of        = "OneOf(" predicates ")"
+
+rule          = rule-part ["/" rule-part]...
+rule-part     = birth
+              | survival
+              | and-rule
+              | or-rule
+              | xor-rule
+              | permutation
+birth         = "B(" conditions ")"
+survival      = "S(" conditions ")"
+and-rule      = ("A(" | "&amp;(") conditions ")"
+or-rule       = ("O(" | "|(") conditions ")"
+xor-rule      = ("X(" | "^(") conditions ")"
+permutation   = "P(" ranges ")"
+
+conditions    = condition ["," condition]...
+condition     = required
+              | forbidden
+              | excluded-combination
+              | cardinality
+
+required             = "+" digits
+forbidden            = "!" digits
+excluded-combination = "-" digits
+cardinality          = "#" integer ".." integer ":" digits
+
+digits               = digit...
+digit                = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8"
+
+ranges               = range ["," range]...
+range                = integer | integer "-" integer</pre></div><div style="margin-left:20px;">Notes:<div class="hanging" style="gap:10px;margin-left:10px;"><div>•</div><div>Tokens are case-insensitive.</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div>•</div><div>Whitespace may appear freely between tokens.</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div>•</div><div>Within a rule, <code>B(...)</code>, <code>S(...)</code>, <code>A(...)</code>, <code>O(...)</code>, <code>X(...)</code> and <code>P(...)</code> may each appear at most once.</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div>•</div><div>Digits within a condition are unordered.</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div>•</div><div>Duplicate digits are not ignored - and will cause errors if repeated.</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div>•</div><div>Integers can be specified in base 10, binary (e.g. <code>0b11111111</code>) octal (e.g. <code>0o377</code>) or hexadecimal (e.g. <code>0xFF</code>)</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div>•</div><div>Line comments <code>//</code> are allowed - block comments <code>/*</code> are not allowed</div></div></div></details><h3 style="margin-top:4px;">Conditions</h3><h4><code>required</code></h4><div style="margin-left:20px;">Example:<pre>B(+23)</pre>Means that both <code>2</code> and <code>3</code> must be present in <strong>B</strong>.</div><h4 style="margin-top:8px;"><code>forbidden</code></h4><div style="margin-left:20px;">Example:<pre>B(!45)</pre>Means that both <code>4</code> and <code>5</code> must not be present in <strong>B</strong>.</div><h4 style="margin-top:8px;"><code>excluded-combination</code></h4><div style="margin-left:20px;">Example:<pre>S(-37)</pre>Means that <code>3</code> and <code>7</code> must not appear together in <strong>S</strong>.</div><h4 style="margin-top:8px;"><code>cardinality</code></h4><div style="margin-left:20px;">Example:<pre>S(#2..3:0123)</pre>Means that, within <strong>S</strong>, of digits <code>0</code> <code>1</code>,<code>2</code> and <code>3</code> only 2 to 3 of them can be present.<br>Cardinality can also be used to ensure that <strong>B</strong> or <strong>S</strong> are empty, example:<pre>B(#0..0:012345678)</pre></div><h4 style="margin-top:8px;"><code>A(conditions)</code></h4><div style="margin-left:20px;">ANDs the high-order 9 bits (birth) with the low order 9 bits (survives) and evaluates conditions on the resultant.<br>Example:<pre>A(+2)</pre>Means that <code>2</code> must be present in both <strong>B</strong> and <strong>S</strong>.<br>Example:<pre>A(!4)</pre>Means that <code>4</code> may be present in <strong>B</strong> or <strong>S</strong> - but not both.</div><h4 style="margin-top:8px;"><code>O(conditions)</code></h4><div style="margin-left:20px;">ORs the high-order 9 bits (birth) with the low order 9 bits (survives) and evaluates conditions on the resultant.<br>Example:<pre>O(+3)</pre>Means that <code>3</code> must be present in either <strong>B</strong> or <strong>S</strong>.</div><h4 style="margin-top:8px;"><code>X(conditions)</code></h4><div style="margin-left:20px;">XORs the high-order 9 bits (birth) with the low order 9 bits (survives) and evaluates conditions on the resultant.<br>Example:<pre>X(!4)</pre>Means that <code>4</code> is either present in both <strong>B</strong> and <strong>S</strong> - or neither.</div><h4 style="margin-top:8px;"><code>P(ranges)</code></h4><div style="margin-left:20px;">Example:<pre>P(512-1024,1234,5678)</pre>Means that only permutations 512 to 1024 (inclusive); 1234 and 5678 are permitted.</div><details style="margin-top:16px;"><summary><strong>Example</strong></summary><pre>AllOf(
+    B(!2345) / S(+47,!3),
+    AnyOf(
+        B(+0,!1) / S(!012,-568),
+        B(+0,!16) / S(+568,!012),
+        B(+07,!1) / S(+568,!012),
+        B(+17,!06) / S(+5,-12),
+        B(+017,!6) / S(+5,-12,-68),
+        B(+1,!067) / S(+5,!0,-12),
+        B(+1,!067) / S(+5,!1,-12),
+        B(+1,!067) / S(+56,-12),
+        B(+01,!678) / S(+5,!0,-12,-68),
+        B(+01,!678) / S(+5,!1,-12,-68),
+        B(+018,!67) / S(+5,!0,-12,-68),
+        B(+018,!67) / S(+5,!1,-12,-68),
+        B(+018,!67) / S(+56,!8,-12),
+        B(+018,!67) / S(+58,!6,-12)
+    )
+)</pre>Is a meta-rule that describes one family of Life-like rules (222) that produce worlds dominated by stable thick plus patterns...<img style="display:block;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGEAAABhAgMAAAC7aCcwAAAACVBMVEX///88PDyAgIDky3z+AAAAY0lEQVR4nOyTwQ3AIAwDs2T2yRJdolNWfVhWXfggyMsn+ZMj8LCIe0JFRUwyntqcMOhD4c6VmW+4Y9Nn0IdSn/MIb7PpMehD2f2OzZpBH8ruf2qzZtCHwp1/xlObEwZ9KPUMADb3cD/oARk8AAAAAElFTkSuQmCC" width="48" height="48"><pre>#C Copied from GoGoL
+x = 6, y = 6, rule = B0/S467
+6b$2b2o$b4o$b4o$2b2o$6b!</pre></details></body></html>

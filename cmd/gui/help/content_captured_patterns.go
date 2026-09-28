@@ -9,7 +9,7 @@ var contentCapturedPatterns = content{
 	"You can also add captured patterns from external sources by copying the rle content and pressing the ", button("Paste RLE"), " button in this popout.\n\n",
 	"Having selected a captured pattern from the dropdown - use the view modes:",
 	indent{spaceBefore: 8, content: content{
-		h5("Preview"),
+		h4("Preview"),
 		indent{indent: 20, content: content{
 			"Shows a preview image of the captured pattern.\n\n",
 			"Use the ", button("Identify"), " button to search for the same pattern in currently loaded ", Patterns.link("patterns"), ". ",
@@ -19,7 +19,7 @@ var contentCapturedPatterns = content{
 		}},
 	}},
 	indent{spaceBefore: 8, content: content{
-		h5("Metadata"),
+		h4("Metadata"),
 		indent{indent: 20, content: content{
 			"Shows editable metadata for the captured pattern.\n\n",
 			"Edit the metadata as required and then press ", button("Save"), " button to save the pattern to an ", code(".rle"), " file. ",

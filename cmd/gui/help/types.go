@@ -81,7 +81,6 @@ func (i iconText) String() string {
 type bold string
 type italic string
 type boldItalic string
-type boxed string
 type button string
 type code string
 type codeCopyable string
@@ -299,7 +298,7 @@ func (cb codeBlock) widget(h *holder) layout.Widget {
 					lbl := material.Label(
 						h.theme,
 						(h.theme.TextSize*4)/5,
-						strings.ReplaceAll(cb.code, "\t", "    "),
+						strings.ReplaceAll(cb.code, "\t", "  "),
 					)
 					lbl.Font = h.mono
 					return lbl.Layout(gtx)
@@ -363,16 +362,17 @@ func (hdr header) widget(h *holder) layout.Widget {
 	sz := h.theme.TextSize
 	switch hdr.level {
 	case 1:
-		sz = sz * 1.75
+		sz = sz * 2
 	case 2:
 		sz = sz * 1.5
 	case 3:
-		sz = sz * 1.3
+		sz = sz * 1.17
 	case 4:
-		sz = sz * 1.15
+		sz = sz * 1.0
 	case 5:
+		sz = sz * 0.83
 	default:
-		sz = sz * 0.9
+		sz = sz * 0.67
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: hdr.spaceBefore, Bottom: hdr.spaceAfter}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -389,27 +389,6 @@ func (hdr header) widget(h *holder) layout.Widget {
 
 func (hdr header) String() string {
 	return fmt.Sprintf("%v", hdr.text)
-}
-
-func h(s string, sp ...unit.Dp) header {
-	if len(sp) > 1 {
-		return header{
-			level:       5,
-			text:        s,
-			spaceBefore: sp[0],
-			spaceAfter:  sp[1],
-		}
-	} else if len(sp) > 0 {
-		return header{
-			level:       5,
-			text:        s,
-			spaceBefore: sp[0],
-		}
-	}
-	return header{
-		level: 5,
-		text:  s,
-	}
 }
 
 func h1(s string, sp ...unit.Dp) header {

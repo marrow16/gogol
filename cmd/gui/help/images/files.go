@@ -18,3 +18,7 @@ func LoadImage(name string) (image.Image, error) {
 		return nil, err
 	}
 }
+
+func LoadRaw(name string) ([]byte, error) {
+	return files.ReadFile(name)
+}

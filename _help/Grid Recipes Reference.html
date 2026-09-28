@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GoGoL Grid Recipes Reference</title>
+  <style>
+    body {
+      font-size: 110%;
+    }
+    code {
+      background-color: rgba(128,128,128,0.25);
+    }
+    pre {
+      background-color: rgba(128,128,128,0.25);
+      border: 1px solid black;
+      border-radius: 4px;
+      padding: 4px;
+      margin: 0;
+    }
+    h1,h2,h3,h4,h5,h6 {
+      margin: 0;
+    }
+    details {
+      border: 1px solid black;
+      border-radius: 4px;
+      padding: 4px;
+    }
+    .link {
+      color: rgb(102,128,230);
+    }
+    .button {
+      padding: 0 4px 0 4px;
+      border: 1px solid rgb(128,128,128);
+      border-radius: 4px;
+      background-color: rgba(128,128,128,0.25);
+    }
+    .key {
+      padding: 0 4px 0 4px;
+      border: 1px solid black;
+      border-radius: 4px;
+    }
+    .hanging {
+      display: flex;
+    }
+    table {
+      text-align: left;
+      border-collapse: collapse;
+    }
+    table.bordered, table.bordered th, table.bordered td {
+      border: 1px solid rgb(128, 128, 128);
+    }
+    table th, table td {
+      padding: var(--cell-padding);
+    }
+  </style>
+</head>
+<body>
+A Grid Recipe is a JSON document that describes how to construct an initial Game of Life grid.<br><br>Recipes are executed on demand and are not preloaded or cached. A recipe can be edited in any text editor and re-run immediately without restarting GoGoL.<br><br>Grid recipes can be loaded from the <span class="link">Grid Recipes</span> popout in the <span class="link">main menu</span>.<br>Once a recipe is selected in the popout, it can be executed by pressing <span class="key">⌥G</span> or by clicking the <span class="button">Run</span> button in the popout.<br><h3 style="margin-top:8px;">JSON Structure</h3>The overall structure is defined as:<pre>{
+  "name": "Example",
+  "grid": { ... },
+  "vars": { ... },
+  "patterns": { ... },
+  "do": [ ... ]
+}</pre><em>Note: Any unknown JSON properties are ignored.</em><hr><div>• <code>grid</code><strong> property</strong><div style="margin-left:20px;">The optional <code>grid</code> property configures the overall grid (if this property is not specified, then the current grid settings are used)<pre>{
+  "grid": {
+    "height": 100,
+    "width": 100,
+    "rule": "B3/S23",
+    "wrap_mode": "toroidal",
+    "boundary_mode": "dead"
+  }
+}</pre><em>All properties are optional - properties omitted (or null) default to the current grid setting.</em></div></div><hr><div>• <code>vars</code><strong> property</strong><div style="margin-left:20px;">Variables store numeric values or binary patterns.<pre>{
+  "vars": {
+    "my-pattern": "0b000101",
+    "my-num": 10
+  }
+}</pre>The property name, e.g. `my-pattern`, denotes the var name for later use.<br>When using a string to denote the initial value:<div class="hanging"><div>•&nbsp;</div><div><code>&#34;0b101&#34;</code> (binary notation) denotes 5 and a specific width (when used as a pattern) of 3 cells.</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;0b000101&#34;</code> (binary notation) denotes 5 and a specific width (when used as a pattern) of 7 cells.</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;0o07&#34;</code> (octal notation) denotes 7 and a specific width (when used as a pattern) of 6 cells.</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;0x0E&#34;</code> (hexadecimal notation) denotes 14 and a specific width (when used as a pattern) of 8 cells.</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;0xE&#34;</code> (hexadecimal notation) denotes 14 and a specific width (when used as a pattern) of 4 cells.</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;127&#34;</code> (decimal notation) denotes 127 and the width (when used as a pattern) will be the minimum number of bits to represent that value.</div></div>Also, the string can be prefixed with various flags:<div class="hanging"><div>•&nbsp;</div><div><code>&#34;alt:&#34;</code>|<code>&#34;alternate:&#34;</code><br>alternate cells on each successive placement.</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;rot:&#34;</code>|<code>&#34;rotate:&#34;</code><br>rotate cells on each successive placement according to Y position.</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;fw:&#34;</code>|<code>&#34;fullwidth:&#34;</code>|<code>&#34;full-width:&#34;</code><br>the pattern is built to fill the grid width.</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;fh:&#34;</code>|<code>&#34;fullheight:&#34;</code>|<code>&#34;full-height:&#34;</code><br>the pattern is built to fill the grid height.</div></div>A variable can be placed on the grid (as the derived binary pattern) by referencing its name in a `place` property, e.g.<pre>{
+  "do": [
+    {
+      "place": "my-pattern"
+    }
+  ]
+}</pre></div></div><hr><div>• <code>patterns</code><strong> property</strong><div style="margin-left:20px;">Patterns can be:<div class="hanging"><div>•&nbsp;</div><div><strong><em>External rle files</em></strong><div style="margin-left:20px;"><pre>{
+  "patterns": {
+    "beacon": {
+      "filename": "beacon.rle"
+    }
+  }
+}</pre><em>Note: relative filenames are relative from the recipe json file.<br></em>The recipe will error if the file cannot be found or cannot be decoded.</div></div></div><div class="hanging"><div>•&nbsp;</div><div><strong><em>Inline rle definitions</em></strong><div style="margin-left:20px;"><pre>{
+  "patterns": {
+    "block": {
+      "rle": "2o$2o!",
+      "width": 2,
+      "height": 2
+    }
+  }
+}</pre>Note: the <code>width</code> and <code>height</code> properties are mandatory when <code>rle</code> property is specified.<br>The recipe will error if the `rle` cannot be decoded.</div></div></div><div class="hanging"><div>•&nbsp;</div><div><strong><em>Reference to a name in the current pattern library</em></strong><div style="margin-left:20px;"><pre>{
+  "patterns": {
+    "glider": {
+      "name": "Glider"
+    }
+  }
+}</pre>Or abbreviated form:<pre>{
+  "patterns": {
+    "glider": "Glider"
+  }
+}</pre>The recipe will error if the name cannot be found in the current pattern library.</div></div></div></div></div><hr><div>• <code>do</code><strong> property</strong><div style="margin-left:20px;">Contains an array of the actual instructions for placing items on the grid.<pre>{
+  "do": [
+    {
+      "place": "name",
+      "at": { ... },
+      "move": { ... },
+      "repeat": 1,
+      "rotate": 1,
+      "do": [ ... ],
+      "var_operations": [ ... ]
+    },
+    ...
+  ]
+}</pre>All properties within a <code>do</code> object are optional.<div>• <code>do.place</code><strong> property</strong><div style="margin-left:20px;">The name of the variable or pattern to place - referenced to a name in <code>vars</code>/<code>patterns</code> within in the recipe.<br>If the <code>place</code> is omitted or null - nothing happens, but nested <code>do</code> instructions are still carried.<br>If the name does not resolve to a variable or pattern, the recipe will error.</div></div><hr><div>• <code>do.at</code><strong> property</strong><div style="margin-left:20px;">Defines an absolute placement position on the grid, e.g.<pre>"at": {
+  "x:": 0,
+  "y": 0
+}</pre>Both the <code>x</code> and <code>y</code> properties are optional - if not specified, the current position is used.<div class="hanging"><div>•&nbsp;</div><div><code>x</code> can also be specified as <code>&#34;gw&#34;</code>, <code>&#34;gridwidth&#34;</code> or <code>&#34;grid-width&#34;</code> to denote right-most position.</div></div><div class="hanging"><div>•&nbsp;</div><div><code>y</code> can also be specified as <code>&#34;gh&#34;</code>, <code>&#34;gridheight&#34;</code> or <code>&#34;grid-height&#34;</code> to denote bottom-most position.</div></div></div></div><hr><div>• <code>do.move</code><strong> property</strong><div style="margin-left:20px;">Defines a relative position to the current position, e.g.<pre>"move": {
+  "x:": 0,
+  "y": 0,
+  "when": "before|after"
+}</pre>All properties are optional.<br>If the <code>x</code>/<code>y</code> properties are omitted or null then the current position for that part is unaffected.<br>The <code>x</code> and <code>y</code> properties are relative to the current position, so can be positive or negative.  They can also be specified as a string - one of the following:<div class="hanging"><div>•&nbsp;</div><div><code>&#34;lw&#34;</code> is the width of the last placed pattern/var</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;lh&#34;</code> is the height of the last placed pattern/var</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;-lw&#34;</code> is the negative width of the last placed pattern/var</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;-lh&#34;</code> is the negative height of the last placed pattern/var</div></div>Using the above tokens, the dimension can also be adjusted e.g.<div class="hanging"><div>•&nbsp;</div><div><code>&#34;lw+5&#34;</code> is the last width plus 5</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;lh++&#34;</code> is the last height plus 1</div></div>The `when` property controls when the move happens - i.e. before or after the placement.  If omitted or null it assumes before.</div></div><hr><div>• <code>do.repeat</code><strong> property</strong><div style="margin-left:20px;">Is the number of repeats (after the initial placement).<br>This can also be specified as a string - one of the following:<div class="hanging"><div>•&nbsp;</div><div><code>&#34;gh&#34;</code>|<code>&#34;gridheight&#34;</code>|<code>&#34;grid-height&#34;</code><br>repeats to fill the remaining grid height.</div></div><div class="hanging"><div>•&nbsp;</div><div><code>&#34;gw&#34;</code>|<code>&#34;gridwidth&#34;</code>|<code>&#34;grid-width&#34;</code><br>repeats to fill the remaining grid width.</div></div></div></div><hr><div>• <code>do.rotate</code><strong> property</strong><div style="margin-left:20px;">Is the number of 90 degree rotations for the placed pattern.  Values greater than 3 are taken as modulus 4.</div></div><hr><div>• <code>do.do</code><strong> property</strong><div style="margin-left:20px;">Contains nested instructions.</div></div><hr><div>• <code>do.var_operations</code><strong> property</strong><div style="margin-left:20px;">Are operations to perform on the currently placed var (and only relevant when placing a var).<pre>{
+  "place": "my-var",
+  ...
+  "var_operations": [
+    {
+      "when": "before|after", // defaults to after
+      "shift_left": 1,
+      "shift_right": 1,
+      "rotate-left": 1,
+      "rotate-right": 1,
+      "increment": 1,
+      "decrement": 1
+    },
+    ...
+  ]
+}</pre></div></div></div></div><hr><h3 style="margin-top:8px;">Examples</h3><details style="margin-left:10px;"><summary><strong>Fill grid with chequered cells</strong></summary><pre>{
+  "name": "Chequered",
+  "vars": {
+    "pattern": "fill-width:rotate:0b01"
+  },
+  "do": [
+    {
+      "at": {"x": 0, "y": 0},
+      "do": [
+        {
+          "place": "pattern",
+          "repeat": "gh",
+          "move": {"y": 1, "when": "after"}
+        }
+      ]
+    }
+  ]
+}</pre></details><details style="margin-left:10px;margin-top:8px;"><summary><strong>Fill grid with horizontal stripes</strong></summary><pre>{
+  "name": "Stripes",
+  "vars": {
+    "pattern": "fill-width:0b1"
+  },
+  "do": [
+    {
+      "at": {"x": 0, "y": 0},
+      "do": [
+        {
+          "place": "pattern",
+          "repeat": "gh",
+          "move": {"y": 2, "when": "after"}
+        }
+      ]
+    }
+  ]
+}</pre></details><details style="margin-left:10px;margin-top:8px;"><summary><strong>Fill grid with vertical stripes</strong></summary><pre>{
+  "name": "Vertical Stripes",
+  "vars": {
+    "pattern": "fill-height:0b1"
+  },
+  "do": [
+    {
+      "at": {"x": 0, "y": 0},
+      "do": [
+        {
+          "place": "pattern",
+          "repeat": "gw",
+          "move": {"x": 2, "when": "after"}
+        }
+      ]
+    }
+  ]
+}</pre></details><details style="margin-left:10px;margin-top:8px;"><summary><strong>Fill grid with lattice</strong></summary><pre>{
+  "name": "Lattice",
+  "vars": {
+    "h-pattern": "fill-width:0b1",
+    "v-pattern": "fill-height:0b1"
+  },
+  "do": [
+    {
+      "at": {"x": 0, "y": 0},
+      "do": [
+        {
+          "place": "h-pattern",
+          "repeat": "gh",
+          "move": {"y": 2, "when": "after"}
+        }
+      ]
+    },
+    {
+      "at": {"x": 0, "y": 0},
+      "do": [
+        {
+          "place": "v-pattern",
+          "repeat": "gw",
+          "move": {"x": 2, "when": "after"}
+        }
+      ]
+    }
+  ]
+}</pre></details><details style="margin-left:10px;margin-top:8px;"><summary><strong>Draw line around grid</strong></summary><pre>{
+  "name": "Line around grid",
+  "vars": {
+    "h-pattern": "fill-width:0b1",
+    "v-pattern": "fill-height:0b1"
+  },
+  "do": [
+    {
+      "at": {"x": 0, "y": 0},
+      "place": "h-pattern"
+    },
+    {
+      "at": {"x": 0, "y": "gh"},
+      "place": "h-pattern"
+    },
+    {
+      "at": {"x": 0, "y": 0},
+      "place": "v-pattern"
+    },
+    {
+      "at": {"x": "gw", "y": 0},
+      "place": "v-pattern"
+    }
+  ]
+}</pre></details></body></html>
