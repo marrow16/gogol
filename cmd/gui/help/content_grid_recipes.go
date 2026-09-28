@@ -275,9 +275,10 @@ var contentGridRecipesReference = content{
 	},
 	separator{},
 	h3("Examples", 8),
-	indent{indent: 20, content: content{
-		h4("Fill grid with chequered cells"),
-		codeBlock{code: `{
+	expandable{
+		border: true, indent: 10, padding: 4,
+		title: content{bold("Fill grid with chequered cells")},
+		content: content{codeBlock{code: `{
 	"name": "Chequered",
 	"vars": {
 		"pattern": "fill-width:rotate:0b01"
@@ -294,11 +295,12 @@ var contentGridRecipesReference = content{
 			]
 		}
 	]
-}`},
-	}},
-	indent{indent: 20, content: content{
-		h4("Fill grid with horizontal stripes"),
-		codeBlock{code: `{
+}`}},
+	},
+	expandable{
+		border: true, indent: 10, padding: 4, spaceBefore: 8,
+		title: content{bold("Fill grid with horizontal stripes")},
+		content: content{codeBlock{code: `{
 	"name": "Stripes",
 	"vars": {
 		"pattern": "fill-width:0b1"
@@ -315,11 +317,12 @@ var contentGridRecipesReference = content{
 			]
 		}
 	]
-}`},
-	}},
-	indent{indent: 20, content: content{
-		h4("Fill grid with vertical stripes"),
-		codeBlock{code: `{
+}`}},
+	},
+	expandable{
+		border: true, indent: 10, padding: 4, spaceBefore: 8,
+		title: content{bold("Fill grid with vertical stripes")},
+		content: content{codeBlock{code: `{
 	"name": "Vertical Stripes",
 	"vars": {
 		"pattern": "fill-height:0b1"
@@ -336,11 +339,12 @@ var contentGridRecipesReference = content{
 			]
 		}
 	]
-}`},
-	}},
-	indent{indent: 20, content: content{
-		h4("Fill grid with lattice"),
-		codeBlock{code: `{
+}`}},
+	},
+	expandable{
+		border: true, indent: 10, padding: 4, spaceBefore: 8,
+		title: content{bold("Fill grid with lattice")},
+		content: content{codeBlock{code: `{
 	"name": "Lattice",
 	"vars": {
 		"h-pattern": "fill-width:0b1",
@@ -368,11 +372,12 @@ var contentGridRecipesReference = content{
 			]
 		}
 	]
-}`},
-	}},
-	indent{indent: 20, content: content{
-		h4("Draw line around grid"),
-		codeBlock{code: `{
+}`}},
+	},
+	expandable{
+		border: true, indent: 10, padding: 4, spaceBefore: 8,
+		title: content{bold("Draw line around grid")},
+		content: content{codeBlock{code: `{
 	"name": "Line around grid",
 	"vars": {
 		"h-pattern": "fill-width:0b1",
@@ -396,6 +401,6 @@ var contentGridRecipesReference = content{
 			"place": "v-pattern"
 		}
 	]
-}`},
-	}},
+}`}},
+	},
 }

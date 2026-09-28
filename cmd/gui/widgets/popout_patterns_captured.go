@@ -87,24 +87,38 @@ func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
 	return result
 }
 
-func (p *capturedPatternsPopout) addCapturedPattern(pattern patterns.Pattern) {
+func (p *capturedPatternsPopout) addCapturedPattern(pattern patterns.Pattern, raw bool) {
 	name := strconv.Itoa(len(p.core.settings.CapturedPatterns)+1) + " (" + time.Now().Format("2006-01-02 15-04-05") + ")"
-	origin := p.core.settings.Originator
-	if len(origin) == 0 {
-		origin = "(your name)"
+	if raw {
+		if pattern.Name != "" {
+			name = pattern.Name
+		} else {
+			pattern.Name = name
+		}
+		if pattern.Rule == nil {
+			rule := p.core.gridHolder.grid.Rule()
+			pattern.Rule = &rule
+		}
+		p.core.settings.CapturedPatterns = append(p.core.settings.CapturedPatterns, &pattern)
+		p.chooser.resetItems(p.core.settings.CapturedPatterns)
+	} else {
+		origin := p.core.settings.Originator
+		if len(origin) == 0 {
+			origin = "(your name)"
+		}
+		rule := p.core.gridHolder.grid.Rule()
+		p.core.settings.CapturedPatterns = append(p.core.settings.CapturedPatterns,
+			&patterns.Pattern{
+				Name:        name,
+				Width:       pattern.Width,
+				Height:      pattern.Height,
+				Cells:       slices.Clone(pattern.Cells),
+				Comments:    []string{"Captured by GoGoL"},
+				Origination: origin,
+				Rule:        &rule,
+				Filename:    name + ".rle"})
+		p.chooser.resetItems(p.core.settings.CapturedPatterns)
 	}
-	rule := p.core.gridHolder.grid.Rule()
-	p.core.settings.CapturedPatterns = append(p.core.settings.CapturedPatterns,
-		&patterns.Pattern{
-			Name:        name,
-			Width:       pattern.Width,
-			Height:      pattern.Height,
-			Cells:       slices.Clone(pattern.Cells),
-			Comments:    []string{"Captured by GoGoL"},
-			Origination: origin,
-			Rule:        &rule,
-			Filename:    name + ".rle"})
-	p.chooser.resetItems(p.core.settings.CapturedPatterns)
 	p.chooser.setText(name)
 }
 

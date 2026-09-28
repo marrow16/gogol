@@ -43,6 +43,10 @@ func newFileFinder(core *Core) *fileFinder {
 		btnCancel:                newButton("Cancel"),
 		chkOnlySelectable:        newCheckBox("Only show selectable files", false),
 		previewMetadataClickable: &widget.Clickable{},
+		btnAdvDelete:             newButton("Delete"),
+		btnAdvAddPattern:         newButton("Add Pattern"),
+		btnAdvCapturePattern:     newButton("Capture Pattern"),
+		btnAdvCopyPattern:        newButton("Copy Pattern"),
 	}
 	result.btnOpenDisabled.style.Background = color.NRGBA{R: 160, G: 160, B: 160, A: 255}
 	result.list = newListControl[*dirEntry](nil, false).
@@ -98,6 +102,11 @@ type fileFinder struct {
 
 	previewMetadataShowing   bool
 	previewMetadataClickable *widget.Clickable
+	// advanced buttons...
+	btnAdvDelete         *button
+	btnAdvAddPattern     *button
+	btnAdvCapturePattern *button
+	btnAdvCopyPattern    *button
 }
 
 func (f *fileFinder) selectEntry(entry *dirEntry, keyboard bool) {
@@ -266,7 +275,6 @@ func (f *fileFinder) body() layout.FlexChild {
 }
 
 func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
-	//var backTo *dirEntry
 	for {
 		ev, ok := gtx.Event(f.keyFilters...)
 		if !ok {
@@ -279,7 +287,11 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 				window.Invalidate()
 			case key.NameF1:
 				f.core.showHelp(-1)
-			case key.NameDeleteBackward, key.NameLeftArrow:
+			case key.NameDeleteBackward:
+				if f.core.settings.FileFinderAdvanced && f.result != nil && f.result.isFile {
+					f.deleteFile(f.result)
+				}
+			case key.NameLeftArrow:
 				if len(f.currentPath) > 1 {
 					f.backTo = f.currentDir
 					f.result = nil
@@ -406,6 +418,38 @@ func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
 			f.result.previewClicked(gtx)
 		}
 	}
+	if f.core.settings.FileFinderAdvanced && f.result != nil && f.result.isFile {
+		isRle := strings.ToLower(filepath.Ext(f.result.name)) == ".rle"
+		if f.btnAdvDelete.Clicked(gtx) {
+			f.deleteFile(f.result)
+		}
+		if isRle {
+			if f.btnAdvAddPattern.Clicked(gtx) {
+				f.addPattern(f.result)
+			}
+			if f.btnAdvCapturePattern.Clicked(gtx) {
+				f.capturePattern(f.result)
+			}
+			if f.btnAdvCopyPattern.Clicked(gtx) {
+				f.copyPattern(f.result, gtx)
+			}
+		}
+		return layout.Flexed(3.5, func(gtx layout.Context) layout.Dimensions {
+			dims := layout.Inset{Top: 4, Left: 4, Bottom: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return flexVertical(8,
+					rigid(flexHorizontal(20,
+						rigid(f.btnAdvDelete.Layout),
+						conditionalRigid(isRle, f.btnAdvAddPattern.Layout, nil),
+						conditionalRigid(isRle, f.btnAdvCapturePattern.Layout, nil),
+						conditionalRigid(isRle, f.btnAdvCopyPattern.Layout, nil),
+					)),
+					rigid(f.entryPreview(f.result)),
+				)(gtx)
+			})
+			border(gtx, dims, false, true, false, false)
+			return dims
+		})
+	}
 	return layout.Flexed(3.5, func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Inset{Top: 4, Left: 4, Bottom: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return f.entryPreview(f.result)(gtx)
@@ -413,6 +457,67 @@ func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
 		border(gtx, dims, false, true, false, false)
 		return dims
 	})
+}
+
+func (f *fileFinder) deleteFile(entry *dirEntry) {
+	if err := os.Remove(entry.path); err == nil {
+		// remove from list and refresh...
+		if idx := slices.IndexFunc(f.list.items, func(e *dirEntry) bool {
+			return e.path == entry.path
+		}); idx != -1 {
+			items := append(f.list.items[:idx], f.list.items[idx+1:]...)
+			f.result = nil
+			f.list.resetItems(items)
+			if idx < len(items) {
+				f.list.selectedIndex = idx
+				f.result = items[idx]
+				f.list.ensureVisible(f.list.selectedIndex)
+			} else {
+				f.result = nil
+			}
+			window.Invalidate()
+		}
+	}
+}
+
+func (f *fileFinder) addPattern(entry *dirEntry) {
+	if file, err := os.Open(entry.path); err == nil {
+		defer func() {
+			_ = file.Close()
+		}()
+		if _, err = patterns.PatternRleDecoder(file); err == nil {
+			f.core.settings.AddPattern(entry.path)
+		}
+	}
+}
+
+func (f *fileFinder) capturePattern(entry *dirEntry) {
+	if file, err := os.Open(entry.path); err == nil {
+		defer func() {
+			_ = file.Close()
+		}()
+		if pattern, err := patterns.PatternRleDecoder(file); err == nil {
+			pattern.Filename = entry.name
+			f.core.statusBar.menuPopup.capturedPatternsPopout.addCapturedPattern(pattern, true)
+		}
+	}
+}
+
+func (f *fileFinder) copyPattern(entry *dirEntry, gtx layout.Context) {
+	if file, err := os.Open(entry.path); err == nil {
+		defer func() {
+			_ = file.Close()
+		}()
+		if pattern, err := patterns.PatternRleDecoder(file); err == nil {
+			var buf bytes.Buffer
+			if err := patterns.PatternRleEncode(pattern, &buf); err == nil {
+				gtx.Execute(clipboard.WriteCmd{
+					Type: clipboardWriteType,
+					Data: io.NopCloser(&buf),
+				})
+			}
+		}
+	}
 }
 
 func (f *fileFinder) footer(gtx layout.Context) layout.FlexChild {

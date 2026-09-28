@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GoGoL Rules Help</title>
+    <style>
+        body {
+            font-size: 110%;
+        }
+        code {
+            background-color: rgba(128,128,128,0.25);
+        }
+        pre {
+            background-color: rgba(128,128,128,0.25);
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+            margin: 0;
+        }
+        h1,h2,h3,h4,h5,h6 {
+            margin: 0;
+        }
+        details {
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        .link {
+            color: rgb(102,128,230);
+        }
+        .button {
+            padding: 0 4px 0 4px;
+            border: 1px solid rgb(128,128,128);
+            border-radius: 4px;
+            background-color: rgba(128,128,128,0.25);
+        }
+        .key {
+            padding: 0 4px 0 4px;
+            border: 1px solid black;
+            border-radius: 4px;
+        }
+        .hanging {
+            display: flex;
+        }
+        table {
+            text-align: left;
+            border-collapse: collapse;
+        }
+        table.bordered, table.bordered th, table.bordered td {
+            border: 1px solid rgb(128, 128, 128);
+        }
+        table th, table td {
+            padding: var(--cell-padding);
+        }
+    </style>
+</head>
+<body>
+Use the rules popup to select the currently active rule.<br><br>The rules popup is available by clicking the rule area in the <span class="link">statusbar</span> or by pressing <span class="key">⌥L</span>.<br><br>The list at the top shows the named rules - click on an item in that list selects that rule. You can also navigate around that list using keys <span class="key">▲</span> <span class="key">▼</span> or by pressing any letter key.<br><br>The bottom of the popup shows details about the currently active rule - which can also be interacted with to change the rule:<br><br><strong>Name</strong><div style="margin-left:20px;margin-bottom:4px;">Shows the name of the current rule.<br>If the current rule is already named this cannot be changed - however, if the current rule is custom, the name can be changed and a <span class="button">Save</span> button allows the rule name to be saved for future use.</div><strong>Rule</strong><div style="margin-left:20px;margin-bottom:4px;">Shows the actual rule string - born (<strong>B</strong>) and survives (<strong>S</strong>)<br>Edit the rule string to change the rule.<em> (see also below for changing the rule by keys)</em></div><strong>Perm.</strong><div style="margin-left:20px;margin-bottom:4px;">Shows the permutation for the rule (0 to 262143) - an 18-bit number where born (<strong>B</strong>) is the high order 9-bits and survives (<strong>S</strong>) is the low order 9-bits.<br>Change the value to change the rule, or use <span class="key"> ↑ </span> <span class="key"> ↓ </span> to increment/decrement. Use <span class="key">PgUp</span> <span class="key">PgDn</span> to increment/decrement the high order 9-bits.</div><strong>Integer</strong><div style="margin-left:20px;margin-bottom:4px;">Is an alternative rule numbering system defined by <a href="https://conwaylife.com/wiki/Rule_integer">conwaylife.com/wiki</a>.<br><em>(GoGoL prefers to use the permutation numbering system because it keeps behaviours together by numeric proximity)</em></div><span class="button">Add Collected</span> / <span class="button">Remove Collected</span><div style="margin-left:20px;margin-bottom:8px;">Use these buttons to add or removed the current rule to/from <span class="link">collected rules</span>.<br>Which button displayed indicates whether the current rule is currently collected.</div><h4>Changing rule with keys</h4>The current rule can be altered at any point (without opening the rule popup) by using the following shortcut keys:<div style="margin-left:20px;"><span class="key">Ctrl+0</span> - <span class="key">Ctrl+8</span> toggles the corresponding digit in the born (<strong>B</strong>).</div><div style="margin-left:20px;"><span class="key">⌥0</span> - <span class="key">⌥8</span> toggles the corresponding digit in the survives (<strong>S</strong>).</div></body></html>

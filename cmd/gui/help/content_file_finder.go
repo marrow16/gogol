@@ -5,12 +5,12 @@ var contentFileFinder = content{
 	"It specifically allows previewing ", code(".rle"), " files (including meta data). ",
 	"It also allows limited previewing of ", code(".png"), ", ", code(".jpg"), ", ", code(".jpeg"), " and ", code(".gif"), " files.\n\n",
 	"The file finder can be reached by pressing the ", button("..."), " button in ", LoadPatterns.link("Load Patterns"), ", ", GridRecipes.link("Grid Recipes"), " or ", ImportGrid.link("Import Grid"), ".",
-	h4("Usage", 8, 4),
+	h3("Usage", 8, 4),
 	bold("Path"), " shows the current path:",
 	indent{indent: 20, spaceAfter: 8, content: content{
 		hanging{prefix: "• ", content: "Click on any of the path items to navigate up the folder path."},
 		hanging{prefix: "• ", content: content{
-			"Press keys ", keys{keyLeft}, " or ", keys{keyBack}, " to navigate up to parent folder.",
+			"Press key ", keys{keyLeft}, " to navigate up to parent folder.",
 		}},
 	}},
 	"The left pane shows the list of files and folders in the current path:",

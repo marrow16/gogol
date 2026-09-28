@@ -8,13 +8,16 @@ import (
 	"gioui.org/io/clipboard"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
+	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/marrow16/gogol/cmd/gui/settings"
 	"image"
 	"image/color"
 	"io"
@@ -25,8 +28,8 @@ import (
 	"sync"
 )
 
-func Show(topic Topic) {
-	helpHolder.show(topic)
+func Show(topic Topic, settings *settings.Settings) {
+	helpHolder.show(topic, settings)
 }
 
 func HelpWindow() *app.Window {
@@ -53,6 +56,7 @@ var helpHolder = &holder{
 type holder struct {
 	mutex    sync.Mutex
 	window   *app.Window
+	settings *settings.Settings
 	theme    *material.Theme
 	fonts    []font.FontFace
 	mono     font.Font
@@ -61,6 +65,7 @@ type holder struct {
 	list     widget.List
 	index    widget.Clickable
 	back     widget.Clickable
+	copy     widget.Clickable
 	backs    []Topic
 	// searching...
 	searching         bool
@@ -73,8 +78,9 @@ type holder struct {
 	contentsIndex     map[Topic]string
 }
 
-func (h *holder) show(topic Topic) {
+func (h *holder) show(topic Topic, settings *settings.Settings) {
 	h.mutex.Lock()
+	h.settings = settings
 	if topic > -1 {
 		if topic != h.topic && h.topic != Index {
 			h.backs = append(h.backs, h.topic)
@@ -97,7 +103,7 @@ func (h *holder) show(topic Topic) {
 		}
 		h.window.Option(
 			app.Title("GoGoL Help"),
-			app.Size(800, 600),
+			app.Size(unit.Dp(settings.HelpWidth), unit.Dp(settings.HelpHeight)),
 		)
 		h.mutex.Unlock()
 		go h.run()
@@ -121,6 +127,9 @@ func (h *holder) run() {
 		case app.FrameEvent:
 			var ops op.Ops
 			gtx := app.NewContext(&ops, e)
+			rect := clip.Rect{Max: gtx.Constraints.Max}
+			h.settings.HelpWidth = int(float32(rect.Max.X) / gtx.Metric.PxPerDp)
+			h.settings.HelpHeight = int(float32(rect.Max.Y) / gtx.Metric.PxPerDp)
 			h.layout(gtx)
 			e.Frame(gtx.Ops)
 		}
@@ -216,12 +225,6 @@ func buildContent(h *holder, alignment text.Alignment, src content) layout.Widge
 			currentRow.spans = append(currentRow.spans, SpanStyle{Content: string(st), Font: font.Font{Style: font.Italic}})
 		case boldItalic:
 			currentRow.spans = append(currentRow.spans, SpanStyle{Content: string(st), Font: font.Font{Weight: font.Bold, Style: font.Italic}})
-		case boxed:
-			currentRow.spans = append(currentRow.spans,
-				SpanStyle{Content: " ", Size: 24},
-				SpanStyle{Content: strings.TrimSpace(string(st)), Decorator: roundedBox()},
-				SpanStyle{Content: " ", Size: 24},
-			)
 		case button:
 			currentRow.spans = append(currentRow.spans,
 				SpanStyle{Content: " ", Size: 24},
@@ -337,8 +340,10 @@ func buildContent(h *holder, alignment text.Alignment, src content) layout.Widge
 
 func (h *holder) header(gtx layout.Context) layout.FlexChild {
 	if h.searching {
+		h.window.Option(app.Title("GoGoL Help - Search"))
 		return h.searchHeader(gtx)
 	}
+	h.window.Option(app.Title("GoGoL Help - " + strings.TrimSuffix(h.topic.String(), " Help")))
 	if h.index.Clicked(gtx) {
 		h.backs = append(h.backs, h.topic)
 		h.topic = Index
@@ -353,15 +358,50 @@ func (h *holder) header(gtx layout.Context) layout.FlexChild {
 		h.searching = true
 		h.window.Invalidate()
 	}
+	if h.copy.Clicked(gtx) {
+		if c, ok := contents[h.topic]; ok {
+			if h.topic == Index {
+				copyIndexHtml(gtx)
+			} else {
+				copyHtml(gtx, h.topic, c)
+			}
+		}
+	}
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Inset{Top: 8, Bottom: 8, Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Label(h.theme, (h.theme.TextSize*5)/4, h.topic.String())
-					lbl.MaxLines = 1
-					lbl.Font.Weight = font.Bold
-					return lbl.Layout(gtx)
+					return layout.Flex{Axis: layout.Horizontal, Gap: 10}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if _, exists := contents[h.topic]; exists {
+								wh := gtx.Sp((h.theme.TextSize * 5) / 6)
+								icon := Image{
+									name:        "copy-icon.png",
+									width:       wh,
+									height:      wh,
+									spaceBefore: 4,
+								}
+								return clickable(gtx, &h.copy, icon.widget(h))
+							}
+							return layout.Dimensions{}
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Label(h.theme, (h.theme.TextSize*5)/4, h.topic.String())
+							lbl.MaxLines = 1
+							lbl.Font.Weight = font.Bold
+							return lbl.Layout(gtx)
+						}),
+					)
 				}),
+				/*
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Label(h.theme, (h.theme.TextSize*5)/4, h.topic.String())
+						lbl.MaxLines = 1
+						lbl.Font.Weight = font.Bold
+						return lbl.Layout(gtx)
+					}),
+
+				*/
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -500,7 +540,7 @@ func (h *holder) searchHeader(gtx layout.Context) layout.FlexChild {
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Clickable(gtx, &h.exit, func(gtx layout.Context) layout.Dimensions {
+					return clickable(gtx, &h.exit, func(gtx layout.Context) layout.Dimensions {
 						return material.Label(h.theme, (h.theme.TextSize*5)/4, "ⓧ").Layout(gtx)
 					})
 				}),
@@ -519,13 +559,12 @@ func (h *holder) searchHeader(gtx layout.Context) layout.FlexChild {
 
 func linkLabel(btn *widget.Clickable, theme *material.Theme, s string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
+		return clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
 			return layout.Stack{}.Layout(gtx,
 				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 					lbl := material.Label(theme, theme.TextSize, s)
 					lbl.MaxLines = 1
 					lbl.Color = linkColor
-					pointer.CursorPointer.Add(gtx.Ops)
 					return lbl.Layout(gtx)
 				}),
 				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
@@ -542,6 +581,14 @@ func linkLabel(btn *widget.Clickable, theme *material.Theme, s string) layout.Wi
 			)
 		})
 	}
+}
+
+func clickable(gtx layout.Context, button *widget.Clickable, w layout.Widget) layout.Dimensions {
+	return button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		semantic.Button.Add(gtx.Ops)
+		pointer.CursorPointer.Add(gtx.Ops)
+		return w(gtx)
+	})
 }
 
 func openURL(url string) error {

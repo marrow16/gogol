@@ -128,13 +128,13 @@ func (c *Core) Run(w *app.Window) error {
 		case app.FrameEvent:
 			var ops op.Ops
 			gtx := app.NewContext(&ops, e)
+			c.windowRect = clip.Rect{Max: gtx.Constraints.Max}
+			c.settings.ScreenWidth = int(float32(c.windowRect.Max.X) / gtx.Metric.PxPerDp)
+			c.settings.ScreenHeight = int(float32(c.windowRect.Max.Y) / gtx.Metric.PxPerDp)
 			if c.fileFinder != nil && c.fileFinder.showing {
 				c.fileFinder.layout(gtx)
 			} else {
 				c.handleKeys(gtx)
-				c.windowRect = clip.Rect{Max: gtx.Constraints.Max}
-				c.settings.ScreenWidth = int(float32(c.windowRect.Max.X) / gtx.Metric.PxPerDp)
-				c.settings.ScreenHeight = int(float32(c.windowRect.Max.Y) / gtx.Metric.PxPerDp)
 				paint.FillShape(gtx.Ops, backgroundColor, c.windowRect.Op())
 				layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Flexed(1, c.gridHolder.layout),
@@ -234,7 +234,7 @@ func (c *Core) handleKeys(gtx layout.Context) {
 		case key.Event:
 			if evt.State == key.Press {
 				if (c.mode == noMode || c.mode == heatMapMode) && evt.Modifiers == key.ModAlt {
-					if c.userShortcutKeys(evt.Name) {
+					if c.runShortcut(string(evt.Name)) {
 						return
 					} else if fn, ok := altCommands[evt.Name]; ok {
 						fn(gtx, c)
@@ -300,7 +300,7 @@ func (c *Core) showHelp(topic help.Topic) {
 			}
 		}
 	}
-	help.Show(topic)
+	help.Show(topic, c.settings)
 	if w := help.HelpWindow(); w != nil {
 		go func() {
 			w.Perform(system.ActionRaise)

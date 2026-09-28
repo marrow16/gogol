@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GoGoL File Finder Help</title>
+    <style>
+        body {
+            font-size: 110%;
+        }
+        code {
+            background-color: rgba(128,128,128,0.25);
+        }
+        pre {
+            background-color: rgba(128,128,128,0.25);
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+            margin: 0;
+        }
+        h1,h2,h3,h4,h5,h6 {
+            margin: 0;
+        }
+        details {
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        .link {
+            color: rgb(102,128,230);
+        }
+        .button {
+            padding: 0 4px 0 4px;
+            border: 1px solid rgb(128,128,128);
+            border-radius: 4px;
+            background-color: rgba(128,128,128,0.25);
+        }
+        .key {
+            padding: 0 4px 0 4px;
+            border: 1px solid black;
+            border-radius: 4px;
+        }
+        .hanging {
+            display: flex;
+        }
+        table {
+            text-align: left;
+            border-collapse: collapse;
+        }
+        table.bordered, table.bordered th, table.bordered td {
+            border: 1px solid rgb(128, 128, 128);
+        }
+        table th, table td {
+            padding: var(--cell-padding);
+        }
+    </style>
+</head>
+<body>
+File finder is the built-in file (and path) selector for GoGoL - replacing native OS file finders and file open dialogs.<br>It specifically allows previewing <code>.rle</code> files (including meta data). It also allows limited previewing of <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code> and <code>.gif</code> files.<br><br>The file finder can be reached by pressing the <span class="button">...</span> button in <span class="link">Load Patterns</span>, <span class="link">Grid Recipes</span> or <span class="link">Import Grid</span>.<h3 style="margin-top:8px;margin-bottom:4px;">Usage</h3><strong>Path</strong> shows the current path:<div style="margin-left:20px;margin-bottom:8px;"><div class="hanging"><div>•&nbsp;</div><div>Click on any of the path items to navigate up the folder path.</div></div><div class="hanging"><div>•&nbsp;</div><div>Press key <span class="key">←</span> to navigate up to parent folder.</div></div></div>The left pane shows the list of files and folders in the current path:<div style="margin-left:20px;margin-bottom:8px;"><div class="hanging"><div>•&nbsp;</div><div>Clicking on any file or folder selects it.</div></div><div class="hanging"><div>•&nbsp;</div><div>Use keys <span class="key"> ↑ </span> <span class="key"> ↓ </span> <span class="key">PgUp</span> <span class="key">PgDn</span> <span class="key">Home</span> and <span class="key">End</span> to navigate.</div></div><div class="hanging"><div>•&nbsp;</div><div>When on a folder, click again or press <span class="key">→</span> to navigate into that folder.</div></div><div class="hanging"><div>•&nbsp;</div><div>Press any character key to navigate to the next file/folder whose name starts with that character.</div></div></div>The right pane shows the details of the currently selected file or folder:<div style="margin-left:20px;margin-bottom:8px;"><div class="hanging"><div>•&nbsp;</div><div>If the currently selected file is a <code>.rle</code>, <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code> or <code>.gif</code> - a preview is displayed.</div></div></div>The bottom pane shows controls:<div style="margin-left:20px;margin-bottom:8px;"><div class="hanging"><div>•&nbsp;</div><div>Use the <span class="button">Only show selectable files</span> checkbox to limit files shown to only those that can be selected.</div></div><div class="hanging"><div>•&nbsp;</div><div>Click <span class="button">Open</span> button to select the current file/folder and return to the calling popout.<br><em>This button will be disabled if the current file type is not allowed or selecting a folder when folder selection is not permissible.</em></div></div><div class="hanging"><div>•&nbsp;</div><div>Click on <span class="button">Cancel</span> button or press <span class="key">Esc</span> to exit file finder</div></div></div><em>Note: Clicking on the window close will </em><strong><em>not</em></strong> close the file finder - it will close the entire application!</body></html>

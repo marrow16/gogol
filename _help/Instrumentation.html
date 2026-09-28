@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GoGoL Instrumentation Help</title>
+    <style>
+        body {
+            font-size: 110%;
+        }
+        code {
+            background-color: rgba(128,128,128,0.25);
+        }
+        pre {
+            background-color: rgba(128,128,128,0.25);
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+            margin: 0;
+        }
+        h1,h2,h3,h4,h5,h6 {
+            margin: 0;
+        }
+        details {
+            border: 1px solid black;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        .link {
+            color: rgb(102,128,230);
+        }
+        .button {
+            padding: 0 4px 0 4px;
+            border: 1px solid rgb(128,128,128);
+            border-radius: 4px;
+            background-color: rgba(128,128,128,0.25);
+        }
+        .key {
+            padding: 0 4px 0 4px;
+            border: 1px solid black;
+            border-radius: 4px;
+        }
+        .hanging {
+            display: flex;
+        }
+        table {
+            text-align: left;
+            border-collapse: collapse;
+        }
+        table.bordered, table.bordered th, table.bordered td {
+            border: 1px solid rgb(128, 128, 128);
+        }
+        table th, table td {
+            padding: var(--cell-padding);
+        }
+    </style>
+</head>
+<body>
+The <strong>Instrumentation</strong> popout is accessed from the <span class="link">main menu</span>.<br>Instrumentation provides tools for analysing and recording the behaviour of the grid. Each instrument can be independently enabled or disabled using its checkbox.<br><br>The following tools are available:<br><br><strong>Repeat Detect</strong><br>When enabled, monitors successive generations looking for a grid state that has occurred previously. When a repeat is found, <strong>First</strong> and <strong>Repeat</strong> show the generations containing the matching states, and <strong>Period</strong> shows the number of generations between them.<br>Also, when a repeat is detected for the first time, the running simulation will stop and the repeat found is notified on the <span class="link">statusbar</span><div class="hanging" style="gap:10px;margin-left:10px;"><div><span class="button">Reset</span></div><div>clears the current repeat detection history.</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div><span class="button">Save Report</span></div><div>saves a report of the detected repeat as a <code>.json</code> file in the documents/GoGoL folder.</div></div><hr><strong>Record</strong><br>When enabled, retains previous generations, allowing the simulation to be stepped backwards and for animations to be saved.<div class="hanging" style="gap:10px;margin-left:10px;"><div><strong>Steps recorded</strong></div><div>shows the number of generations currently retained.</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div><strong>Skip back by</strong></div><div>determines how many generations are skipped when using the skip-back control.<br>Press <span class="key">⌥⌫</span> or use <img src="data:image/png;base64,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" style="width:1.2em;height:1.2em;vertical-align:text-bottom;"> button on <span class="link">statusbar</span></div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div><span class="button">Reset</span></div><div>to discard the current recorded history.</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div><span class="button">Save Animation</span></div><div> to save the recorded steps as an animation - <strong>Gif</strong> or <strong>Mp4</strong> file.</div></div><em>Note: The Mp4 option is only available when </em><code>ffmpeg</code><em> is installed.</em> [see <a href="https://ffmpeg.org/">https://ffmpeg.org/</a>]<br><em>WARNING: Saving animations above 1000 or so steps can produce very large files!</em><hr><strong>Heat Mapping</strong><br>Accumulates cell activity over successive generations that can be visualised as a heat map image.<br><strong>Type</strong> determines the information accumulated:<div class="hanging" style="margin-left:20px;"><div><strong>• Activity</strong> -&nbsp;</div><div>how frequently each cell changes state.</div></div><div class="hanging" style="margin-left:20px;"><div><strong>• Age</strong> -&nbsp;</div><div>the current age of alive cells.</div></div><div class="hanging" style="margin-left:20px;"><div><strong>• Births</strong> -&nbsp;</div><div>how frequently a cell becomes alive.</div></div><div class="hanging" style="margin-left:20px;"><div><strong>• Freshness</strong> -&nbsp;</div><div>how recently each cell changed state.</div></div><div class="hanging" style="margin-left:20px;"><div><strong>• Longevity</strong> -&nbsp;</div><div>the maximum continuous age ever attained by each cell.</div></div><div class="hanging" style="margin-left:20px;"><div><strong>• Occupancy</strong> -&nbsp;</div><div>how many generations each cell location has been alive.</div></div><div class="hanging" style="margin-left:20px;"><div><strong>• Phase Parity</strong> -&nbsp;</div><div>distinguishes activity occurring on odd and even generations.</div></div><div class="hanging" style="margin-left:20px;"><div><strong>• All</strong> -&nbsp;</div><div>collects all the above heat map measurements.</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div><span class="button">Reset</span></div><div>to clear the accumulated heat map data.</div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div><span class="button">Reveal</span></div><div>to display the heat map image.<br>Or press <span class="key">⌥H</span>. See also <span class="link">heat map display</span></div></div><div class="hanging" style="gap:10px;margin-left:10px;"><div><span class="button">Save Image</span></div><div> to save the heat map image as a <code>.png</code> file in the documents/GoGoL folder.<br>If <strong>All</strong> is active - images for each heat map type are saved.</div></div></body></html>

@@ -1,14 +1,18 @@
 package help
 
 var contentShortcuts = content{
-	"Use the ", bold("Shortcuts"), " popout from the ", MainMenu.link("main menu"), " to create or edit keyboard shortcuts.\n\n",
-	"A shortcut can be assigned to any ", bold("Key"), " and is activated using ", keys{altMac}, " combined with your chosen key.\n\n",
-	"Each key has ", bold("Actions"), " assigned to it - see ", ShortCutsRef.link("reference"), " for available actions.\n\n",
-	italic("Note: Shortcuts "), boldItalic("do not"), italic(" prohibit you assigning keys already assigned by GoGoL!"),
+	"The ", bold("Shortcuts"), " popout is available from the ", MainMenu.link("main menu"), ".\n\n",
+	"Shortcuts are named macros that can execute an action or series of actions in GoGoL.\n\n",
+	"Select an existing shortcut ", " from the dropdown, or enter a new name to create a new shortcut.\n\n",
+	"If the shortcut name matches a keyboard key, it can be invoked by pressing ", keys{altMac}, " plus that key.",
+	" For example, a shortcut named ", bold("A"), " can be invoked by pressing ", keys{altMac, "A"},
+	" - likewise, a shortcut named ", bold("F1"), " can be invoked with ", keys{altMac, "F1"}, "\n",
+	italic("Note: Shortcut keys can override can override GoGoL assigned keys."), "\n\n",
+	"Having selected or created a shortcut, use the ", bold("Actions"), " area to edit the actions associated - each action on a new line. See ", ShortCutsRef, ".",
 }
 
 var contentShortCutsRef = content{
-	"This page shows describes all of the shortcut actions that can be used to create ", ShortCuts.link("shortcuts"),
+	"This reference describes all of the actions that can be used within ", ShortCuts.link("shortcuts"),
 	table{
 		borders: true,
 		padding: 4,
@@ -24,6 +28,7 @@ var contentShortCutsRef = content{
 		rows: []tableRow{
 			{{codeCopyable("borders:bool")}, {"Sets the current grid cell borders on/off (", code("true"), "|", code("false"), ")"}},
 			{{codeCopyable("boundary-mode:mode")}, {"Sets the current grid boundary ", italic("mode"), " (", code(`Dead`), "|", code(`Alive`), ")"}},
+			{{codeCopyable("call-shortcut:name")}, {"Calls another shortcut by ", italic("name")}},
 			{{codeCopyable("cell-color-alive:color")}, {"Sets the current grid cell alive ", italic("color"), " (as HTML hex color, ", code(`#rrggbb`), ")"}},
 			{{codeCopyable("cell-color-dead:color")}, {"Sets the current grid cell dead ", italic("color"), " (as HTML hex color, ", code(`#rrggbb`), ")"}},
 			{{codeCopyable("cell-color-border:color")}, {"Sets the current grid cell border ", italic("color"), " (as HTML hex color, ", code(`#rrggbb`), ")"}},
@@ -35,7 +40,7 @@ var contentShortCutsRef = content{
 				"Exports the current grid as PNG with ", italic("metadata"),
 				"\nWhere ", italic("metadata"), " is a semi-colon delimited list of key/value pairs. Example:\n",
 				"  ", codeCopyable("export-image:Author=Me;Rule=%rule"),
-				"\n", italic("Note: Values can contain format tokens - see "), code("name:format"),
+				"\nValues can contain format tokens.", shortcutFormatTokens,
 			}},
 			{{codeCopyable("grid-height:n")}, {"Sets the current grid height to ", italic("n"), " (2-1000)"}},
 			{{codeCopyable("grid-size:wXh")}, {"Sets the current grid size to ", italic("w"), " (width) X ", italic("h"), " (height)"}},
@@ -53,24 +58,11 @@ var contentShortCutsRef = content{
 				"Saves the current heat map as PNG with ", italic("metadata"),
 				"\nWhere ", italic("metadata"), " is a semi-colon delimited list of key/value pairs. Example:\n",
 				"  ", codeCopyable("heat-map-save:Author=Me;Rule=%rule"),
-				"\n", italic("Note: Values can contain format tokens - see "), code("name:format"),
+				"\nValues can contain format tokens.", shortcutFormatTokens,
 			}},
-			{{codeCopyable("log:format")}, {"Logs a message to ", code(`output.log`), " file - `format` is the same as `name:format`"}},
+			{{codeCopyable("log:message")}, {"Logs a message to ", code(`output.log`), " file - the ", italic("message"), " is any string, possibly containing format tokens.", shortcutFormatTokens}},
 			{{codeCopyable("max-adjacents:n")}, {"Alters the current grid so that no cell can have more than ", italic("n"), " alive neighbours"}},
-			{{codeCopyable("name:format")}, {"Sets the name for output files (e.g. exports, heat map images)\nThe name can be any string that is a valid filename/filepath - plus any of the following format tokens:",
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%rule"), " e.g. transposed to `B2/S23`"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%born"), " e.g. transposed to `B2`"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%survives"), " e.g. transposed to `S23`"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%perm"), " e.g. transposed to `4108`"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%rand"), " transposed to current randomization setting"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%now"), " transposed to a date/time stamp"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%r"), " transposed to repeat iteration(s)"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%R"), " transposed to last (current) repeat iteration"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%step"), " transposed to the current step of the grid"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%population"), " transposed to the current population of the grid"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%repeat-found"), " transposed to whether a repeat was found (`true`|`false`)"}},
-				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%repeat-first"), " ", codeCopyable("%repeat-at"), " and ", codeCopyable("%repeat-period"), " transposed to repeat information"}}},
-			},
+			{{codeCopyable("name:format")}, {"Sets the name for output files (e.g. exports, heat map images)\nThe name can be any string that is a valid filename/filepath - plus any format tokens.", shortcutFormatTokens}},
 			{{codeCopyable("random-additions")}, {"Applies random additions (alive cells) to the current grid (according to current randomization setting)"}},
 			{{codeCopyable("random-additions:n")}, {"Applies random additions (alive cells) to the current grid - according to ", italic("n"), " (0-100)"}},
 			{{codeCopyable("random-changes")}, {"Applies random changes (noise) to the current grid (according to current randomization setting)"}},
@@ -148,5 +140,200 @@ var contentShortCutsRef = content{
 			{{codeCopyable("iterate-collected-rules")}, {"Iterates over collected rules"}},
 		},
 		spaceBefore: 8,
+	},
+	expandable{border: true, indent: 4, padding: 4, spaceBefore: 8,
+		title: content{bold("Advanced - Variables")},
+		content: content{
+			"Shortcut variables:",
+			indent{indent: 4, content: content{
+				hanging{prefix: "• ", content: "Add persistent, reusable state to shortcuts. They can be used to store values, construct or modify values over a sequence of actions, and pass those values to and from other shortcut actions. Variables are shared between shortcuts, including shortcuts invoked using call-shortcut, and their values are retained between application runs."},
+				hanging{prefix: "• ", content: "Store values as text. When a variable is used, its value is interpreted according to the type required by the action. This allows variables to supply text, numbers, colours, rule permutations, and other supported values without variables themselves having a fixed type. If a value cannot be converted to the required type, the action/operation is ignored."},
+				hanging{prefix: "• ", content: "Values may include substitutions from other variables and format tokens, allowing values to be constructed dynamically from the current application state. Arithmetic and bitwise operations provide further manipulation where appropriate."},
+				hanging{prefix: "• ", content: "Can control repetition and stepping, change application settings, construct filenames or colours, manipulate rules, and support more complex macro-like sequences without requiring an expression language."},
+			}},
+			h4("Declaration"),
+			indent{indent: 8, content: content{
+				"To declare (set) a variable as an action:",
+				codeBlock{code: `variable:name=value`},
+				"where:",
+				hanging{prefix: content{code("name"), " "}, content: "is a non-empty string name for the variable"},
+				hanging{prefix: content{code("value"), " "}, content: "is the initial value for the variable - which may include format tokens and/or references to other variables"},
+			}},
+			h4("Manipulation"),
+			indent{indent: 8, content: content{
+				"Existing variables can be manipulated using the following basic syntax:",
+				codeBlock{code: `variable:name operator operand`},
+				"where ", code("operator"), " can be:",
+				hanging{prefix: content{code("+="), " "}, content: content{
+					"adds the operand value to the named variable value\n",
+					italic("If both the named variable and operand are integer values then an arithmetic addition is performed - otherwise a string concatenation is performed."),
+					hanging{prefix: "Examples: ", content: content{
+						codeBlock{code: `variable:myvar=1
+variable:myvar += 2
+log:$$myvar is now $myvar
+variable:myvar +=foo
+log:$$myvar is now $myvar`},
+					}},
+				}},
+				hanging{prefix: content{code("-="), " "}, content: content{
+					"subtracts the operand value from the named variable value\n",
+					italic("Both the named variable and operand must be integer values - otherwise no operation is performed."),
+					hanging{prefix: "Example: ", content: content{
+						codeBlock{code: `variable:myvar=3
+variable:myvar -= 2`},
+					}},
+				}},
+				hanging{prefix: content{code("*="), " "}, content: content{
+					"multiplies the named variable value by the operand value (and stores result back to the variable)\n",
+					italic("Both the named variable and operand must be integer values - otherwise no operation is performed."),
+				}},
+				hanging{prefix: content{code("/="), " "}, content: content{
+					"divides the named variable value by the operand value (and stores result back to the variable)\n",
+					italic("Both the named variable and operand must be integer values - otherwise no operation is performed."),
+				}},
+				hanging{prefix: content{code("&="), " "}, content: content{
+					"performs bit AND of the named variable value and operand value (and stores result back to the variable)\n",
+					italic("Both the named variable and operand must be integer values - otherwise no operation is performed."),
+				}},
+				hanging{prefix: content{code("|="), " "}, content: content{
+					"performs bit OR of the named variable value and operand value (and stores result back to the variable)\n",
+					italic("Both the named variable and operand must be integer values - otherwise no operation is performed."),
+				}},
+				hanging{prefix: content{code("^="), " "}, content: content{
+					"performs bit XOR of the named variable value and operand value (and stores result back to the variable)\n",
+					italic("Both the named variable and operand must be integer values - otherwise no operation is performed."),
+				}},
+				hanging{prefix: content{code("++"), " "}, content: content{
+					boldItalic("(no operand)"), " increments the named variable value\n",
+					italic("The named variable must be an integer value - otherwise no operation is performed."),
+				}},
+				hanging{prefix: content{code("--"), " "}, content: content{
+					boldItalic("(no operand)"), " decrements the named variable value\n",
+					italic("The named variable must be an integer value - otherwise no operation is performed."),
+				}},
+			}},
+			h4("Usage"),
+			indent{indent: 8, content: content{
+				"Variables may be used as format tokens by prefixing the variable name with $. The variable reference is replaced with its current value before the action is performed.",
+				hanging{prefix: "Example: ", content: content{
+					codeBlock{code: `variable:steps=100
+step-ahead-by:$steps`},
+				}},
+				"\nVariable references may also be embedded within other text and combined with other variables or format tokens",
+				hanging{prefix: "Example: ", content: content{
+					codeBlock{code: `variable:R=AA
+variable:G=00
+variable:B=80
+variable:rgb=#$R$G$B
+cell-color-alive:$rgb`},
+				}},
+			}},
+		},
+	},
+	expandable{border: true, indent: 4, padding: 4, spaceBefore: 8,
+		title: content{bold("Advanced - Stopping/Breaking")},
+		content: content{
+			bold("Stopping and breaking provide simple conditional control over shortcut execution."),
+			" A shortcut, called shortcut, or repeat loop can be terminated when a specified condition becomes true.\n",
+			hanging{prefix: content{code(`stop-if`), " "}, content: content{
+				"stops the entire shortcut execution. This applies regardless of where it occurs, including within a repeat loop or a shortcut invoked using call-shortcut.",
+				hanging{prefix: "Example: ", content: content{
+					codeBlock{code: `stop-if:%MM > 9`},
+					italic("stops the entire shortcut execution if the current month is greater than September"),
+				}},
+			}},
+			hanging{prefix: content{code(`break-if`), " "}, content: content{
+				"stops only the current execution scope. Within a repeat loop it breaks from that loop, allowing execution to continue with the following action. Within a called shortcut it stops that shortcut and returns to its caller. At the top level it stops the current shortcut.",
+				hanging{prefix: "Example: ", content: content{
+					codeBlock{code: `variable:perc50=%grid-width
+variable:perc50 *= %grid-height
+variable:perc50 /= 2
+break-if:%population < $perc50`},
+					italic("stops the current shortcut scope if the grid population is less than 50%"),
+				}},
+			}},
+			"Notes:",
+			hanging{indent: 8, prefix: "• ", content: content{
+				"Allowed comparators are ", code("=="), italic(" (equals)"), ", ", code("!="), italic(" (not equals)"),
+				", ", code(">"), italic(" (greater than)"), ", ", code("<"), italic(" (less than)"),
+				", ", code(">="), italic(" (greater than or equals)"), " and ", code("<="), italic(" (less than or equals)"),
+			}},
+			hanging{indent: 8, prefix: "• ", content: content{
+				"If both values resolve to integers then a numeric comparison is evaluated - otherwise a case-insensitive string comparison is evaluated.",
+			}},
+			hanging{indent: 8, prefix: "• ", content: content{
+				"Both compared values can be explicit, format tokens or variables.",
+			}},
+		},
+	},
+}
+
+var shortcutFormatTokens = expandable{
+	border:      true,
+	indent:      8,
+	rightMargin: 8,
+	title:       "Format tokens",
+	content: content{
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%rule"), " e.g. transposed to `B2/S23`"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%born"), " or ", codeCopyable("%rule-born-with"), " e.g. transposed to `B2`"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%survives"), " or ", codeCopyable("%rule-survives-with"), " e.g. transposed to `S23`"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%perm"), " or ", codeCopyable("%rule-perm"), " e.g. transposed to `4108`"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%step"), " transposed to the current step of the grid"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%population"), " transposed to the current population of the grid"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%R"), " transposed to last (current) repeat iteration"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%r"), " transposed to repeat iteration(s)"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%rand"), " transposed to current randomization setting"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%repeat-detecting"), " whether repeat detect is on/off (`1`/`0`)"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%repeat-at"), " transposed to repeat at step"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%repeat-first"), " transposed to repeat first step"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%repeat-found"), " transposed to whether a repeat was found (", code(`0`), "|", code(`1`), ")"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%repeat-period"), " transposed to repeat period"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%record"), " whether record is on/off (`1`/`0`)"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%recorded-steps"), " the number of recorded steps"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%heat-map"), " whether heat mapping is on/off (`1`/`0`)"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%heat-map-type"), " the current heat mapping type"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%step-ahead"), " the current step ahead setting"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%step-back"), " the current step back setting"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{
+			codeCopyable("%wrap-mode"), ", ", codeCopyable("%boundary-mode"), ", ", codeCopyable("%step-delay"), ", ",
+			codeCopyable("%grid-width"), ", ", codeCopyable("%grid-height"), ", ", codeCopyable("%grid-size"), ", ",
+			codeCopyable("%cell-size"), ", ", codeCopyable("%borders"), ", ",
+			codeCopyable("%cell-color-alive"), ", ", codeCopyable("%cell-color-dead"), ", ", codeCopyable("%cell-color-border"),
+			"\nmiscellaneous current settings"},
+		},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%now"), " transposed to current date/time (in format `YYYY-MM-DD hh-mm-ss-nnn`)"}},
+		hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%timestamp"), " transposed to current date/time (in format `YYYY-MM-DDThh-mm-ss.nnnZ`)"}},
+		expandable{border: true, indent: 6, spaceAfter: 6, rightMargin: 6,
+			title: content{bold("Individual date/time format tokens")},
+			content: content{
+				"Format tokens ", codeCopyable(`%now`), " and ", codeCopyable(`%timestamp`), " are pre-defined date/time formats - you can compose your own date/time formatting using the following tokens:",
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%YYYY"), " 4 digit year (e.g. `2026`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%YY"), " 2 digit year (e.g. `26`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%MM"), " 2 digit month (e.g. `09`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%M"), " 1 or 2 digit month (e.g. `9`, `10`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%DD"), " 2 digit day (e.g. `09`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%D"), " 1 or 2 digit day (e.g. `9`, `10`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%Dth"), " suffixed day (e.g. `1st`, `2nd`, `3rd`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%Mmm"), " Abbreviated month name (e.g. `Sep`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%Mmmm"), " Full month name (e.g. `September`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%Ddd"), " Abbreviated day of week (e.g. `Fri`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%Dddd"), " Full day of week (e.g. `Friday`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%hh"), " 2 digit hour, 24-hour clock  (e.g. `16`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%h"), " 1 or 2 digit hour, 12-hour clock (e.g. `4`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%pm"), " AM/PM, 12-hour clock (e.g. `am`|`pm`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%PM"), " AM/PM, 12-hour clock (e.g. `AM`|`PM`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%mm"), " 2 digit minutes"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%ss"), " 2 digit seconds"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%nnn"), " 3 digit milliseconds"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%nnnnnn"), " 6 digit nanoseconds"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%tz"), " Timezone offset (e.g. `±hhmm`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%tzhm"), " Timezone offset (e.g. `±hh:mm`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%tzz"), " Timezone offset (e.g. `Z` or `±hhmm`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%tzzhm"), " Timezone offset (e.g. `Z` or `±hh:mm`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%ww"), " 2 digit ISO-8601 week number (e.g. `01`, `52`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%w"), " 1 or 2 digit ISO-8601 week number (e.g. `1`, `52`)"}},
+				hanging{gap: 10, indent: 10, prefix: "•", content: content{codeCopyable("%wy"), " 4 digit ISO-8601 week number year"}},
+			},
+		},
 	},
 }
