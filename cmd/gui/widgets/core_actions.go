@@ -456,6 +456,12 @@ func (c *Core) increaseGridWidth() {
 	c.settingsChanged()
 }
 
+func (c *Core) tempStatus(s string) {
+	c.status = s
+	c.statusExpires = time.Now().Add(3 * time.Second)
+	window.Invalidate()
+}
+
 func (c *Core) decreaseGridHeight() {
 	c.stop()
 	if c.settings.Height > 2 {
@@ -734,7 +740,7 @@ func (c *Core) setInstrumentationHeatMapper(hmt logic.HeatMapperType) {
 	c.updateInstrumentation()
 }
 
-func (c *Core) saveHeatMapImage(metadata [][2]string) {
+func (c *Core) saveHeatMapImage(metadata [][2]string) (errs []error) {
 	c.stop()
 	if c.instrumentHeatMap != nil {
 		if all, ok := c.instrumentHeatMap.(*logic.AllHeatMapInstrument); ok {
@@ -756,6 +762,8 @@ func (c *Core) saveHeatMapImage(metadata [][2]string) {
 						BorderColor: c.settings.CellBorderColor,
 					}, c.settings.HeatMapColors)
 					_ = imaging.PngEncode(f, img, formatHeatmapMetadata(metadata, hm.Type()))
+				} else {
+					errs = append(errs, err)
 				}
 			}
 		} else {
@@ -772,9 +780,12 @@ func (c *Core) saveHeatMapImage(metadata [][2]string) {
 					BorderColor: c.settings.CellBorderColor,
 				}, c.settings.HeatMapColors)
 				_ = imaging.PngEncode(f, img, formatHeatmapMetadata(metadata, c.heatMapperType))
+			} else {
+				errs = append(errs, err)
 			}
 		}
 	}
+	return errs
 }
 
 const hmtToken = "%hmt"
@@ -807,7 +818,7 @@ func (c *Core) heatMapFilename(hmt logic.HeatMapperType, extension string) strin
 	return filename
 }
 
-func (c *Core) saveRepeatDetect() {
+func (c *Core) saveRepeatDetect() error {
 	c.stop()
 	if c.instrumentRepeat != nil {
 		filename := c.nowFilename("Repeat detection", ".json")
@@ -822,8 +833,11 @@ func (c *Core) saveRepeatDetect() {
 				"repeat": c.instrumentRepeat.RepeatStep,
 				"period": c.instrumentRepeat.Period,
 			})
+		} else {
+			return err
 		}
 	}
+	return nil
 }
 
 func (c *Core) isRecording() bool {

@@ -70,11 +70,12 @@ func (e externalLink) String() string {
 	return e.Text + " " + e.Url
 }
 
-type iconText struct {
+type icon struct {
+	alt   string
 	image image.Image
 }
 
-func (i iconText) String() string {
+func (i icon) String() string {
 	return ""
 }
 

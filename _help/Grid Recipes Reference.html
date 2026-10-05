@@ -1,58 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>GoGoL Grid Recipes Reference</title>
-  <style>
-    body {
-      font-size: 110%;
-    }
-    code {
-      background-color: rgba(128,128,128,0.25);
-    }
-    pre {
-      background-color: rgba(128,128,128,0.25);
-      border: 1px solid black;
-      border-radius: 4px;
-      padding: 4px;
-      margin: 0;
-    }
-    h1,h2,h3,h4,h5,h6 {
-      margin: 0;
-    }
-    details {
-      border: 1px solid black;
-      border-radius: 4px;
-      padding: 4px;
-    }
-    .link {
-      color: rgb(102,128,230);
-    }
-    .button {
-      padding: 0 4px 0 4px;
-      border: 1px solid rgb(128,128,128);
-      border-radius: 4px;
-      background-color: rgba(128,128,128,0.25);
-    }
-    .key {
-      padding: 0 4px 0 4px;
-      border: 1px solid black;
-      border-radius: 4px;
-    }
-    .hanging {
-      display: flex;
-    }
-    table {
-      text-align: left;
-      border-collapse: collapse;
-    }
-    table.bordered, table.bordered th, table.bordered td {
-      border: 1px solid rgb(128, 128, 128);
-    }
-    table th, table td {
-      padding: var(--cell-padding);
-    }
-  </style>
+	<meta charset="UTF-8">
+	<title>GoGoL Grid Recipes Reference</title>
+    <style>
+		body {
+			font-size: 110%;
+		}
+		code {
+			background-color: rgb(230,230,230);
+			white-space: nowrap;
+		}
+		pre {
+			background-color: rgb(230,230,230);
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+			margin: 0;
+		}
+		h1,h2,h3,h4,h5,h6 {
+			margin: 0;
+		}
+		details {
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+		}
+		.link {
+			color: rgb(102,128,230);
+		}
+		.button {
+			padding: 0 4px 0 4px;
+			border: 1px solid rgb(128,128,128);
+			border-radius: 4px;
+			background-color: rgba(128,128,128,0.25);
+		}
+		.icon {
+			display: inline-block;
+			width: 1.2em;
+			height: 1.2em;
+			vertical-align: text-bottom;
+			background-size: cover;
+		}
+		.key {
+			padding: 0 4px 0 4px;
+			border: 1px solid black;
+			border-radius: 4px;
+		}
+		.hanging {
+			display: flex;
+		}
+		table {
+			text-align: left;
+			border-collapse: collapse;
+		}
+		table.bordered, table.bordered th, table.bordered td {
+			border: 1px solid rgb(128, 128, 128);
+		}
+		table th, table td {
+			padding: var(--cell-padding);
+		}
+	</style>
 </head>
 <body>
 A Grid Recipe is a JSON document that describes how to construct an initial Game of Life grid.<br><br>Recipes are executed on demand and are not preloaded or cached. A recipe can be edited in any text editor and re-run immediately without restarting GoGoL.<br><br>Grid recipes can be loaded from the <span class="link">Grid Recipes</span> popout in the <span class="link">main menu</span>.<br>Once a recipe is selected in the popout, it can be executed by pressing <span class="key">⌥G</span> or by clicking the <span class="button">Run</span> button in the popout.<br><h3 style="margin-top:8px;">JSON Structure</h3>The overall structure is defined as:<pre>{

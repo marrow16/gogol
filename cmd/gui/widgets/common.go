@@ -298,6 +298,8 @@ func rigidLeftRight(minWd int, wl, wr layout.Widget) layout.FlexChild {
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		if minWd > 0 {
 			gtx.Constraints.Min.X = minWd
+		} else {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		}
 		return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
 			rigid(wl),

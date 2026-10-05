@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"gioui.org/io/clipboard"
-	"gioui.org/layout"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"github.com/marrow16/gogol/cmd/gui/help/images"
 	"html"
 	"image/png"
-	"io"
 	"slices"
 	"strconv"
 	"strings"
@@ -23,10 +20,11 @@ const htmlStyling = `
 			font-size: 110%;
 		}
 		code {
-			background-color: rgba(128,128,128,0.25);
+			background-color: rgb(230,230,230);
+			white-space: nowrap;
 		}
 		pre {
-			background-color: rgba(128,128,128,0.25);
+			background-color: rgb(230,230,230);
 			border: 1px solid black;
 			border-radius: 4px;
 			padding: 4px;
@@ -49,6 +47,13 @@ const htmlStyling = `
 			border-radius: 4px;
 			background-color: rgba(128,128,128,0.25);
 		}
+		.icon {
+			display: inline-block;
+			width: 1.2em;
+			height: 1.2em;
+			vertical-align: text-bottom;
+			background-size: cover;
+		}
 		.key {
 			padding: 0 4px 0 4px;
 			border: 1px solid black;
@@ -69,8 +74,7 @@ const htmlStyling = `
 		}
 	</style>`
 
-func copyIndexHtml(gtx layout.Context) {
-	var hb strings.Builder
+func copyIndexHtml(hb *strings.Builder) {
 	hb.WriteString(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -122,26 +126,42 @@ func copyIndexHtml(gtx layout.Context) {
 			display: block;
 		}
 	</style>
+	<style>
+		:root {`)
+	for _, i := range allIcons {
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, i.image); err == nil {
+			hb.WriteString("\n\t\t\t--img-")
+			hb.WriteString(i.alt)
+			hb.WriteString(`: url("data:image/png;base64,`)
+			hb.WriteString(base64.StdEncoding.EncodeToString(buf.Bytes()))
+			hb.WriteString(`");`)
+		}
+	}
+	hb.WriteString(`
+		}
+	</style>
 </head>
 <body>
 `)
 	hb.WriteString(`<div class="help"><div class="title"><span class="title">Index</span><div id="index" style="float:right;font-size:initial;">`)
-	hb.WriteString(`<details><summary>Index</summary><div class="details-content">`)
-	contents[Index].asHTML(&hb, true)
+	hb.WriteString(`<details id="index-details"><summary>Index</summary><div class="details-content">`)
+	contents[Index].asHTML(hb, true)
 	hb.WriteString(`</div></details>`)
 	hb.WriteString(`</div></div><div id="0" class="content" showing>`)
-	contents[Index].asHTML(&hb, true)
+	contents[Index].asHTML(hb, true)
 	hb.WriteString(`</div>`)
 	for t, c := range contents {
 		if t != Index {
-			hb.WriteString(`<div class="content" id="` + strconv.Itoa(int(t)) + `">`)
-			c.asHTML(&hb, true)
-			hb.WriteString(`</div>`)
+			hb.WriteString(`
+	<div class="content" id="` + strconv.Itoa(int(t)) + `">`)
+			c.asHTML(hb, true)
+			hb.WriteString("\n\t</div>")
 		}
 	}
 	hb.WriteString(`</div>`)
 	hb.WriteString(`
-	<script>
+	<script type="text/javascript">
 		const index = {`)
 	for t := range contents {
 		hb.WriteString(fmt.Sprintf(`%q:%q,`, strconv.Itoa(int(t)), t.String()))
@@ -152,6 +172,7 @@ func copyIndexHtml(gtx layout.Context) {
 			if (show) {
 				document.title = "GoGoL - " + show;
 				document.querySelector("span.title").innerHTML = show;
+				document.getElementById("index-details").removeAttribute("open");
 				document.querySelectorAll("div.content").forEach(element => {
 					element.toggleAttribute("showing", element.id == id);
 				});
@@ -178,14 +199,9 @@ func copyIndexHtml(gtx layout.Context) {
 	</script>
 `)
 	hb.WriteString(`</body></html>`)
-	gtx.Execute(clipboard.WriteCmd{
-		Type: "text/html",
-		Data: io.NopCloser(strings.NewReader(hb.String())),
-	})
 }
 
-func copyHtml(gtx layout.Context, t Topic, c content) {
-	var hb strings.Builder
+func copyHtml(hb *strings.Builder, t Topic, c content) {
 	hb.WriteString(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -196,12 +212,8 @@ func copyHtml(gtx layout.Context, t Topic, c content) {
 </head>
 <body>
 `)
-	c.asHTML(&hb, false)
+	c.asHTML(hb, false)
 	hb.WriteString(`</body></html>`)
-	gtx.Execute(clipboard.WriteCmd{
-		Type: "text/html",
-		Data: io.NopCloser(strings.NewReader(hb.String())),
-	})
 }
 
 func safeHtml(s string) string {
@@ -273,7 +285,7 @@ func (t topicLink) asHTML(hb *strings.Builder, full bool) {
 }
 
 func (e externalLink) asHTML(hb *strings.Builder, _ bool) {
-	hb.WriteString(`<a href="`)
+	hb.WriteString(`<a target="_blank" href="`)
 	hb.WriteString(safeHtml(e.Url))
 	hb.WriteString(`">`)
 	if len(e.Text) > 0 {
@@ -420,13 +432,19 @@ func (i indent) asHTML(hb *strings.Builder, full bool) {
 	hb.WriteString(`</div>`)
 }
 
-func (i iconText) asHTML(hb *strings.Builder, _ bool) {
+func (i icon) asHTML(hb *strings.Builder, full bool) {
+	if full && i.alt != "" {
+		hb.WriteString(`<span class="icon" style="background-image:var(--img-`)
+		hb.WriteString(i.alt)
+		hb.WriteString(`)"></span>`)
+		return
+	}
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, i.image); err == nil {
-		hb.WriteString(`<img src="data:image/png;base64,`)
+		hb.WriteString(`<img class="icon" src="data:image/png;base64,`)
 		data := buf.Bytes()
 		hb.WriteString(base64.StdEncoding.EncodeToString(data))
-		hb.WriteString(`" style="width:1.2em;height:1.2em;vertical-align:text-bottom;">`)
+		hb.WriteString(`">`)
 	}
 }
 

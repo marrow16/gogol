@@ -1,58 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>GoGoL Main Menu Help</title>
+	<meta charset="UTF-8">
+	<title>GoGoL Main Menu Help</title>
     <style>
-        body {
-            font-size: 110%;
-        }
-        code {
-            background-color: rgba(128,128,128,0.25);
-        }
-        pre {
-            background-color: rgba(128,128,128,0.25);
-            border: 1px solid black;
-            border-radius: 4px;
-            padding: 4px;
-            margin: 0;
-        }
-        h1,h2,h3,h4,h5,h6 {
-            margin: 0;
-        }
-        details {
-            border: 1px solid black;
-            border-radius: 4px;
-            padding: 4px;
-        }
-        .link {
-            color: rgb(102,128,230);
-        }
-        .button {
-            padding: 0 4px 0 4px;
-            border: 1px solid rgb(128,128,128);
-            border-radius: 4px;
-            background-color: rgba(128,128,128,0.25);
-        }
-        .key {
-            padding: 0 4px 0 4px;
-            border: 1px solid black;
-            border-radius: 4px;
-        }
-        .hanging {
-            display: flex;
-        }
-        table {
-            text-align: left;
-            border-collapse: collapse;
-        }
-        table.bordered, table.bordered th, table.bordered td {
-            border: 1px solid rgb(128, 128, 128);
-        }
-        table th, table td {
-            padding: var(--cell-padding);
-        }
-    </style>
+		body {
+			font-size: 110%;
+		}
+		code {
+			background-color: rgb(230,230,230);
+			white-space: nowrap;
+		}
+		pre {
+			background-color: rgb(230,230,230);
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+			margin: 0;
+		}
+		h1,h2,h3,h4,h5,h6 {
+			margin: 0;
+		}
+		details {
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+		}
+		.link {
+			color: rgb(102,128,230);
+		}
+		.button {
+			padding: 0 4px 0 4px;
+			border: 1px solid rgb(128,128,128);
+			border-radius: 4px;
+			background-color: rgba(128,128,128,0.25);
+		}
+		.icon {
+			display: inline-block;
+			width: 1.2em;
+			height: 1.2em;
+			vertical-align: text-bottom;
+			background-size: cover;
+		}
+		.key {
+			padding: 0 4px 0 4px;
+			border: 1px solid black;
+			border-radius: 4px;
+		}
+		.hanging {
+			display: flex;
+		}
+		table {
+			text-align: left;
+			border-collapse: collapse;
+		}
+		table.bordered, table.bordered th, table.bordered td {
+			border: 1px solid rgb(128, 128, 128);
+		}
+		table th, table td {
+			padding: var(--cell-padding);
+		}
+	</style>
 </head>
 <body>
-The main menu can be shown by clicking the <img src="data:image/png;base64,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" style="width:1.2em;height:1.2em;vertical-align:text-bottom;"> button on the status bar or by pressing key <span class="key">⌥M</span><br><br>The menu contains the following options:<br><br><strong>Help</strong> or press key <span class="key">F1</span><div style="margin-left:20px;margin-bottom:8px;">Show this help screen.</div><strong>About</strong><div style="margin-left:20px;margin-bottom:8px;">Shows application version and information.</div><strong>Patterns</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Patterns</span> popout.</div><strong>Captured Patterns</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Captured Patterns</span> popout.</div><strong>Load Patterns</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Load Patterns</span> popout.</div><strong>Instrumentation</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Instrumentation</span> popout.</div><strong>Shortcuts</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Shortcuts</span> popout.</div><strong>Meta Rules</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Meta Rules</span> popout.</div><strong>Collected Rules</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Collected Rules</span> popout.</div><strong>Grid Recipes</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Grid Recipes</span> popout.</div><strong>Size/Wrapping/Boundaries</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Size/Wrapping/Boundaries</span> popout.</div><strong>Stepping</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Stepping</span> popout.</div><strong>Colors</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Colors</span> popout.</div><strong>Snapshot</strong> or press key <span class="key">⌥S</span><div style="margin-left:20px;margin-bottom:8px;">Takes a snapshot of the current grid.</div><strong>Undo to snapshot</strong> or press key <span class="key">⌥Z</span><div style="margin-left:20px;margin-bottom:8px;">Restores the grid to the last snapshot.</div><strong>Export Grid</strong> or press key <span class="key">⌥X</span><div style="margin-left:20px;margin-bottom:8px;">Exports the current grid as a <code>.rle</code> file in the documents/GoGoL folder.</div><strong>Import Grid</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Import Grid</span> popout.</div><strong>Edit mode</strong> or press key <span class="key">⌥E</span><div style="margin-left:20px;margin-bottom:8px;">   Places the grid into edit mode.  See <span class="link"><em>Edit Mode</em></span></div><strong>Randomize</strong> or press key <span class="key">⌥R</span><div style="margin-left:20px;margin-bottom:8px;">Clears the current grid and adds random alive cells.</div><strong>Random Noise</strong> or press key <span class="key">⌥N</span><div style="margin-left:20px;margin-bottom:8px;">Adds random alive cells to the current grid.</div><strong>Clear</strong> or press key <span class="key">⌥C</span><div style="margin-left:20px;margin-bottom:8px;">Clears all cells in the current grid.</div></body></html>
+The main menu can be shown by clicking the <img class="icon" src="data:image/png;base64,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"> button on the status bar or by pressing key <span class="key">⌥M</span><br><br>The menu contains the following options:<br><br><strong>Help</strong> or press key <span class="key">F1</span><div style="margin-left:20px;margin-bottom:8px;">Show this help screen.</div><strong>About</strong><div style="margin-left:20px;margin-bottom:8px;">Shows application version and information.</div><strong>Patterns</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Patterns</span> popout.</div><strong>Captured Patterns</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Captured Patterns</span> popout.</div><strong>Load Patterns</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Load Patterns</span> popout.</div><strong>Instrumentation</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Instrumentation</span> popout.</div><strong>Shortcuts</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Shortcuts</span> popout.</div><strong>Meta Rules</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Meta Rules</span> popout.</div><strong>Collected Rules</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Collected Rules</span> popout.</div><strong>Grid Recipes</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Grid Recipes</span> popout.</div><strong>Size/Wrapping/Boundaries</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Size/Wrapping/Boundaries</span> popout.</div><strong>Stepping</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Stepping</span> popout.</div><strong>Colors</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Colors</span> popout.</div><strong>Snapshot</strong> or press key <span class="key">⌥S</span><div style="margin-left:20px;margin-bottom:8px;">Takes a snapshot of the current grid.</div><strong>Undo to snapshot</strong> or press key <span class="key">⌥Z</span><div style="margin-left:20px;margin-bottom:8px;">Restores the grid to the last snapshot.</div><strong>Export Grid</strong> or press key <span class="key">⌥X</span><div style="margin-left:20px;margin-bottom:8px;">Exports the current grid as a <code>.rle</code> file in the documents/GoGoL folder.</div><strong>Import Grid</strong><div style="margin-left:20px;margin-bottom:8px;">Shows the <span class="link">Import Grid</span> popout.</div><strong>Edit mode</strong> or press key <span class="key">⌥E</span><div style="margin-left:20px;margin-bottom:8px;">   Places the grid into edit mode.  See <span class="link"><em>Edit Mode</em></span></div><strong>Randomize</strong> or press key <span class="key">⌥R</span><div style="margin-left:20px;margin-bottom:8px;">Clears the current grid and adds random alive cells.</div><strong>Random Noise</strong> or press key <span class="key">⌥N</span><div style="margin-left:20px;margin-bottom:8px;">Adds random alive cells to the current grid.</div><strong>Clear</strong> or press key <span class="key">⌥C</span><div style="margin-left:20px;margin-bottom:8px;">Clears all cells in the current grid.</div></body></html>

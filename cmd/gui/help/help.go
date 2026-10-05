@@ -312,7 +312,7 @@ func buildContent(h *holder, alignment text.Alignment, src content) layout.Widge
 					_ = openURL(st.Url)
 				},
 			})
-		case iconText:
+		case icon:
 			currentRow.spans = append(currentRow.spans, SpanStyle{
 				Content:   "  ",
 				Size:      32,
@@ -360,11 +360,16 @@ func (h *holder) header(gtx layout.Context) layout.FlexChild {
 	}
 	if h.copy.Clicked(gtx) {
 		if c, ok := contents[h.topic]; ok {
+			var hb strings.Builder
 			if h.topic == Index {
-				copyIndexHtml(gtx)
+				copyIndexHtml(&hb)
 			} else {
-				copyHtml(gtx, h.topic, c)
+				copyHtml(&hb, h.topic, c)
 			}
+			gtx.Execute(clipboard.WriteCmd{
+				Type: "text/html",
+				Data: io.NopCloser(strings.NewReader(hb.String())),
+			})
 		}
 	}
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {

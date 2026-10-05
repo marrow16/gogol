@@ -1,7 +1,5 @@
 package help
 
-import "github.com/marrow16/gogol/cmd/gui/icons"
-
 var contentInstrumentation = content{
 	"The ", bold("Instrumentation"), " popout is accessed from the ", MainMenu.link("main menu"), ".\n",
 	"Instrumentation provides tools for analysing and recording the behaviour of the grid. Each instrument can be independently enabled or disabled using its checkbox.\n\n",
@@ -27,7 +25,7 @@ var contentInstrumentation = content{
 	hanging{indent: 10, gap: 10,
 		prefix: content{bold("Skip back by")},
 		content: content{"determines how many generations are skipped when using the skip-back control.\n",
-			"Press ", keys{altMac, keyBack}, " or use ", iconText{image: icons.SkipBackward}, " button on ", StatusBar.link("statusbar")},
+			"Press ", keys{altMac, keyBack}, " or use ", iconSkipBackward, " button on ", StatusBar.link("statusbar")},
 	},
 	hanging{indent: 10, gap: 10,
 		prefix:  content{button("Reset")},

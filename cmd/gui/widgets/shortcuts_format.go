@@ -9,7 +9,89 @@ import (
 	"time"
 )
 
-func (c *Core) shortcutToken(token shortcutToken, repeats []int, rIndex int, now time.Time) string {
+func (c *Core) shortcutFormat(s string, repeats []int) string {
+	rIndex := 0
+	runes := []rune(s)
+	l := len(runes)
+	isEscaped := func(i int, r rune) bool {
+		if i+1 < l {
+			return runes[i+1] == r
+		}
+		return true
+	}
+	hasPrefix := func(i int, prefix string) bool {
+		p := []rune(prefix)
+		return l >= i+1+len(p) && slices.Equal(runes[i+1:i+1+len(p)], p)
+	}
+	_ = hasPrefix
+	var b strings.Builder
+	b.Grow(l)
+	// sort current vars - longest names first...
+	vars := c.settings.ShortcutVariables.Clone()
+	orderedVars := make([][2]string, 0)
+	for k, v := range vars {
+		orderedVars = append(orderedVars, [2]string{k, v})
+	}
+	slices.SortFunc(orderedVars, func(a, b [2]string) int {
+		return len(b[0]) - len(a[0])
+	})
+	now := time.Now()
+	for i := 0; i < l; {
+		char := runes[i]
+		switch char {
+		case '%':
+			if isEscaped(i, char) {
+				b.WriteRune(char)
+				i += 2
+				continue
+			}
+			token := shortcutToken(-1)
+			tokenLen := 0
+			for _, tp := range shortcutFormatTokens {
+				if hasPrefix(i, tp.string) {
+					token = tp.token
+					tokenLen = len(tp.string)
+					break
+				}
+			}
+			if tokenLen == 0 {
+				b.WriteRune(char)
+				i++
+				continue
+			}
+			i += tokenLen
+			b.WriteString(c.shortcutToken(token, repeats, rIndex, vars, now))
+			if token == tokenIteration {
+				rIndex++
+			}
+		case '$':
+			if isEscaped(i, char) {
+				b.WriteRune(char)
+				i += 2
+				continue
+			}
+			// check for $var-name...
+			found := false
+			for _, v := range orderedVars {
+				if hasPrefix(i, v[0]) {
+					i += len(v[0])
+					b.WriteString(v[1])
+					found = true
+					break
+				}
+			}
+			if !found {
+				b.WriteRune(char)
+			}
+		default:
+			b.WriteRune(char)
+		}
+		i++
+	}
+	return b.String()
+}
+
+func (c *Core) shortcutToken(token shortcutToken, repeats []int, rIndex int, vars map[string]string, now time.Time) string {
 	switch token {
 	case tokenRule:
 		return c.gridHolder.grid.Rule().Rle()
@@ -97,6 +179,9 @@ func (c *Core) shortcutToken(token shortcutToken, repeats []int, rIndex int, now
 			return c.instrumentHeatMap.Type().String()
 		}
 		return logic.NoHeatMapper.String()
+	case tokenHmt:
+		// leave as-is - save heat map resolves it...
+		return "%hmt"
 	case tokenBorders:
 		if c.settings.CellBorders {
 			return "1"
@@ -184,6 +269,23 @@ func (c *Core) shortcutToken(token shortcutToken, repeats []int, rIndex int, now
 		return now.Format("Z0700")
 	case tokenTimeTZzhm:
 		return now.Format("Z07:00")
+	case tokenVariables:
+		sortedVars := make([][2]string, 0)
+		for k, v := range vars {
+			sortedVars = append(sortedVars, [2]string{k, v})
+		}
+		slices.SortFunc(sortedVars, func(a, b [2]string) int {
+			return strings.Compare(a[0], b[0])
+		})
+		var vb strings.Builder
+		vb.WriteString("variables:")
+		for _, name := range sortedVars {
+			vb.WriteString("\n\t$")
+			vb.WriteString(name[0])
+			vb.WriteString("=")
+			vb.WriteString(fmt.Sprintf("%q", name[1]))
+		}
+		return vb.String()
 	}
 	return "_"
 }
@@ -220,6 +322,7 @@ const (
 	tokenRecordSteps                           // %recorded-steps
 	tokenHeatMap                               // %heat-map
 	tokenHeatMapType                           // %heat-map-type
+	tokenHmt                                   // %hmt (left as-is!)
 	tokenBorders                               // %borders
 	tokenCellSize                              // %cell-size
 	tokenCellColorAlive                        // %cell-color-alive
@@ -251,16 +354,18 @@ const (
 	tokenTimeTzhm
 	tokenTimeTZz
 	tokenTimeTZzhm
+	tokenVariables // %variables
 )
 
 var shortcutFormatTokens = sortShortcutFormatTokens()
 
 // sort the token pairs by longest string first
 func sortShortcutFormatTokens() []shortcutTokenPair {
-	slices.SortFunc(shortcutTokenPairs, func(a, b shortcutTokenPair) int {
+	result := slices.Clone(shortcutTokenPairs)
+	slices.SortFunc(result, func(a, b shortcutTokenPair) int {
 		return len(b.string) - len(a.string)
 	})
-	return shortcutTokenPairs
+	return result
 }
 
 type shortcutTokenPair struct {
@@ -301,6 +406,7 @@ var shortcutTokenPairs = []shortcutTokenPair{
 	{tokenRecordSteps, "recorded-steps"},
 	{tokenHeatMap, "heat-map"},
 	{tokenHeatMapType, "heat-map-type"},
+	{tokenHmt, "hmt"},
 	{tokenBorders, "borders"},
 	{tokenCellSize, "cell-size"},
 	{tokenCellColorAlive, "cell-color-alive"},
@@ -334,4 +440,5 @@ var shortcutTokenPairs = []shortcutTokenPair{
 	{tokenTimeTzhm, "tzhm"},
 	{tokenTimeTZz, "tzz"},
 	{tokenTimeTZzhm, "tzzhm"},
+	{tokenVariables, "variables"},
 }

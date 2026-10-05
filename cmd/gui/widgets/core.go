@@ -83,6 +83,7 @@ type Core struct {
 	running           bool
 	stopRun           chan struct{}
 	status            string
+	statusExpires     time.Time
 	stepAheadQueued   bool
 	skipBackQueued    bool
 	mutex             sync.Mutex
@@ -107,6 +108,8 @@ type Core struct {
 	shortcutFiles        []string
 	shortcutFilesName    string
 	shortcutStatus       string
+	shortcutLogger       *shortcutsLogger
+	shortcutErrorLogger  *shortcutsLogger
 	// pattern placing...
 	placePatternCol, placePatternRow int
 	placePatternRotation             patterns.Rotation
