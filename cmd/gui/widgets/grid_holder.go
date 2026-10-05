@@ -18,7 +18,6 @@ import (
 	"image/color"
 	"math"
 	"strconv"
-	"time"
 )
 
 func newGridHolder(c *Core) (*gridHolder, error) {
@@ -336,11 +335,7 @@ func (g *gridHolder) resize() {
 		lg.SetRenderer(g.renderCell)
 		g.grid = lg
 		g.rebuild()
-		g.core.status = "Grid " + strconv.Itoa(g.core.settings.Width) + " x " + strconv.Itoa(g.core.settings.Height)
-		go func() {
-			time.Sleep(5 * time.Second)
-			g.core.status = ""
-		}()
+		g.core.tempStatus("Grid " + strconv.Itoa(g.core.settings.Width) + " x " + strconv.Itoa(g.core.settings.Height))
 	}
 }
 

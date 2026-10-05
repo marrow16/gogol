@@ -1,58 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>GoGoL Shortcuts Help</title>
-  <style>
-    body {
-      font-size: 110%;
-    }
-    code {
-      background-color: rgba(128,128,128,0.25);
-    }
-    pre {
-      background-color: rgba(128,128,128,0.25);
-      border: 1px solid black;
-      border-radius: 4px;
-      padding: 4px;
-      margin: 0;
-    }
-    h1,h2,h3,h4,h5,h6 {
-      margin: 0;
-    }
-    details {
-      border: 1px solid black;
-      border-radius: 4px;
-      padding: 4px;
-    }
-    .link {
-      color: rgb(102,128,230);
-    }
-    .button {
-      padding: 0 4px 0 4px;
-      border: 1px solid rgb(128,128,128);
-      border-radius: 4px;
-      background-color: rgba(128,128,128,0.25);
-    }
-    .key {
-      padding: 0 4px 0 4px;
-      border: 1px solid black;
-      border-radius: 4px;
-    }
-    .hanging {
-      display: flex;
-    }
-    table {
-      text-align: left;
-      border-collapse: collapse;
-    }
-    table.bordered, table.bordered th, table.bordered td {
-      border: 1px solid rgb(128, 128, 128);
-    }
-    table th, table td {
-      padding: var(--cell-padding);
-    }
-  </style>
+	<meta charset="UTF-8">
+	<title>GoGoL Shortcuts Help</title>
+    <style>
+		body {
+			font-size: 110%;
+		}
+		code {
+			background-color: rgb(230,230,230);
+			white-space: nowrap;
+		}
+		pre {
+			background-color: rgb(230,230,230);
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+			margin: 0;
+		}
+		h1,h2,h3,h4,h5,h6 {
+			margin: 0;
+		}
+		details {
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+		}
+		.link {
+			color: rgb(102,128,230);
+		}
+		.button {
+			padding: 0 4px 0 4px;
+			border: 1px solid rgb(128,128,128);
+			border-radius: 4px;
+			background-color: rgba(128,128,128,0.25);
+		}
+		.icon {
+			display: inline-block;
+			width: 1.2em;
+			height: 1.2em;
+			vertical-align: text-bottom;
+			background-size: cover;
+		}
+		.key {
+			padding: 0 4px 0 4px;
+			border: 1px solid black;
+			border-radius: 4px;
+		}
+		.hanging {
+			display: flex;
+		}
+		table {
+			text-align: left;
+			border-collapse: collapse;
+		}
+		table.bordered, table.bordered th, table.bordered td {
+			border: 1px solid rgb(128, 128, 128);
+		}
+		table th, table td {
+			padding: var(--cell-padding);
+		}
+	</style>
 </head>
 <body>
-The <strong>Shortcuts</strong> popout is available from the <span class="link">main menu</span>.<br><br>Shortcuts are named macros that can execute an action or series of actions in GoGoL.<br><br>Select an existing shortcut  from the dropdown, or enter a new name to create a new shortcut.<br><br>If the shortcut name matches a keyboard key, it can be invoked by pressing <span class="key">⌥</span> plus that key. For example, a shortcut named <strong>A</strong> can be invoked by pressing <span class="key">⌥A</span> - likewise, a shortcut named <strong>F1</strong> can be invoked with <span class="key">⌥F1</span><br><em>Note: Shortcut keys can override can override GoGoL assigned keys.</em><br><br>Having selected or created a shortcut, use the <strong>Actions</strong> area to edit the actions associated - each action on a new line. See <span class="link">Shortcuts Actions Reference</span>.</body></html>
+The <strong>Shortcuts</strong> popout is available from the <span class="link">main menu</span>.<br><br>Shortcuts are named macros that can execute an action or series of actions in GoGoL.<br><br>Select an existing shortcut  from the dropdown, or enter a new name to create a new shortcut.<br><br>If the shortcut name matches a keyboard key, it can be invoked by pressing <span class="key">⌥</span> plus that key. For example, a shortcut named <strong>A</strong> can be invoked by pressing <span class="key">⌥A</span> - likewise, a shortcut named <strong>F1</strong> can be invoked with key <span class="key">⌥F1</span><br><em>Note: Shortcut keys can override can override GoGoL assigned keys.</em><br><br>Having selected or created a shortcut, use the <strong>Actions</strong> area to edit the actions associated - each action on a new line. See <span class="link">Shortcuts Actions Reference</span>.<br><br>During actions editing, any syntax errors in the actions will be displayed. Syntax errors are only a validation of recognised actions and expected operands for those actions - not whether values are valid at shortcut run.<br>Syntax errors do not prevent the shortcut being saved and/or run.<br><br>Errors encountered during shortcut run are logged in the file: <code>[user]/Documents/GoGoL/errors.log</code></body></html>

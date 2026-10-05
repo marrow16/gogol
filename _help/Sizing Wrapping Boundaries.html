@@ -1,58 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>GoGoL Sizing/Wrapping/Boundaries Help</title>
-  <style>
-    body {
-      font-size: 110%;
-    }
-    code {
-      background-color: rgba(128,128,128,0.25);
-    }
-    pre {
-      background-color: rgba(128,128,128,0.25);
-      border: 1px solid black;
-      border-radius: 4px;
-      padding: 4px;
-      margin: 0;
-    }
-    h1,h2,h3,h4,h5,h6 {
-      margin: 0;
-    }
-    details {
-      border: 1px solid black;
-      border-radius: 4px;
-      padding: 4px;
-    }
-    .link {
-      color: rgb(102,128,230);
-    }
-    .button {
-      padding: 0 4px 0 4px;
-      border: 1px solid rgb(128,128,128);
-      border-radius: 4px;
-      background-color: rgba(128,128,128,0.25);
-    }
-    .key {
-      padding: 0 4px 0 4px;
-      border: 1px solid black;
-      border-radius: 4px;
-    }
-    .hanging {
-      display: flex;
-    }
-    table {
-      text-align: left;
-      border-collapse: collapse;
-    }
-    table.bordered, table.bordered th, table.bordered td {
-      border: 1px solid rgb(128, 128, 128);
-    }
-    table th, table td {
-      padding: var(--cell-padding);
-    }
-  </style>
+	<meta charset="UTF-8">
+	<title>GoGoL Sizing/Wrapping/Boundaries Help</title>
+    <style>
+		body {
+			font-size: 110%;
+		}
+		code {
+			background-color: rgb(230,230,230);
+			white-space: nowrap;
+		}
+		pre {
+			background-color: rgb(230,230,230);
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+			margin: 0;
+		}
+		h1,h2,h3,h4,h5,h6 {
+			margin: 0;
+		}
+		details {
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+		}
+		.link {
+			color: rgb(102,128,230);
+		}
+		.button {
+			padding: 0 4px 0 4px;
+			border: 1px solid rgb(128,128,128);
+			border-radius: 4px;
+			background-color: rgba(128,128,128,0.25);
+		}
+		.icon {
+			display: inline-block;
+			width: 1.2em;
+			height: 1.2em;
+			vertical-align: text-bottom;
+			background-size: cover;
+		}
+		.key {
+			padding: 0 4px 0 4px;
+			border: 1px solid black;
+			border-radius: 4px;
+		}
+		.hanging {
+			display: flex;
+		}
+		table {
+			text-align: left;
+			border-collapse: collapse;
+		}
+		table.bordered, table.bordered th, table.bordered td {
+			border: 1px solid rgb(128, 128, 128);
+		}
+		table th, table td {
+			padding: var(--cell-padding);
+		}
+	</style>
 </head>
 <body>
 Use the <strong>Sizing/Wrapping/Boundaries</strong> popout from the <span class="link">main menu</span> to adjust various settings on grid sizing and behaviour.<br><br>Use the <strong>Grid size Width</strong> and <strong>Height</strong> inputs to set the desired size for the grid - the grid size is only updated by pressing the <span class="button">Resize</span> button.<br>Press the <span class="button">Fit screen</span> button to resize the grid to fill the available screen size (according to current cell size and zoom rate).<br>The <strong>Keep cells</strong> checkbox is used to determine whether the grid alive/dead cells are preserved during resizing.<br><br><strong>Wrapping mode</strong> determines how cells at the edges of the grid interact with cells on the opposite edges:<div class="hanging" style="margin-left:20px;"><div><strong>• None</strong> -&nbsp;</div><div>grid edges do not wrap.</div></div><div class="hanging" style="margin-left:20px;"><div><strong>• Horizontal</strong> -&nbsp;</div><div>left and right edges wrap around to each other.</div></div><div class="hanging" style="margin-left:20px;"><div><strong>• Vertical</strong> -&nbsp;</div><div>top and bottom edges wrap around to each other.</div></div><div class="hanging" style="margin-left:20px;"><div><strong>• Toroidal</strong> -&nbsp;</div><div>all grid edges connect to their opposite edge.</div></div>When grid edges are not wrapped, the <strong>Boundary mode</strong> determines how cells beyond those edges are treated. They may be considered either <strong>Dead cells</strong> or <strong>Alive cells</strong> when calculating the neighbours of cells at the grid edge.<br><br>The <strong>Cell size</strong> input determines the size of each grid cell in pixels (1–32). Updating this value will take immediate effect.<br><br><strong>Randomize %</strong> input is used to determine the percentage of alive cells when randomizing the grid (from the <span class="link">main menu</span> or pressing <span class="key">⌥R</span>).<br>Note: The randomize % setting only determines probability of alive cell - not overall grid density. To specify an overall random density, create a <span class="link">shortcut</span> using action <code>randomize-population</code>.<br></body></html>

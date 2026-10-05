@@ -1,13 +1,11 @@
 package help
 
-import "github.com/marrow16/gogol/cmd/gui/icons"
-
 var contentEditor = content{
 	"Edit mode allows you to edit the current grid. Start edit mode by pressing ",
 	keys{altMac, "E"}, " or selecting ", bold("Edit mode"), " from ", MainMenu.link("main menu"), ".\n\n",
 	"To exit edit mode, press ", keys{"Esc"}, " or ", keys{altMac, "E"}, " again.  ",
 	"Edit mode is also terminated by opening ", MainMenu.link("main menu"), "; clicking on ", StatusBar.link("statusbar rule"),
-	"; or clicking any of the simulation start/step buttons.  The ", iconText{icons.ZoomIn}, " and ", iconText{icons.ZoomOut}, " buttons can be used during edit mode.\n\n",
+	"; or clicking any of the simulation start/step buttons.  The ", iconZoomIn, " and ", iconZoomOut, " buttons can be used during edit mode.\n\n",
 	"During edit mode, the left panel of ", StatusBar.link("statusbar"), " will show the current edit position - which is also indicated by a blinking cursor in the grid.\n",
 	"The following keys can be used to edit the grid:",
 	table{

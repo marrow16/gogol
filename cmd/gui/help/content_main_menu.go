@@ -1,9 +1,7 @@
 package help
 
-import "github.com/marrow16/gogol/cmd/gui/icons"
-
 var contentMainMenu = content{
-	"The main menu can be shown by clicking the ", iconText{image: icons.Burger},
+	"The main menu can be shown by clicking the ", iconBurger,
 	" button on the status bar or by pressing key\u00a0", keys{altMac, "M"}, "\n\n",
 	"The menu contains the following options:\n\n",
 	bold("Help"), " or press key ", keys{"F1"},

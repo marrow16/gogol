@@ -1,58 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>GoGoL Stepping Help</title>
+	<meta charset="UTF-8">
+	<title>GoGoL Stepping Help</title>
     <style>
-        body {
-            font-size: 110%;
-        }
-        code {
-            background-color: rgba(128,128,128,0.25);
-        }
-        pre {
-            background-color: rgba(128,128,128,0.25);
-            border: 1px solid black;
-            border-radius: 4px;
-            padding: 4px;
-            margin: 0;
-        }
-        h1,h2,h3,h4,h5,h6 {
-            margin: 0;
-        }
-        details {
-            border: 1px solid black;
-            border-radius: 4px;
-            padding: 4px;
-        }
-        .link {
-            color: rgb(102,128,230);
-        }
-        .button {
-            padding: 0 4px 0 4px;
-            border: 1px solid rgb(128,128,128);
-            border-radius: 4px;
-            background-color: rgba(128,128,128,0.25);
-        }
-        .key {
-            padding: 0 4px 0 4px;
-            border: 1px solid black;
-            border-radius: 4px;
-        }
-        .hanging {
-            display: flex;
-        }
-        table {
-            text-align: left;
-            border-collapse: collapse;
-        }
-        table.bordered, table.bordered th, table.bordered td {
-            border: 1px solid rgb(128, 128, 128);
-        }
-        table th, table td {
-            padding: var(--cell-padding);
-        }
-    </style>
+		body {
+			font-size: 110%;
+		}
+		code {
+			background-color: rgb(230,230,230);
+			white-space: nowrap;
+		}
+		pre {
+			background-color: rgb(230,230,230);
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+			margin: 0;
+		}
+		h1,h2,h3,h4,h5,h6 {
+			margin: 0;
+		}
+		details {
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+		}
+		.link {
+			color: rgb(102,128,230);
+		}
+		.button {
+			padding: 0 4px 0 4px;
+			border: 1px solid rgb(128,128,128);
+			border-radius: 4px;
+			background-color: rgba(128,128,128,0.25);
+		}
+		.icon {
+			display: inline-block;
+			width: 1.2em;
+			height: 1.2em;
+			vertical-align: text-bottom;
+			background-size: cover;
+		}
+		.key {
+			padding: 0 4px 0 4px;
+			border: 1px solid black;
+			border-radius: 4px;
+		}
+		.hanging {
+			display: flex;
+		}
+		table {
+			text-align: left;
+			border-collapse: collapse;
+		}
+		table.bordered, table.bordered th, table.bordered td {
+			border: 1px solid rgb(128, 128, 128);
+		}
+		table th, table td {
+			padding: var(--cell-padding);
+		}
+	</style>
 </head>
 <body>
-Use the <strong>Stepping</strong> popout from the <span class="link">main menu</span> to adjust the stepping settings.<br><br>The <strong>Step delay (ms)</strong> setting determines the delay between each step (in milliseconds) and can be set to a value between 0 and 2000.<br><br>The <strong>Step ahead size</strong> setting determines the number of steps that are performed with a step ahead - and can be set to a value between 1 and 9999.<br>Step ahead is instigated by pressing key <span class="key">⌥⇥</span> or clicking <img src="data:image/png;base64,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" style="width:1.2em;height:1.2em;vertical-align:text-bottom;"> on the <span class="link">statusbar</span>.<br><br>Use the <strong>Snapshot on step ahead</strong> checkbox to determine whether a snapshot of the grid is automatically taken on every step ahead.<br><br><br><em>Note: The step delay is decoupled from the GUI frame rate - and setting a step delay of 0 (zero) will run the simulation as &#34;close to the metal&#34; as possible with visual updates at ~30Fps.</em></body></html>
+Use the <strong>Stepping</strong> popout from the <span class="link">main menu</span> to adjust the stepping settings.<br><br>The <strong>Step delay (ms)</strong> setting determines the delay between each step (in milliseconds) and can be set to a value between 0 and 2000.<br><br>The <strong>Step ahead size</strong> setting determines the number of steps that are performed with a step ahead - and can be set to a value between 1 and 9999.<br>Step ahead is instigated by pressing key <span class="key">⌥⇥</span> or clicking <img class="icon" src="data:image/png;base64,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"> on the <span class="link">statusbar</span>.<br><br>Use the <strong>Snapshot on step ahead</strong> checkbox to determine whether a snapshot of the grid is automatically taken on every step ahead.<br><br><br><em>Note: The step delay is decoupled from the GUI frame rate - and setting a step delay of 0 (zero) will run the simulation as &#34;close to the metal&#34; as possible with visual updates at ~30Fps.</em></body></html>

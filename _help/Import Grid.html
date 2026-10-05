@@ -1,58 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>GoGoL Import Grid Help</title>
+	<meta charset="UTF-8">
+	<title>GoGoL Import Grid Help</title>
     <style>
-        body {
-            font-size: 110%;
-        }
-        code {
-            background-color: rgba(128,128,128,0.25);
-        }
-        pre {
-            background-color: rgba(128,128,128,0.25);
-            border: 1px solid black;
-            border-radius: 4px;
-            padding: 4px;
-            margin: 0;
-        }
-        h1,h2,h3,h4,h5,h6 {
-            margin: 0;
-        }
-        details {
-            border: 1px solid black;
-            border-radius: 4px;
-            padding: 4px;
-        }
-        .link {
-            color: rgb(102,128,230);
-        }
-        .button {
-            padding: 0 4px 0 4px;
-            border: 1px solid rgb(128,128,128);
-            border-radius: 4px;
-            background-color: rgba(128,128,128,0.25);
-        }
-        .key {
-            padding: 0 4px 0 4px;
-            border: 1px solid black;
-            border-radius: 4px;
-        }
-        .hanging {
-            display: flex;
-        }
-        table {
-            text-align: left;
-            border-collapse: collapse;
-        }
-        table.bordered, table.bordered th, table.bordered td {
-            border: 1px solid rgb(128, 128, 128);
-        }
-        table th, table td {
-            padding: var(--cell-padding);
-        }
-    </style>
+		body {
+			font-size: 110%;
+		}
+		code {
+			background-color: rgb(230,230,230);
+			white-space: nowrap;
+		}
+		pre {
+			background-color: rgb(230,230,230);
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+			margin: 0;
+		}
+		h1,h2,h3,h4,h5,h6 {
+			margin: 0;
+		}
+		details {
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+		}
+		.link {
+			color: rgb(102,128,230);
+		}
+		.button {
+			padding: 0 4px 0 4px;
+			border: 1px solid rgb(128,128,128);
+			border-radius: 4px;
+			background-color: rgba(128,128,128,0.25);
+		}
+		.icon {
+			display: inline-block;
+			width: 1.2em;
+			height: 1.2em;
+			vertical-align: text-bottom;
+			background-size: cover;
+		}
+		.key {
+			padding: 0 4px 0 4px;
+			border: 1px solid black;
+			border-radius: 4px;
+		}
+		.hanging {
+			display: flex;
+		}
+		table {
+			text-align: left;
+			border-collapse: collapse;
+		}
+		table.bordered, table.bordered th, table.bordered td {
+			border: 1px solid rgb(128, 128, 128);
+		}
+		table th, table td {
+			padding: var(--cell-padding);
+		}
+	</style>
 </head>
 <body>
 Use the <strong>Import Grid</strong> popout from the <span class="link">main menu</span> to load the current grid from a previously exported grid.<br><br>Enter the <strong>Path</strong> for the grid <code>.rle</code> file to import or use the <span class="button">...</span> button to open the <span class="link">file finder</span>.<br>Use the <strong>Resize grid</strong> to determine whether the current grid can be resized to accommodate the imported grid and press the <span class="button">Import</span> button<br><br>If the grid is successfully imported, the current grid will be updated - otherwise, an error is displayed.</body></html>

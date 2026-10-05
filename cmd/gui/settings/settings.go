@@ -40,7 +40,7 @@ func NewSettings() *Settings {
 		CellBorderColor:     color.NRGBA{R: 240, G: 240, B: 239, A: 255},
 		HeatMappingHalfLife: 0.996,
 		Shortcuts:           make(map[string][]string),
-		ShortcutVariables:   make(map[string]string),
+		ShortcutVariables:   newVariables(),
 		Fps:                 20,
 		MetaRules: map[string]string{
 			"Plus Worlds": `AllOf(
@@ -132,7 +132,7 @@ type Settings struct {
 	HeatMappingType     string
 	HeatMappingHalfLife float32
 	Shortcuts           map[string][]string
-	ShortcutVariables   map[string]string
+	ShortcutVariables   *Variables
 	ExportImage         bool
 	MetaRules           map[string]string
 	SelectedMetaRule    string
@@ -200,7 +200,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				HeatMappingType:     s.HeatMappingType,
 				HeatMappingHalfLife: s.HeatMappingHalfLife,
 				Shortcuts:           s.Shortcuts,
-				ShortcutVariables:   s.ShortcutVariables,
+				ShortcutVariables:   s.ShortcutVariables.Clone(),
 				ExportImage:         s.ExportImage,
 				MetaRules:           s.MetaRules,
 				SelectedMetaRule:    s.SelectedMetaRule,
@@ -388,7 +388,7 @@ func (s *Settings) fromPrefs(p prefs) {
 		s.Shortcuts = p.Shortcuts
 	}
 	if p.ShortcutVariables != nil {
-		s.ShortcutVariables = p.ShortcutVariables
+		s.ShortcutVariables.SetAll(p.ShortcutVariables)
 	}
 	s.ExportImage = p.ExportImage
 	if p.MetaRules != nil {

@@ -1,7 +1,5 @@
 package help
 
-import "github.com/marrow16/gogol/cmd/gui/icons"
-
 var contentKeys = content{
 	"This help provides reference for key shortcuts:\n",
 	italic("(see also "), Editor.linkItalic("edit mode"), italic(" for editing keys)"),
@@ -24,20 +22,20 @@ var contentKeys = content{
 			},
 		},
 		rows: []tableRow{
-			{{keys{altMac, keyEnter}}, {"Start/stop the simulation"}, {iconText{image: icons.Play}, " ", iconText{image: icons.Pause}}},
-			{{keys{altMac, keyRight}, " ", keys{altMac, "Space"}}, {"Step the simulation"}, {iconText{image: icons.Step}}},
-			{{keys{altMac, keyTab}}, {"Step ahead the simulation"}, {iconText{image: icons.SkipForward}}},
-			{{keys{altMac, keyLeft}}, {"Step back the simulation", italic(" (if "), Instrumentation.linkItalic("record"), italic(" enabled)")}, {iconText{image: icons.Backward}}},
-			{{keys{altMac, keyBack}}, {"Skip back the simulation", italic(" (if "), Instrumentation.linkItalic("record"), italic(" enabled)")}, {iconText{image: icons.SkipBackward}}},
-			{{keys{altMac, "="}}, {"Zoom in"}, {iconText{image: icons.ZoomIn}}},
-			{{keys{altMac, "-"}}, {"Zoom out"}, {iconText{image: icons.ZoomOut}}},
+			{{keys{altMac, keyEnter}}, {"Start/stop the simulation"}, {iconPlay, " ", iconPause}},
+			{{keys{altMac, keyRight}, " ", keys{altMac, "Space"}}, {"Step the simulation"}, {iconStep}},
+			{{keys{altMac, keyTab}}, {"Step ahead the simulation"}, {iconSkipForward}},
+			{{keys{altMac, keyLeft}}, {"Step back the simulation", italic(" (if "), Instrumentation.linkItalic("record"), italic(" enabled)")}, {iconBackward}},
+			{{keys{altMac, keyBack}}, {"Skip back the simulation", italic(" (if "), Instrumentation.linkItalic("record"), italic(" enabled)")}, {iconSkipBackward}},
+			{{keys{altMac, "="}}, {"Zoom in"}, {iconZoomIn}},
+			{{keys{altMac, "-"}}, {"Zoom out"}, {iconZoomOut}},
 			{{keys{altMac, "B"}}, {"Toggle cell borders on/off"}},
 			{{keys{altMac, "C"}}, {"Clear grid"}},
 			{{keys{altMac, "E"}}, {"Edit mode"}},
 			{{keys{altMac, "G"}}, {"Run grid recipe", italic(" (when "), GridRecipes.linkItalic("recipe"), italic(" selected)")}},
 			{{keys{altMac, "H"}}, {"Show heat map", italic(" (when "), Instrumentation.linkItalic("heat mapping"), italic(" enabled)")}},
 			{{keys{altMac, "L"}}, {"Life rule editor"}, {"click ", StatusBar.link("statusbar rule")}},
-			{{keys{altMac, "M"}}, {"Menu"}, {iconText{image: icons.Burger}}},
+			{{keys{altMac, "M"}}, {"Menu"}, {iconBurger}},
 			{{keys{altMac, "N"}}, {"Random noise on grid"}},
 			{{keys{altMac, "P"}}, {"Place pattern mode", italic(" (when "), Patterns.linkItalic("pattern"), italic(" selected)")}},
 			{{keys{altMac, "R"}}, {"Randomize grid"}},

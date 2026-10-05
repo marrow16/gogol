@@ -2,20 +2,27 @@ package widgets
 
 import (
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/cmd/gui/help"
+	"github.com/marrow16/gogol/cmd/gui/shortcuts"
 	"slices"
 	"strings"
+	"sync"
+	"time"
 )
 
 func newShortcutsPopout(p *menuPopup, c *Core) *shortcutsPopout {
 	result := &shortcutsPopout{
-		parent:    p,
-		core:      c,
-		btnCreate: newButton("Create"),
-		btnDelete: newButton("Delete"),
-		btnRun:    newButton("Run"),
+		parent:          p,
+		core:            c,
+		btnCreate:       newButton("Create"),
+		btnDelete:       newButton("Delete"),
+		btnRun:          newButton("Run"),
+		errorsList:      widget.List{Axis: layout.Vertical},
+		variablesList:   widget.List{Axis: layout.Vertical},
+		btnVarsClearAll: newButton("Clear All"),
 	}
 	result.chooser = newChooser[string](38,
 		result.sortedShortcuts(),
@@ -24,19 +31,47 @@ func newShortcutsPopout(p *menuPopup, c *Core) *shortcutsPopout {
 			return name
 		},
 	)
+	c.settings.ShortcutVariables.NotifyChanges(result.variableChanges)
+	result.sortVariables(c.settings.ShortcutVariables.Clone())
 	return result
 }
 
 type shortcutsPopout struct {
-	parent    *menuPopup
-	core      *Core
-	chooser   *chooser[string]
-	btnCreate *button
-	btnDelete *button
-	btnRun    *button
-	editor    widget.Editor
-	linkHelp  widget.Clickable
+	parent        *menuPopup
+	core          *Core
+	chooser       *chooser[string]
+	btnCreate     *button
+	btnDelete     *button
+	btnRun        *button
+	editor        widget.Editor
+	syntaxCheckAt time.Time
+	syntaxErrors  []error
+	errorsList    widget.List
+	linkHelp      widget.Clickable
+	// variables...
+	varsMutex       sync.Mutex
+	variablesList   widget.List
+	variables       [][2]string
+	btnVarsClearAll *button
 }
+
+func (p *shortcutsPopout) variableChanges(_ string, _ bool, all map[string]string) {
+	p.sortVariables(all)
+}
+
+func (p *shortcutsPopout) sortVariables(all map[string]string) {
+	p.varsMutex.Lock()
+	defer p.varsMutex.Unlock()
+	p.variables = make([][2]string, 0, len(all))
+	for k, v := range all {
+		p.variables = append(p.variables, [2]string{k, v})
+	}
+	slices.SortFunc(p.variables, func(a, b [2]string) int {
+		return strings.Compare(a[0], b[0])
+	})
+}
+
+const variablesShortcutName = "[$variables]"
 
 func (p *shortcutsPopout) sortedShortcuts() []string {
 	result := make([]string, 0, len(p.core.settings.Shortcuts))
@@ -44,12 +79,14 @@ func (p *shortcutsPopout) sortedShortcuts() []string {
 		result = append(result, name)
 	}
 	slices.Sort(result)
+	result = append(result, variablesShortcutName)
 	return result
 }
 
 func (p *shortcutsPopout) shortcutSelected(name *string) {
 	if name != nil {
 		if sc, ok := p.core.settings.Shortcuts[*name]; ok {
+			p.syntaxErrors = make([]error, 0)
 			p.editor.SetText(strings.Join(sc, "\n"))
 		} else {
 			p.editor.SetText("")
@@ -60,6 +97,7 @@ func (p *shortcutsPopout) shortcutSelected(name *string) {
 func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 	selected := p.chooser.currentItem()
 	curr := p.chooser.editor.Text()
+	isVars := selected != nil && *selected == variablesShortcutName
 	if p.btnCreate.Clicked(gtx) {
 		if selected == nil && curr != "" {
 			if _, exists := p.core.settings.Shortcuts[curr]; !exists {
@@ -77,10 +115,14 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 			rigid(p.chooser.layout),
 			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Max.X = p.chooser.dims.Size.X
-				if selected != nil {
+				switch {
+				case isVars:
+					gtx.Constraints.Min.Y = ht
+					return p.layoutVariables(gtx, editorHt)
+				case selected != nil:
 					gtx.Constraints.Min.Y = ht
 					return p.layoutShortcut(gtx, editorHt)
-				} else if curr == "" {
+				case curr == "":
 					return label("No shortcut selected (select or enter new name)")(gtx)
 				}
 				canKey := p.isAllowedKey(curr)
@@ -91,6 +133,24 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 					conditionalRigid(canKey && conflict, label("(Overrides application key!)"), nil),
 				)(gtx)
 			}),
+			conditionalRigid(!isVars && selected != nil && len(p.syntaxErrors) > 0, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Max.X = p.chooser.dims.Size.X
+				return flexHorizontal(8,
+					rigid(label("Errors:")),
+					rigid(func(gtx layout.Context) layout.Dimensions {
+						lineHt := measureText(gtx, "Xy").Size.Y
+						maxHt := lineHt * min(len(p.syntaxErrors), 3)
+						gtx.Constraints.Max.Y = maxHt
+						gtx.Constraints.Min.X = gtx.Constraints.Max.X
+						return material.List(theme, &p.errorsList).Layout(gtx, len(p.syntaxErrors), func(gtx layout.Context, index int) layout.Dimensions {
+							lbl := material.Label(theme, theme.TextSize, p.syntaxErrors[index].Error())
+							lbl.MaxLines = 1
+							lbl.Color = errorColor
+							return lbl.Layout(gtx)
+						})
+					}),
+				)(gtx)
+			}, nil),
 		)(gtx)
 		p.chooser.layoutDropdown(gtx)
 		return dims
@@ -113,6 +173,7 @@ func (p *shortcutsPopout) layoutShortcut(gtx layout.Context, editorHt int) layou
 		name := p.chooser.editor.Text()
 		delete(p.core.settings.Shortcuts, name)
 		p.chooser.resetItems(p.sortedShortcuts())
+		p.chooser.setText("")
 		return layout.Dimensions{}
 	}
 	key := p.chooser.editor.Text()
@@ -126,17 +187,14 @@ func (p *shortcutsPopout) layoutShortcut(gtx layout.Context, editorHt int) layou
 	conflict := p.isConflictKey(key)
 	p.updateEditor(gtx)
 	return flexVertical(10,
-		rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X = gtx.Constraints.Max.X
-			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
-				rigid(flexHorizontal(20,
-					rigid(p.btnRun.Layout),
-					conditionalRigid(canKey, label("Key: "+altKeyName+key), nil),
-					conditionalRigid(canKey && conflict, label("(Overrides application key!)"), nil),
-				)),
-				rigid(p.btnDelete.Layout),
-			)
-		}),
+		rigidLeftRight(0,
+			flexHorizontal(20,
+				rigid(p.btnRun.Layout),
+				conditionalRigid(canKey, label("Key: "+altKeyName+key), nil),
+				conditionalRigid(canKey && conflict, label("(Overrides application key!)"), nil),
+			),
+			p.btnDelete.Layout,
+		),
 		rigid(flexHorizontal(20,
 			rigid(label("Actions:")),
 			rigid(linkLabel(&p.linkHelp, "(see help)")),
@@ -161,12 +219,48 @@ func (p *shortcutsPopout) updateEditor(gtx layout.Context) {
 			break
 		}
 		if _, ok = ev.(widget.ChangeEvent); ok {
+			p.syntaxCheckAt = gtx.Now.Add(250 * time.Millisecond)
 			name := p.chooser.editor.Text()
 			if _, ok = p.core.settings.Shortcuts[name]; ok {
 				p.core.settings.Shortcuts[name] = strings.Split(p.editor.Text(), "\n")
 			}
 		}
 	}
+	if !p.syntaxCheckAt.IsZero() {
+		if !gtx.Now.Before(p.syntaxCheckAt) {
+			p.syntaxCheckAt = time.Time{}
+			p.checkSyntax()
+		} else {
+			gtx.Execute(op.InvalidateCmd{At: p.syntaxCheckAt})
+		}
+	}
+}
+
+func (p *shortcutsPopout) checkSyntax() {
+	lines := strings.Split(p.editor.Text(), "\n")
+	_, p.syntaxErrors = shortcuts.ParseShortcut("", lines)
+}
+
+func (p *shortcutsPopout) layoutVariables(gtx layout.Context, editorHt int) layout.Dimensions {
+	if p.btnVarsClearAll.Clicked(gtx) {
+		p.core.settings.ShortcutVariables.DeleteAll()
+		p.sortVariables(p.core.settings.ShortcutVariables.Clone())
+	}
+	return flexVertical(10,
+		rigidLeftRight(0,
+			label("Variables:"),
+			p.btnVarsClearAll.Layout,
+		),
+		rigid(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = editorHt, editorHt
+			return widget.Border{Color: popupBorder, Width: 1, CornerRadius: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.List(theme, &p.variablesList).Layout(gtx, len(p.variables), func(gtx layout.Context, index int) layout.Dimensions {
+					return label(" $" + p.variables[index][0] + ` = "` + p.variables[index][1] + `"`)(gtx)
+				})
+			})
+		}),
+	)(gtx)
 }
 
 func (p *shortcutsPopout) hasFocus(gtx layout.Context) bool {

@@ -1,58 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>GoGoL Colors Help</title>
+	<meta charset="UTF-8">
+	<title>GoGoL Colors Help</title>
     <style>
-        body {
-            font-size: 110%;
-        }
-        code {
-            background-color: rgba(128,128,128,0.25);
-        }
-        pre {
-            background-color: rgba(128,128,128,0.25);
-            border: 1px solid black;
-            border-radius: 4px;
-            padding: 4px;
-            margin: 0;
-        }
-        h1,h2,h3,h4,h5,h6 {
-            margin: 0;
-        }
-        details {
-            border: 1px solid black;
-            border-radius: 4px;
-            padding: 4px;
-        }
-        .link {
-            color: rgb(102,128,230);
-        }
-        .button {
-            padding: 0 4px 0 4px;
-            border: 1px solid rgb(128,128,128);
-            border-radius: 4px;
-            background-color: rgba(128,128,128,0.25);
-        }
-        .key {
-            padding: 0 4px 0 4px;
-            border: 1px solid black;
-            border-radius: 4px;
-        }
-        .hanging {
-            display: flex;
-        }
-        table {
-            text-align: left;
-            border-collapse: collapse;
-        }
-        table.bordered, table.bordered th, table.bordered td {
-            border: 1px solid rgb(128, 128, 128);
-        }
-        table th, table td {
-            padding: var(--cell-padding);
-        }
-    </style>
+		body {
+			font-size: 110%;
+		}
+		code {
+			background-color: rgb(230,230,230);
+			white-space: nowrap;
+		}
+		pre {
+			background-color: rgb(230,230,230);
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+			margin: 0;
+		}
+		h1,h2,h3,h4,h5,h6 {
+			margin: 0;
+		}
+		details {
+			border: 1px solid black;
+			border-radius: 4px;
+			padding: 4px;
+		}
+		.link {
+			color: rgb(102,128,230);
+		}
+		.button {
+			padding: 0 4px 0 4px;
+			border: 1px solid rgb(128,128,128);
+			border-radius: 4px;
+			background-color: rgba(128,128,128,0.25);
+		}
+		.icon {
+			display: inline-block;
+			width: 1.2em;
+			height: 1.2em;
+			vertical-align: text-bottom;
+			background-size: cover;
+		}
+		.key {
+			padding: 0 4px 0 4px;
+			border: 1px solid black;
+			border-radius: 4px;
+		}
+		.hanging {
+			display: flex;
+		}
+		table {
+			text-align: left;
+			border-collapse: collapse;
+		}
+		table.bordered, table.bordered th, table.bordered td {
+			border: 1px solid rgb(128, 128, 128);
+		}
+		table th, table td {
+			padding: var(--cell-padding);
+		}
+	</style>
 </head>
 <body>
 Use the <strong>Colors</strong> popout from the <span class="link">main menu</span> to adjust the colors of cells on the grid.<br><br>Each color setting, <strong>Alive cells</strong>, <strong>Dead cells</strong> &amp; <strong>Cell border</strong>, is represented by a <strong>R</strong>(red), <strong>G</strong>(green) &amp; <strong>B</strong>(blue) component - enter a value between 0 and 255.<br>Within each color component input, use keys <span class="key">▲</span> and <span class="key">▼</span> to increment/decrement the value.<br><br>Use the <strong>Show Borders</strong> checkbox to determine whether the grid displays borders.<br>Cell borders can also be toggled by pressing key <span class="key">⌥B</span>.</body></html>

@@ -1,9 +1,6 @@
 package widgets
 
 import (
-	"image"
-	"strconv"
-
 	"gioui.org/f32"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -14,6 +11,9 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/cmd/gui/icons"
+	"image"
+	"strconv"
+	"time"
 )
 
 func newStatusBar(c *Core) *statusBar {
@@ -180,6 +180,14 @@ func (sb *statusBar) showPopups(gtx layout.Context) {
 }
 
 func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dimensions {
+	if !sb.core.statusExpires.IsZero() {
+		if time.Now().Before(sb.core.statusExpires) {
+			gtx.Execute(op.InvalidateCmd{At: sb.core.statusExpires})
+		} else {
+			sb.core.status = ""
+			sb.core.statusExpires = time.Time{}
+		}
+	}
 	height := gtx.Dp(sb.height)
 	size := image.Point{X: gtx.Constraints.Max.X, Y: height}
 	sb.top = windowRect.Max.Y - height
@@ -196,10 +204,10 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 			case sb.core.isShortcutsRunning():
 				st := sb.core.getShortcutsStatus()
 				sb.stepDims = sb.label(gtx, "Running Shortcut"+st, text.Start)
-			case sb.core.status != "":
-				sb.stepDims = sb.label(gtx, sb.core.status, text.Start)
 			case sb.core.mode != noMode:
 				sb.stepDims = sb.label(gtx, sb.core.modeDisplay(), text.Start)
+			case sb.core.status != "":
+				sb.stepDims = sb.label(gtx, sb.core.status, text.Start)
 			default:
 				var repeat string
 				if sb.core.instrumentRepeat != nil && sb.core.instrumentRepeat.Found {
