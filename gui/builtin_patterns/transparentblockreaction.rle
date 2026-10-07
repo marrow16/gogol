@@ -1,0 +1,5 @@
+#N Transparent block reaction
+#O David Buckingham
+#C A reaction in which a B-heptomino passes through a block.
+x = 14, y = 4, rule = 23/3
+o13b$2o10b2o$b2o9b2o$2o!

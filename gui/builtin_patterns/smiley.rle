@@ -1,0 +1,5 @@
+#N Smiley
+#O Achim Flammenkamp
+#C A period 8 oscillator found in July 1994.
+x = 7, y = 7, rule = 23/3
+3ob3o$bobobob2$bo3bob2$obobobo$2bobo!

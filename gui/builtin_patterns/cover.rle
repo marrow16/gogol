@@ -1,0 +1,4 @@
+#N Cover
+#C An 8-bit induction coil
+x = 5, y = 5, rule = b3/s23
+4bo$2b3o$bo3b$bo3b$2o!

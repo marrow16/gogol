@@ -1,0 +1,4 @@
+#N Block on table
+#C A simple 10-cell still life.
+x = 4, y = 5, rule = B3/S23
+2b2o$2b2o2$4o$o2bo!

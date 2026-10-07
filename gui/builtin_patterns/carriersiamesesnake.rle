@@ -1,0 +1,4 @@
+#N Carrier siamese snake
+#C A 10-cell still life composed of an aircraft carrier and a snake attached together.
+x = 7, y = 3, rule = B3/S23
+2ob2o2b$ob2o2bo$5b2o!

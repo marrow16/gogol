@@ -3,8 +3,8 @@ package main
 import (
 	"gioui.org/app"
 	"gioui.org/unit"
-	"github.com/marrow16/gogol/cmd/gui/settings"
-	"github.com/marrow16/gogol/cmd/gui/widgets"
+	"github.com/marrow16/gogol/gui"
+	"github.com/marrow16/gogol/gui/settings"
 	"github.com/marrow16/gogol/logic"
 	"log"
 	"os"
@@ -17,7 +17,7 @@ func main() {
 			logic.AddRule(rn, r)
 		}
 	}
-	core, err := widgets.NewCore(s)
+	core, err := gui.NewCore(s)
 	if err != nil {
 		log.Fatal(err)
 	}

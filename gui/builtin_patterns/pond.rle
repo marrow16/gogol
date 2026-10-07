@@ -1,0 +1,4 @@
+#N Pond
+#C An 8-cell still life.
+x = 4, y = 4, rule = B3/S23
+b2ob$o2bo$o2bo$b2o!

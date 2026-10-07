@@ -1,0 +1,4 @@
+#N Ship on long boat
+#C A 13-cell still life.
+x = 7, y = 7, rule = B3/S23
+2o5b$obo4b$b2o4b$3b2o2b$3bobob$4bobo$5bo!

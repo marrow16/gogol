@@ -1,0 +1,4 @@
+#N Boat
+#C The only 5-cell still life.
+x = 3, y = 3, rule = B3/S23
+2ob$obo$bo!

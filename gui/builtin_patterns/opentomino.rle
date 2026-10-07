@@ -1,0 +1,4 @@
+#N O-pentomino
+#C One of the 12 pentominoes.
+x = 5, y = 1, rule = B3/S23
+5o!

@@ -1,0 +1,4 @@
+#N R-loaf
+#C A small induction coil.
+x = 4, y = 4, rule = B3/S23
+3ob$o2bo$bobo$2bo!

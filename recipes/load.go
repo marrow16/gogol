@@ -71,7 +71,7 @@ func (r *Recipe) Validate(filename string) error {
 			switch {
 			case p.Name != nil:
 				// check that pattern exists in library...
-				if patt, ok := patterns.PatternLibrary[*p.Name]; ok {
+				if patt, ok := patterns.Library.Get(*p.Name); ok {
 					p.pattern = &patterns.Pattern{
 						Width:  patt.Width,
 						Height: patt.Height,

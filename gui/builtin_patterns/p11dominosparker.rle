@@ -1,0 +1,5 @@
+#N p11dominosparker
+#O Martin Grant, 2021
+x = 12, y = 14, rule = B3/S23
+4b2o$5bo$2obo$ob3o$6b2o$4b2o$3bo5b2o$3bob3o$2obobo2b2obo$2obobobo3bo$
+4b2ob4o$6bo$6bobo$7b2o!

@@ -1,0 +1,4 @@
+#N Cis-boat with tail
+#C A 9-cell still life.
+x = 5, y = 5, rule = B3/S23
+3b2o$3bob$2obob$obo2b$bo!

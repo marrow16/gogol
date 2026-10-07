@@ -1,0 +1,4 @@
+#N Cap
+#C An induction coil.
+x = 4, y = 3, rule = B3/S23
+b2ob$o2bo$4o!

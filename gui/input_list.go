@@ -1,0 +1,233 @@
+package gui
+
+import (
+	"gioui.org/io/event"
+	"gioui.org/io/key"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/widget"
+	"gioui.org/widget/material"
+	"image"
+	"image/color"
+)
+
+type ListControl[T any] struct {
+	border         bool
+	theme          *material.Theme
+	list           widget.List
+	clickables     []widget.Clickable
+	selectedIndex  int
+	focused        bool
+	tag            struct{}
+	items          []T
+	rowRenderFn    func(gtx layout.Context, index int, item T) layout.Dimensions
+	selectItemFn   func(item T, keyboard bool)
+	navigateItemFn func(item T)
+	isSelectedFn   func(index int, item T) bool
+	selectedBg     color.NRGBA
+	focusedBg      color.NRGBA
+}
+
+func NewListControl[T any](theme *material.Theme, items []T, border bool) *ListControl[T] {
+	result := &ListControl[T]{
+		border: border,
+		theme:  theme,
+		items:  items,
+	}
+	result.list.Axis = layout.Vertical
+	result.isSelectedFn = result.IsSelected
+	result.selectedBg = popupSelectedBackground
+	result.focusedBg = popupSelectedFocusedBackground
+	return result
+}
+
+func (l *ListControl[T]) IsSelected(index int, _ T) bool {
+	return l.selectedIndex == index
+}
+
+func (l *ListControl[T]) rowRenderer(fn func(gtx layout.Context, index int, item T) layout.Dimensions) *ListControl[T] {
+	l.rowRenderFn = fn
+	return l
+}
+
+func (l *ListControl[T]) onItemSelect(fn func(item T, keyboard bool)) *ListControl[T] {
+	l.selectItemFn = fn
+	return l
+}
+
+func (l *ListControl[T]) onItemNavigate(fn func(item T)) *ListControl[T] {
+	l.navigateItemFn = fn
+	return l
+}
+
+func (l *ListControl[T]) onIsSelected(fn func(index int, item T) bool) *ListControl[T] {
+	l.isSelectedFn = fn
+	return l
+}
+
+func (l *ListControl[T]) resetItems(items []T) {
+	l.selectedIndex = 0
+	l.items = items
+	l.clickables = make([]widget.Clickable, 0)
+}
+
+func (l *ListControl[T]) IsFocused(_ layout.Context) bool {
+	return l.focused
+}
+
+func (l *ListControl[T]) Layout(gtx layout.Context) layout.Dimensions {
+	if len(l.clickables) != len(l.items) {
+		l.clickables = make([]widget.Clickable, len(l.items))
+	}
+	for {
+		ev, ok := gtx.Event(
+			key.FocusFilter{Target: &l.tag},
+			key.Filter{Focus: &l.tag, Name: key.NameDownArrow},
+			key.Filter{Focus: &l.tag, Name: key.NameUpArrow},
+			key.Filter{Focus: &l.tag, Name: key.NameReturn},
+			key.Filter{Focus: &l.tag, Name: key.NameEnter},
+			key.Filter{Focus: &l.tag, Name: key.NameSpace},
+			key.Filter{Focus: &l.tag, Name: key.NamePageUp},
+			key.Filter{Focus: &l.tag, Name: key.NamePageDown},
+			key.Filter{Focus: &l.tag, Name: key.NameHome},
+			key.Filter{Focus: &l.tag, Name: key.NameEnd},
+		)
+		if !ok {
+			break
+		}
+		switch evt := ev.(type) {
+		case key.FocusEvent:
+			l.focused = evt.Focus
+		case key.Event:
+			if evt.State != key.Press {
+				continue
+			}
+			switch evt.Name {
+			case key.NameDownArrow:
+				if l.selectedIndex < len(l.items)-1 {
+					l.selectedIndex++
+					l.ensureVisible(l.selectedIndex)
+					if l.navigateItemFn != nil {
+						l.navigateItemFn(l.items[l.selectedIndex])
+					} else if l.selectItemFn != nil {
+						l.selectItemFn(l.items[l.selectedIndex], true)
+					}
+				}
+			case key.NameUpArrow:
+				if l.selectedIndex > 0 {
+					l.selectedIndex--
+					l.ensureVisible(l.selectedIndex)
+					if l.navigateItemFn != nil {
+						l.navigateItemFn(l.items[l.selectedIndex])
+					} else if l.selectItemFn != nil {
+						l.selectItemFn(l.items[l.selectedIndex], true)
+					}
+				}
+			case key.NamePageUp:
+				np := max(l.selectedIndex-(l.list.Position.Count-1), 0)
+				l.selectedIndex = np
+				l.ensureVisible(l.selectedIndex)
+				if l.navigateItemFn != nil {
+					l.navigateItemFn(l.items[l.selectedIndex])
+				} else if l.selectItemFn != nil {
+					l.selectItemFn(l.items[l.selectedIndex], true)
+				}
+			case key.NamePageDown:
+				np := l.selectedIndex + (l.list.Position.Count - 1)
+				if np >= len(l.items) {
+					np = len(l.items) - 1
+				}
+				l.selectedIndex = np
+				l.ensureVisible(l.selectedIndex)
+				if l.navigateItemFn != nil {
+					l.navigateItemFn(l.items[l.selectedIndex])
+				} else if l.selectItemFn != nil {
+					l.selectItemFn(l.items[l.selectedIndex], true)
+				}
+			case key.NameHome:
+				l.selectedIndex = 0
+				l.ensureVisible(l.selectedIndex)
+				if l.navigateItemFn != nil {
+					l.navigateItemFn(l.items[l.selectedIndex])
+				} else if l.selectItemFn != nil {
+					l.selectItemFn(l.items[l.selectedIndex], true)
+				}
+			case key.NameEnd:
+				l.selectedIndex = len(l.items) - 1
+				l.ensureVisible(l.selectedIndex)
+				if l.navigateItemFn != nil {
+					l.navigateItemFn(l.items[l.selectedIndex])
+				} else if l.selectItemFn != nil {
+					l.selectItemFn(l.items[l.selectedIndex], true)
+				}
+			case key.NameReturn, key.NameEnter, key.NameSpace:
+				if l.selectedIndex >= 0 &&
+					l.selectedIndex < len(l.items) &&
+					l.selectItemFn != nil {
+					l.selectItemFn(l.items[l.selectedIndex], true)
+				}
+			}
+		}
+	}
+	macro := op.Record(gtx.Ops)
+	var dims layout.Dimensions
+	if l.border {
+		bc, bt := focusedBorder(l.focused)
+		dims = widget.Border{Color: bc, Width: bt, CornerRadius: 3}.Layout(gtx, l.layoutList)
+	} else {
+		dims = l.layoutList(gtx)
+	}
+	call := macro.Stop()
+	defer clip.Rect{
+		Max: dims.Size,
+	}.Push(gtx.Ops).Pop()
+	event.Op(gtx.Ops, &l.tag)
+	call.Add(gtx.Ops)
+	return dims
+}
+
+func (l *ListControl[T]) ensureVisible(idx int) {
+	if idx >= (l.list.Position.First + l.list.Position.Count - 1) {
+		l.list.ScrollTo(idx)
+	}
+	if l.selectedIndex < l.list.Position.First {
+		l.list.ScrollTo(idx)
+	}
+}
+
+func (l *ListControl[T]) scrollTo(idx int) {
+	l.list.ScrollTo(idx)
+}
+
+func (l *ListControl[T]) layoutList(gtx layout.Context) layout.Dimensions {
+	return material.List(l.theme, &l.list).Layout(
+		gtx,
+		len(l.items),
+		func(gtx layout.Context, index int) layout.Dimensions {
+			btn := &l.clickables[index]
+			if btn.Clicked(gtx) {
+				l.selectedIndex = index
+				gtx.Execute(key.FocusCmd{Tag: &l.tag})
+				if l.selectItemFn != nil {
+					l.selectItemFn(l.items[index], false)
+				}
+			}
+			return btn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				macro := op.Record(gtx.Ops)
+				dims := l.rowRenderFn(gtx, index, l.items[index])
+				call := macro.Stop()
+				if l.isSelectedFn(index, l.items[index]) {
+					l.selectedIndex = index
+					bg := l.selectedBg
+					if l.focused {
+						bg = l.focusedBg
+					}
+					fill(gtx, bg, image.Point{X: gtx.Constraints.Max.X, Y: dims.Size.Y})
+				}
+				call.Add(gtx.Ops)
+				return dims
+			})
+		},
+	)
+}

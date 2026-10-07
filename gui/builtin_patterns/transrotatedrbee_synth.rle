@@ -1,0 +1,6 @@
+#N transrotatedrbee_synth
+#O Bob Shemyakin, 16 June 2014
+#C 4-glider synthesis of trans-rotated R-bee
+x = 27, y = 17, rule = B3/S23
+12bo$11bo$11b3o2$24b2o$23bo2bo$23b3o$bo$2bo2bo15b3o$3o2bobo12bo2bo$5b
+2o14b2o4$11b2o$10b2o$12bo!
