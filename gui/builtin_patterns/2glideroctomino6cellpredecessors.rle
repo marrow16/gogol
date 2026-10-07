@@ -1,0 +1,3 @@
+#N 2glideroctomino6cellpredecessors
+x = 33, y = 6, rule = B3/S23
+bo$o11bo9bo9bo$o10b2o8b2o8b2o$o8bo10bo9bo$o9bo8bo9bo$o9bo8bo10bo!

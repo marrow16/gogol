@@ -1,0 +1,4 @@
+#N U-pentomino
+#C One of the 12 pentominoes.
+x = 3, y = 2, rule = B3/S23
+obo$3o!

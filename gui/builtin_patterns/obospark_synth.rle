@@ -1,0 +1,4 @@
+#N obospark_synth
+#C Glider synthesis of obo! spark.
+x = 4, y = 11, rule = B3/S23
+bo$o$3o6$b3o$bo$2bo!

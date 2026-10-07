@@ -1,0 +1,5 @@
+#N Fumarole
+#O Dean Hickerson
+#C A period 5 oscillator found in September 1989.
+x = 8, y = 7, rule = B3/S23
+3b2o3b$bo4bob$bo4bob$bo4bob$2bo2bo2b$obo2bobo$2o4b2o!

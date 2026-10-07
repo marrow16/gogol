@@ -1,0 +1,4 @@
+#N Herschel parent
+#C A parent of the herschel.
+x = 5, y = 4, rule = B3/S23
+2bo2b$2o3b$2bobo$4bo!

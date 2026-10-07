@@ -1,0 +1,5 @@
+#N thunderbird_synth
+#O Martin Grant, 5 July 2015
+#C 3-glider synthesis of thunderbird
+x = 24, y = 8, rule = B3/S23
+bo$bobo$b2o2$o18bo$b2obo14bob3o$2o2bobo12bo$4b2o!

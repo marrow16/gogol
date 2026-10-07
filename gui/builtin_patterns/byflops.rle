@@ -1,0 +1,5 @@
+#N By flops
+#O Robert Wainwright
+#C A period 2 oscillator.
+x = 6, y = 7, rule = B3/S23
+3bo2b$bobo2b$5bo$5ob$5bo$bobo2b$3bo!

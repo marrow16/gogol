@@ -1,0 +1,4 @@
+#N lineofthree
+#O John Conway, 1969
+x = 1, y = 3, rule = B3/S23
+o$o$o!

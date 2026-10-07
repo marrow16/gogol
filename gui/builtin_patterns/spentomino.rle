@@ -1,0 +1,4 @@
+#N S-pentomino
+#C One of the 12 pentominoes.
+x = 4, y = 2, rule = B3/S23
+2b2o$3o!

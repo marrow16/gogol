@@ -1,0 +1,5 @@
+#N Lidka
+#O Andrzej Okrasinski and David Bell
+#C A methuselah with lifespan 29055.
+x = 9, y = 15, rule = B3/S23
+bo7b$obo6b$bo7b8$8bo$6bobo$5b2obo2$4b3o!

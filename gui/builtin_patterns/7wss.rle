@@ -1,0 +1,4 @@
+#N 7wss
+#O John Conway, 1970
+x = 8, y = 5, rule = B3/S23
+3b3o$bo5bo$o$o6bo$7o!

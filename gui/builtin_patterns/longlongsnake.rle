@@ -1,0 +1,4 @@
+#N Long long snake
+#C An 8-cell still life.
+x = 6, y = 4, rule = B3/S23
+2o4b$obo3b$3bobo$4b2o!

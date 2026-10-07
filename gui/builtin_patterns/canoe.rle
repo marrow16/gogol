@@ -1,0 +1,4 @@
+#N Canoe
+#C An 8-cell still life.
+x = 5, y = 5, rule = B3/S23
+3b2o$4bo$3bob$obo2b$2o!

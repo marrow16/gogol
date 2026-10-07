@@ -1,0 +1,4 @@
+#N Block and cap
+#C A 12-cell still life.
+x = 4, y = 6, rule = B3/S23
+b2ob$o2bo$4o2$2o2b$2o!

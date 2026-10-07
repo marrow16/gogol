@@ -1,0 +1,5 @@
+#N Coolout Conjecture
+#O Richard Schroeppel
+#C A counterexample disproving the Coolout Conjecture, found by Richard Schroeppel in 2001.
+x = 6, y = 2, rule = B3/S23
+2o2b2o$ob2obo!

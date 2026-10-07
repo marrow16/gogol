@@ -1,10 +1,10 @@
 package patterns
 
-import "strings"
-
-func ResetLibrary() {
-	PatternLibrary = defaultPatternsLib()
-}
+import (
+	"maps"
+	"strings"
+	"sync"
+)
 
 func defaultPatternsLib() map[string]Pattern {
 	const (
@@ -12,218 +12,72 @@ func defaultPatternsLib() map[string]Pattern {
 		x = true
 	)
 	return map[string]Pattern{
-		"Toad": MustNewPattern("Toad", 6, []bool{
-			o, o, o, o, o, o,
-			o, o, o, o, o, o,
-			o, x, x, x, o, o,
-			o, o, x, x, x, o,
-			o, o, o, o, o, o,
-			o, o, o, o, o, o,
-		}),
-		"Beacon": MustNewPattern("Beacon", 6, []bool{
-			o, o, o, o, o, o,
-			o, x, x, o, o, o,
-			o, x, x, o, o, o,
-			o, o, o, x, x, o,
-			o, o, o, x, x, o,
-			o, o, o, o, o, o,
-		}),
-		"Glider": MustNewPattern("Glider", 5, []bool{
-			o, o, o, o, o,
-			o, o, o, x, o,
-			o, x, o, x, o,
-			o, o, x, x, o,
-			o, o, o, o, o,
-		}),
-		"Lightweight Spaceship": MustNewPattern("Lightweight Spaceship", 7, []bool{
-			o, o, o, o, o, o, o,
-			o, x, o, o, x, o, o,
-			o, o, o, o, o, x, o,
-			o, x, o, o, o, x, o,
-			o, o, x, x, x, x, o,
-			o, o, o, o, o, o, o,
-		}),
-		"Pulsar": MustNewPattern("Pulsar", 17, []bool{
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, x, x, x, o, o, o, x, x, x, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, x, o, o, o, o, x, o, x, o, o, o, o, x, o, o,
-			o, o, x, o, o, o, o, x, o, x, o, o, o, o, x, o, o,
-			o, o, x, o, o, o, o, x, o, x, o, o, o, o, x, o, o,
-			o, o, o, o, x, x, x, o, o, o, x, x, x, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, x, x, x, o, o, o, x, x, x, o, o, o, o,
-			o, o, x, o, o, o, o, x, o, x, o, o, o, o, x, o, o,
-			o, o, x, o, o, o, o, x, o, x, o, o, o, o, x, o, o,
-			o, o, x, o, o, o, o, x, o, x, o, o, o, o, x, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, x, x, x, o, o, o, x, x, x, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-		}),
-		"Pentadecathlon": MustNewPattern("Pentadecathlon", 11, []bool{
-			o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, x, x, x, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, x, o, o, o, x, o, o, o,
-			o, o, o, x, o, o, o, x, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, x, x, x, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, x, x, x, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, x, o, o, o, x, o, o, o,
-			o, o, o, x, o, o, o, x, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, x, x, x, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o,
-		}),
-		"Gosper's Glider Gun": MustNewPattern("Gosper's Glider Gun", 38, []bool{
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, x, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, x, o, x, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, x, x, o, o, o, o, o, o, x, x, o, o, o, o, o, o, o, o, o, o, o, o, x, x, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, x, o, o, o, x, o, o, o, o, x, x, o, o, o, o, o, o, o, o, o, o, o, o, x, x, o,
-			o, x, x, o, o, o, o, o, o, o, o, x, o, o, o, o, o, x, o, o, o, x, x, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, x, x, o, o, o, o, o, o, o, o, x, o, o, o, x, o, x, x, o, o, o, o, x, o, x, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, x, o, o, o, o, o, x, o, o, o, o, o, o, o, x, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, x, o, o, o, x, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, x, x, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-		}),
-		"101": MustNewPattern("101", 20, []bool{
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, x, x, o, o, o, o, o, o, x, x, o, o, o, o, o,
-			o, o, o, o, x, o, x, o, o, o, o, o, o, x, o, x, o, o, o, o,
-			o, o, o, o, x, o, o, o, o, o, o, o, o, o, o, x, o, o, o, o,
-			o, x, x, o, x, o, o, o, o, o, o, o, o, o, o, x, o, x, x, o,
-			o, x, x, o, x, o, x, o, o, x, x, o, o, x, o, x, o, x, x, o,
-			o, o, o, o, x, o, x, o, x, o, o, x, o, x, o, x, o, o, o, o,
-			o, o, o, o, x, o, x, o, x, o, o, x, o, x, o, x, o, o, o, o,
-			o, x, x, o, x, o, x, o, o, x, x, o, o, x, o, x, o, x, x, o,
-			o, x, x, o, x, o, o, o, o, o, o, o, o, o, o, x, o, x, x, o,
-			o, o, o, o, x, o, o, o, o, o, o, o, o, o, o, x, o, o, o, o,
-			o, o, o, o, x, o, x, o, o, o, o, o, o, x, o, x, o, o, o, o,
-			o, o, o, o, o, x, x, o, o, o, o, o, o, x, x, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-		}),
-		"1-2-3": MustNewPattern("1-2-3", 12, []bool{
-			o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, x, x, o, o, o, o, o, o, o,
-			o, x, o, o, x, o, o, o, o, o, o, o,
-			o, x, x, o, x, o, x, x, o, o, o, o,
-			o, o, x, o, x, o, o, x, o, o, o, o,
-			o, o, x, o, o, o, o, x, o, x, x, o,
-			o, o, o, x, x, x, o, x, o, x, x, o,
-			o, o, o, o, o, o, x, o, o, o, o, o,
-			o, o, o, o, o, x, o, o, o, o, o, o,
-			o, o, o, o, o, x, x, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o,
-		}),
-		"1-2-3-4": MustNewPattern("1-2-3-4", 13, []bool{
-			o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, x, o, o, o, o, o, o,
-			o, o, o, o, o, x, o, x, o, o, o, o, o,
-			o, o, o, o, x, o, x, o, x, o, o, o, o,
-			o, o, o, o, x, o, o, o, x, o, o, o, o,
-			o, x, x, o, x, o, x, o, x, o, x, x, o,
-			o, x, o, x, o, o, o, o, o, x, o, x, o,
-			o, o, o, o, x, x, x, x, x, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, x, o, o, o, o, o, o,
-			o, o, o, o, o, x, o, x, o, o, o, o, o,
-			o, o, o, o, o, o, x, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o,
-		}),
-		"Airforce": MustNewPattern("Airforce", 16, []bool{
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, x, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, x, o, x, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, x, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, x, x, x, x, x, o, o, o, o, o,
-			o, o, o, o, o, x, o, o, o, o, o, x, o, x, x, o,
-			o, o, o, o, x, o, x, x, o, o, o, x, o, x, x, o,
-			o, o, o, o, x, o, x, o, o, x, o, x, o, o, o, o,
-			o, x, x, o, x, o, o, o, x, x, o, x, o, o, o, o,
-			o, x, x, o, x, o, o, o, o, o, x, o, o, o, o, o,
-			o, o, o, o, o, x, x, x, x, x, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, x, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, x, o, x, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, x, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-		}),
-		"Lucas Exploding Glider Gun": MustNewPattern("Lucas Exploding Glider Gun", 7, []bool{
-			o, o, o, o, o, o, o,
-			o, x, x, x, x, o, o,
-			o, x, x, o, o, x, o,
-			o, x, o, x, x, x, o,
-			o, x, o, x, x, o, o,
-			o, o, x, x, o, o, o,
-			o, o, o, o, o, o, o,
-		}),
-		"R-pentomino": MustNewPattern("R-pentomino", 5, []bool{
-			o, o, o, o, o,
-			o, o, x, x, o,
-			o, x, x, o, o,
-			o, o, x, o, o,
-			o, o, o, o, o,
-		}),
-		"Coe ship": MustNewPattern("Coe ship", 12, []bool{
-			o, o, o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, o, x, x, x, x, x, x, o,
-			o, o, o, x, x, o, o, o, o, o, x, o,
-			o, x, x, o, x, o, o, o, o, o, x, o,
-			o, o, o, o, o, x, o, o, o, x, o, o,
-			o, o, o, o, o, o, o, x, o, o, o, o,
-			o, o, o, o, o, o, o, x, x, o, o, o,
-			o, o, o, o, o, o, x, x, x, x, o, o,
-			o, o, o, o, o, o, x, x, o, x, x, o,
-			o, o, o, o, o, o, o, o, x, x, o, o,
-			o, o, o, o, o, o, o, o, o, o, o, o,
-		}),
-		"Line pulsar": MustNewPattern("Line pulsar", 41, []bool{
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-			o, x, x, x, x, x, x, x, x, o, x, x, x, x, x, o, o, o, x, x, x, o, o, o, o, o, o, x, x, x, x, x, x, x, o, x, x, x, x, x, o,
-			o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o,
-		}),
-		"Copperhead spaceship": MustNewPattern("Copperhead spaceship", 10, []bool{
-			o, o, o, o, o, o, o, o, o, o,
-			o, o, x, x, o, o, x, x, o, o,
-			o, o, o, o, x, x, o, o, o, o,
-			o, o, o, o, x, x, o, o, o, o,
-			o, x, o, x, o, o, x, o, x, o,
-			o, x, o, o, o, o, o, o, x, o,
-			o, o, o, o, o, o, o, o, o, o,
-			o, x, o, o, o, o, o, o, x, o,
-			o, o, x, x, o, o, x, x, o, o,
-			o, o, o, x, x, x, x, o, o, o,
-			o, o, o, o, o, o, o, o, o, o,
-			o, o, o, o, x, x, o, o, o, o,
-			o, o, o, o, x, x, o, o, o, o,
-			o, o, o, o, o, o, o, o, o, o,
-		}),
-		"Canada goose": MustNewPatternFromRle(strings.NewReader(`#N Canada goose
-#O Jason Summers
-#C A c/4 period 4 spaceship. At the time of its discovery, the Canada goose was the smallest known diagonal spaceship other than the glider, but this record has since been beaten
-#C first by Orion 2, and more recently by the crab.
-#C www.conwaylife.com/wiki/index.php?title=Canada_goose
-x = 13, y = 12, rule = B3/S23
-3o10b$o9b2ob$bo6b3obo$3b2o2b2o4b$4bo8b$8bo4b$4b2o3bo3b$3bobob2o4b$3bob
-o2bob2ob$2bo4b2o4b$2b2o9b$2b2o!`)),
-		"Wasp": MustNewPatternFromRle(strings.NewReader(`#N Wasp
-#O David Bell
-#C An orthogonal c/3 period 3 spaceship that was found in March 1998.
-#C www.conwaylife.com/wiki/index.php?title=Wasp
-x = 22, y = 9, rule = B3/S23
-10bo3bo7b$7bobob2ob3o5b$6bo2bo6b2ob2ob$b2o2b2o2bo3bo2bo2b2ob$b2obob2o
-2bo2bo4bo2bo$o3bo4b2o11b$obobo2bo2b2o10b$9bo12b$b3o!`)),
+		"Lucas Exploding Glider Gun": MustNewPatternFromRle(strings.NewReader(`#N Lucas Exploding Glider Gun
+#O Lucas & Martin Rowlinson, November 2017
+#C Copied from GoGoL (https://github.com/marrow16/gogol)
+x = 5, y = 5, rule = B0138/S124
+4o$2o2bo$ob3o$ob2o$b2o!`)),
+		"GoGoL": MustNewPatternFromRle(strings.NewReader(`#N GoGoL
+#O Marrow, 2026
+#C Default built-in pattern for GoGoL
+#C https://github.com/marrow16/gogol
+x = 28, y = 7, rule = B3/S23
+b3o9b3o8bo$o3bo7bo3bo7bo$o6b3o2bo6b3o2bo$ob3obo3bobob3obo3bobo$o3bobo
+3bobo3bobo3bobo$o2b2obo3bobo2b2obo3bobo$b2obo2b3o3b2obo2b3o2b4o!`)),
 	}
 }
 
-var PatternLibrary = defaultPatternsLib()
+var Library = &patternsLib{
+	content: defaultPatternsLib(),
+}
+
+type patternsLib struct {
+	content map[string]Pattern
+	mutex   sync.RWMutex
+}
+
+func (l *patternsLib) Register(pattern Pattern) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	l.content[pattern.Name] = pattern
+}
+
+func (l *patternsLib) Get(name string) (Pattern, bool) {
+	l.mutex.RLock()
+	p, ok := l.content[name]
+	l.mutex.RUnlock()
+	return p, ok
+}
+
+func (l *patternsLib) All() map[string]Pattern {
+	l.mutex.RLock()
+	all := maps.Clone(l.content)
+	l.mutex.RUnlock()
+	return all
+}
+
+func (l *patternsLib) Filtered(fns []func(pattern Pattern) bool) map[string]Pattern {
+	l.mutex.RLock()
+	all := make(map[string]Pattern, len(l.content))
+	for k, v := range l.content {
+		ok := true
+		for _, fn := range fns {
+			if fn != nil && !fn(v) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			all[k] = v
+		}
+	}
+	l.mutex.RUnlock()
+	return all
+}
+
+func (l *patternsLib) Len() int {
+	l.mutex.RLock()
+	cl := len(l.content)
+	l.mutex.RUnlock()
+	return cl
+}

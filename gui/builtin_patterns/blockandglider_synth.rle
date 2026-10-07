@@ -1,0 +1,4 @@
+#N blockandglider_synth
+#C Glider synthesis of block and glider.
+x = 8, y = 9, rule = B3/S23
+6bo$5b2o$5bobo$3o$2bo$bo$5bo$4b2o$4bobo!

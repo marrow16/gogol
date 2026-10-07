@@ -1,0 +1,4 @@
+#N C-heptomino
+#C A methuselah with lifespan 148 that evolves in the same way as the B-heptomino after its second generation.
+x = 4, y = 3, rule = B3/S23
+b3o$3ob$bo!

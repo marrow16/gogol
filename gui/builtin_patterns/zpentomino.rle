@@ -1,0 +1,4 @@
+#N Z-pentomino
+#C One of the 12 pentominoes.
+x = 3, y = 3, rule = B3/S23
+2ob$bob$b2o!

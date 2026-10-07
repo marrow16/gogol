@@ -1,0 +1,4 @@
+#N T-tetromino
+#C One of 5 tetrominoes.
+x = 3, y = 2, rule = B3/S23
+3o$bo!

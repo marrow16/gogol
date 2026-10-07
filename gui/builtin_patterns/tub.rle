@@ -1,0 +1,4 @@
+#N Tub
+#C A very common 4-cell still life.
+x = 3, y = 3, rule = B3/S23
+bob$obo$bo!

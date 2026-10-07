@@ -1,0 +1,4 @@
+#N Cis-beacon and dock
+#C A period 2 oscillator.
+x = 6, y = 8, rule = B3/S23
+3b2ob$4bob$bo4b$b2o3b2$b4ob$o4bo$2o2b2o!

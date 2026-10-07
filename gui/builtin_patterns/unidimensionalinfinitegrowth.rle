@@ -1,0 +1,5 @@
+#N Unidimensional infinite growth
+#O Paul Callahan
+#C Infinite growth resulting from a single row of live cells.
+x = 39, y = 1, rule = 23/3
+8ob5o3b3o6b7ob5o!
