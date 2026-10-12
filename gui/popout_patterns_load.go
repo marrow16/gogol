@@ -12,24 +12,25 @@ import (
 )
 
 type loadPatternsPopout struct {
-	parent  *menuPopup
-	core    *Core
-	path    *input
-	btnLoad *controls.Button
-	btnPath *controls.PathButton
-	error   error
-	loaded  *int
+	parent     *menuPopup
+	core       *Core
+	setFocused bool
+	path       *controls.Input
+	btnLoad    *controls.Button
+	btnPath    *controls.PathButton
+	error      error
+	loaded     *int
 }
 
 func newLoadPatternsPopout(p *menuPopup, c *Core) *loadPatternsPopout {
 	result := &loadPatternsPopout{
-		parent:  p,
-		core:    c,
-		path:    newInput("", 256, nil).maximumWidth(30),
-		btnLoad: controls.NewButton(theme, "Load"),
-		btnPath: controls.NewPathButton(theme, popupForeground, popupBackground),
+		parent:     p,
+		core:       c,
+		setFocused: true,
+		btnLoad:    controls.NewButton(theme, "Load"),
+		btnPath:    controls.NewPathButton(theme),
 	}
-	result.path.onChangeFn = result.clearError
+	result.path = controls.NewInput(theme, "", 256, result.clearError).MaximumWidth(30)
 	return result
 }
 
@@ -42,7 +43,7 @@ func (p *loadPatternsPopout) clearError(_ string) {
 }
 
 func (p *loadPatternsPopout) loadPatterns() {
-	path := p.path.editor.Text()
+	path := p.path.Text()
 	if path == "" {
 		p.error = errors.New("Please enter a path")
 		return
@@ -72,16 +73,22 @@ func (p *loadPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	}
 	if p.btnPath.Clicked(gtx) {
 		p.core.showFileFinder("Select Pattern(s)", []string{".rle"}, true, func(path string) {
-			p.path.setText(path)
-			p.path.setFocused(gtx)
+			p.path.SetText(path)
+			p.setFocused = true
+		}, func() {
+			p.setFocused = true
 		})
 	}
-	labelMax := measureMaxText(gtx, font.Normal, "Path: ").Size.X
+	if p.setFocused {
+		p.setFocused = false
+		p.path.SetFocused(gtx)
+	}
+	labelMax := measureMaxText(gtx, font.Normal, "Path: ")
 	return popoutLayout(gtx, flexVertical(8,
 		rigid(label("Enter pattern filename or directory (for library)...")),
 		rigid(flexHorizontal(0,
 			rigidLabel("Path: ", text.End, 0, labelMax),
-			flexed(p.path.layout),
+			flexed(p.path.Layout),
 			rigid(p.btnPath.Layout),
 		)),
 		rigid(flexHorizontal(0,
@@ -105,5 +112,5 @@ func (p *loadPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *loadPatternsPopout) hasFocus(gtx layout.Context) bool {
-	return p.path.isFocused(gtx) || p.btnLoad.IsFocused(gtx) || p.btnPath.IsFocused(gtx)
+	return p.path.IsFocused(gtx) || p.btnLoad.IsFocused(gtx) || p.btnPath.IsFocused(gtx)
 }

@@ -13,11 +13,11 @@ import (
 type collectedRulesPopout struct {
 	parent           *menuPopup
 	core             *Core
-	rulesList        *ListControl[logic.Rule]
+	rulesList        *controls.List[logic.Rule]
 	btnClear         *controls.Button
 	btnAddCurrent    *controls.Button
 	btnRemoveCurrent *controls.Button
-	commonEdit       *input
+	commonEdit       *controls.Input
 	cached           map[int]bool
 	rules            []logic.Rule
 	commonality      string
@@ -32,14 +32,14 @@ func newCollectedRulesPopout(p *menuPopup, c *Core) *collectedRulesPopout {
 		btnAddCurrent:    controls.NewButton(theme, "Add Current"),
 		btnRemoveCurrent: controls.NewButton(theme, "Remove Current"),
 	}
-	result.commonEdit = newInput(nil, 256, func(text string) {}).maximumWidth(20).onSubmit(result.submitCommonality)
-	result.rulesList = NewListControl[logic.Rule](theme, result.rules, true).
-		rowRenderer(result.layoutRule).
-		onItemSelect(func(r logic.Rule, _ bool) {
+	result.commonEdit = controls.NewInput(theme, nil, 256, func(text string) {}).MaximumWidth(20).OnSubmit(result.submitCommonality)
+	result.rulesList = controls.NewList[logic.Rule](theme, result.rules, true).
+		RowRenderer(result.layoutRule).
+		OnItemSelect(func(r logic.Rule, _ bool) {
 			c.gridHolder.grid.SetRule(r)
 			window.Invalidate()
 		}).
-		onIsSelected(func(index int, r logic.Rule) bool {
+		OnIsSelected(func(index int, r logic.Rule) bool {
 			return r.Permutation() == c.gridHolder.grid.Rule().Permutation()
 		})
 	return result
@@ -84,7 +84,7 @@ func (p *collectedRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 		)),
 		rigid(flexHorizontal(10,
 			rigidLabel("Commonality:", 0, 0, 0),
-			flexed(p.commonEdit.layout),
+			flexed(p.commonEdit.Layout),
 			rigidLabel("("+strconv.Itoa(len(p.rules))+"/"+strconv.Itoa(p.commonCount)+")", 0, 0, 0),
 		)),
 	))
@@ -122,15 +122,15 @@ func (p *collectedRulesPopout) checkFoundRulesChanged() {
 			}
 			return 1
 		})
-		p.rulesList.resetItems(p.rules)
+		p.rulesList.ResetItems(p.rules)
 		if ev, err := meta.CommonalityFromRules(p.rules...); err == nil {
 			p.commonality = ev.String()
-			p.commonEdit.setText(p.commonality)
-			p.commonEdit.editor.SetCaret(len(p.commonality), 0)
+			p.commonEdit.SetText(p.commonality)
+			p.commonEdit.SetCaret(len(p.commonality), 0)
 			p.commonCount = meta.Count(ev)
 		} else {
 			p.commonality = ""
-			p.commonEdit.setText("")
+			p.commonEdit.SetText("")
 			p.commonCount = 0
 		}
 	}
@@ -138,7 +138,7 @@ func (p *collectedRulesPopout) checkFoundRulesChanged() {
 
 func (p *collectedRulesPopout) hasFocus(gtx layout.Context) bool {
 	return p.btnClear.IsFocused(gtx) || p.btnRemoveCurrent.IsFocused(gtx) || p.btnAddCurrent.IsFocused(gtx) ||
-		p.commonEdit.isFocused(gtx) || p.rulesList.IsFocused(gtx)
+		p.commonEdit.IsFocused(gtx) || p.rulesList.IsFocused(gtx)
 }
 
 func (p *collectedRulesPopout) reset() {

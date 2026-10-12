@@ -9,6 +9,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/io/semantic"
+	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -17,6 +18,8 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/marrow16/gogol/gui/controls"
+	"github.com/marrow16/gogol/gui/icons"
 	"github.com/marrow16/gogol/gui/settings"
 	"image"
 	"image/color"
@@ -29,11 +32,10 @@ import (
 )
 
 func Show(topic Topic, settings *settings.Settings) {
-	helpHolder.show(topic, settings)
-}
-
-func HelpWindow() *app.Window {
-	return helpHolder.window
+	w := helpHolder.show(topic, settings)
+	go func() {
+		w.Perform(system.ActionRaise)
+	}()
 }
 
 var (
@@ -65,12 +67,12 @@ type holder struct {
 	list     widget.List
 	index    widget.Clickable
 	back     widget.Clickable
-	copy     widget.Clickable
+	copy     *controls.IconButton
 	backs    []Topic
 	// searching...
 	searching         bool
 	search            widget.Clickable
-	exit              widget.Clickable
+	exit              *controls.IconButton
 	searchEdit        widget.Editor
 	results           []Topic
 	resultsList       widget.List
@@ -78,7 +80,7 @@ type holder struct {
 	contentsIndex     map[Topic]string
 }
 
-func (h *holder) show(topic Topic, settings *settings.Settings) {
+func (h *holder) show(topic Topic, settings *settings.Settings) *app.Window {
 	h.mutex.Lock()
 	h.settings = settings
 	if topic > -1 {
@@ -93,6 +95,8 @@ func (h *holder) show(topic Topic, settings *settings.Settings) {
 		h.window = new(app.Window)
 		h.fonts = gofont.Collection()
 		h.theme = material.NewTheme()
+		h.exit = controls.NewIconButton(icons.Close, (h.theme.TextSize*5)/4)
+		h.copy = controls.NewIconButton(icons.Copy, h.theme.TextSize)
 		h.theme.Shaper = text.NewShaper(text.WithCollection(h.fonts))
 		h.mono = h.fonts[0].Font
 		for _, f := range h.fonts {
@@ -107,11 +111,12 @@ func (h *holder) show(topic Topic, settings *settings.Settings) {
 		)
 		h.mutex.Unlock()
 		go h.run()
-		return
+		return h.window
 	}
 	w := h.window
 	h.mutex.Unlock()
 	w.Invalidate()
+	return w
 }
 
 func (h *holder) run() {
@@ -379,14 +384,7 @@ func (h *holder) header(gtx layout.Context) layout.FlexChild {
 					return layout.Flex{Axis: layout.Horizontal, Gap: 10}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if _, exists := contents[h.topic]; exists {
-								wh := gtx.Sp((h.theme.TextSize * 5) / 6)
-								icon := Image{
-									name:        "copy-icon.png",
-									width:       wh,
-									height:      wh,
-									spaceBefore: 4,
-								}
-								return clickable(gtx, &h.copy, icon.widget(h))
+								return layout.Inset{Top: 4}.Layout(gtx, h.copy.Layout)
 							}
 							return layout.Dimensions{}
 						}),
@@ -398,15 +396,6 @@ func (h *holder) header(gtx layout.Context) layout.FlexChild {
 						}),
 					)
 				}),
-				/*
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Label(h.theme, (h.theme.TextSize*5)/4, h.topic.String())
-						lbl.MaxLines = 1
-						lbl.Font.Weight = font.Bold
-						return lbl.Layout(gtx)
-					}),
-
-				*/
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Gap: 20}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -545,9 +534,7 @@ func (h *holder) searchHeader(gtx layout.Context) layout.FlexChild {
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return clickable(gtx, &h.exit, func(gtx layout.Context) layout.Dimensions {
-						return material.Label(h.theme, (h.theme.TextSize*5)/4, "ⓧ").Layout(gtx)
-					})
+					return layout.Inset{Top: 2}.Layout(gtx, h.exit.Layout)
 				}),
 			)
 		})

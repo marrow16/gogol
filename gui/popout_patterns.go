@@ -20,7 +20,7 @@ import (
 type patternsPopout struct {
 	parent        *menuPopup
 	core          *Core
-	chooser       *chooser[patterns.Pattern]
+	chooser       *controls.Chooser[patterns.Pattern]
 	previewMode   *widget.Enum
 	radioPreview  *controls.RadioButton
 	radioMetadata *controls.RadioButton
@@ -34,16 +34,16 @@ type patternsPopout struct {
 	patternsCount        int
 	currentRule          *logic.Rule
 	chkFilterCurrentRule *controls.Checkbox
-	filterName           *input
-	filterRule           *input
-	filterRuleCurrent    *input
-	filterWidthMin       *numberInput[int]
-	filterWidthMax       *numberInput[int]
-	filterHeightMin      *numberInput[int]
-	filterHeightMax      *numberInput[int]
-	filterFilename       *input
-	filterOrigin         *input
-	filterComment        *input
+	filterName           *controls.Input
+	filterRule           *controls.Input
+	filterRuleCurrent    *controls.Input
+	filterWidthMin       *controls.NumberInput[int]
+	filterWidthMax       *controls.NumberInput[int]
+	filterHeightMin      *controls.NumberInput[int]
+	filterHeightMax      *controls.NumberInput[int]
+	filterFilename       *controls.Input
+	filterOrigin         *controls.Input
+	filterComment        *controls.Input
 	btnFilterApply       *controls.Button
 	btnFilterClear       *controls.Button
 	filterApplied        bool
@@ -63,31 +63,31 @@ func newPatternsPopout(p *menuPopup, c *Core) *patternsPopout {
 		chkFilterCurrentRule: controls.NewCheckBox(theme, "Filter current rule", false),
 		btnPlace:             controls.NewButton(theme, "Place"),
 		chkInterlaced:        controls.NewCheckBox(theme, "Interlaced", false),
-		filterName:           newInput(nil, 256, nil).maximumWidth(30),
-		filterRule:           newInput("sbSB/012345678", 21, nil).maximumWidth(30),
-		filterRuleCurrent:    newInput(nil, 21, nil).maximumWidth(30),
-		filterWidthMin:       newNumberInput[int](5, 0, 99999, 100, nil),
-		filterWidthMax:       newNumberInput[int](5, 0, 99999, 100, nil),
-		filterHeightMin:      newNumberInput[int](5, 0, 99999, 100, nil),
-		filterHeightMax:      newNumberInput[int](5, 0, 99999, 100, nil),
-		filterFilename:       newInput(nil, 256, nil).maximumWidth(30),
-		filterOrigin:         newInput(nil, 256, nil).maximumWidth(30),
-		filterComment:        newInput(nil, 256, nil).maximumWidth(30),
+		filterName:           controls.NewInput(theme, nil, 256, nil).MaximumWidth(30),
+		filterRule:           controls.NewInput(theme, "sbSB/012345678", 21, nil).MaximumWidth(30),
+		filterRuleCurrent:    controls.NewInput(theme, nil, 21, nil).MaximumWidth(30),
+		filterWidthMin:       controls.NewNumberInput[int](theme, 5, 0, 99999, 100, nil),
+		filterWidthMax:       controls.NewNumberInput[int](theme, 5, 0, 99999, 100, nil),
+		filterHeightMin:      controls.NewNumberInput[int](theme, 5, 0, 99999, 100, nil),
+		filterHeightMax:      controls.NewNumberInput[int](theme, 5, 0, 99999, 100, nil),
+		filterFilename:       controls.NewInput(theme, nil, 256, nil).MaximumWidth(30),
+		filterOrigin:         controls.NewInput(theme, nil, 256, nil).MaximumWidth(30),
+		filterComment:        controls.NewInput(theme, nil, 256, nil).MaximumWidth(30),
 		btnFilterApply:       controls.NewButton(theme, "Apply Filter"),
 		btnFilterClear:       controls.NewButton(theme, "Clear Filter"),
 	}
-	result.filterRuleCurrent.editor.ReadOnly = true
+	result.filterRuleCurrent.ReadOnly(true)
 	result.radioPreview = controls.NewRadioButton(theme, result.previewMode, previewImage, "Preview")
 	result.radioMetadata = controls.NewRadioButton(theme, result.previewMode, previewMetadata, "Metadata")
 	result.radioSearch = controls.NewRadioButton(theme, result.previewMode, searchFilter, "Search/filter")
-	result.chooser = newChooser[patterns.Pattern](38,
+	result.chooser = controls.NewChooser[patterns.Pattern](theme, 38,
 		nil,
 		result.patternSelected,
 		func(pattern patterns.Pattern) string {
 			return pattern.String()
 		},
 	)
-	result.chooser.setText(c.settings.SelectedPattern)
+	result.chooser.SetText(c.settings.SelectedPattern)
 	result.resetPatterns(true)
 	return result
 }
@@ -99,13 +99,13 @@ func (p *patternsPopout) patternSelected(pattern *patterns.Pattern) {
 }
 
 func (p *patternsPopout) setSelected(name string) {
-	p.chooser.opened = false
+	p.chooser.Opened(false)
 	p.filterApplied = false
 	if p.previewMode.Value != previewImage && p.previewMode.Value != previewMetadata {
 		p.previewMode.Value = previewImage
 	}
 	p.resetPatterns(true)
-	p.chooser.editor.SetText(name)
+	p.chooser.SetText(name)
 }
 
 func (p *patternsPopout) resetPatterns(force bool) {
@@ -133,7 +133,7 @@ func (p *patternsPopout) resetPatterns(force bool) {
 		slices.SortStableFunc(items, func(a, b patterns.Pattern) int {
 			return strings.Compare(strings.ToLower(a.String()), strings.ToLower(b.String()))
 		})
-		p.chooser.resetItems(items)
+		p.chooser.ResetItems(items)
 	}
 }
 
@@ -159,46 +159,46 @@ func (p *patternsPopout) buildPatternsFilter() *patternFilter {
 		result.fns = append(result.fns, func(pattern patterns.Pattern) bool {
 			return pattern.Rule != nil && pattern.Rule.Permutation() == p.core.gridHolder.grid.Rule().Permutation()
 		})
-	} else if s := p.filterRule.editor.Text(); len(s) != 0 {
+	} else if s := p.filterRule.Text(); len(s) != 0 {
 		if r, err := logic.NewRuleRle("", s); err == nil {
 			perm := r.Permutation()
 			result.fns = append(result.fns, func(pattern patterns.Pattern) bool {
 				return pattern.Rule != nil && pattern.Rule.Permutation() == perm
 			})
 		} else {
-			p.filterRule.setText("")
+			p.filterRule.SetText("")
 		}
 	}
-	if s := p.filterName.editor.Text(); len(s) != 0 {
+	if s := p.filterName.Text(); len(s) != 0 {
 		s = strings.ToLower(s)
 		result.fns = append(result.fns, func(pattern patterns.Pattern) bool {
 			return strings.Contains(strings.ToLower(pattern.Name), s)
 		})
 	}
-	if s := p.filterFilename.editor.Text(); len(s) != 0 {
+	if s := p.filterFilename.Text(); len(s) != 0 {
 		s = strings.ToLower(s)
 		result.fns = append(result.fns, func(pattern patterns.Pattern) bool {
 			return strings.Contains(strings.ToLower(pattern.Filename), s)
 		})
 	}
-	if s := p.filterOrigin.editor.Text(); len(s) != 0 {
+	if s := p.filterOrigin.Text(); len(s) != 0 {
 		s = strings.ToLower(s)
 		result.fns = append(result.fns, func(pattern patterns.Pattern) bool {
 			return strings.Contains(strings.ToLower(pattern.Origination), s)
 		})
 	}
-	if s := p.filterComment.editor.Text(); len(s) != 0 {
+	if s := p.filterComment.Text(); len(s) != 0 {
 		s = strings.ToLower(s)
 		result.fns = append(result.fns, func(pattern patterns.Pattern) bool {
 			return strings.Contains(strings.ToLower(strings.Join(pattern.Comments, "\n")), s)
 		})
 	}
 	wMin, wMax := -1, -1
-	if p.filterWidthMin.input.editor.Text() != "" {
-		wMin = p.filterWidthMin.current()
+	if p.filterWidthMin.Text() != "" {
+		wMin = p.filterWidthMin.Current()
 	}
-	if p.filterWidthMax.input.editor.Text() != "" {
-		wMax = p.filterWidthMax.current()
+	if p.filterWidthMax.Text() != "" {
+		wMax = p.filterWidthMax.Current()
 	}
 	switch {
 	case wMin != -1 && wMax != -1:
@@ -216,11 +216,11 @@ func (p *patternsPopout) buildPatternsFilter() *patternFilter {
 		})
 	}
 	hMin, hMax := -1, -1
-	if p.filterHeightMin.input.editor.Text() != "" {
-		hMin = p.filterHeightMin.current()
+	if p.filterHeightMin.Text() != "" {
+		hMin = p.filterHeightMin.Current()
 	}
-	if p.filterHeightMax.input.editor.Text() != "" {
-		hMax = p.filterHeightMax.current()
+	if p.filterHeightMax.Text() != "" {
+		hMax = p.filterHeightMax.Current()
 	}
 	switch {
 	case hMin != -1 && hMax != -1:
@@ -245,12 +245,12 @@ func (p *patternsPopout) buildPatternsFilter() *patternFilter {
 }
 
 func (p *patternsPopout) currentPattern() (patt *patterns.Pattern, interlaced bool) {
-	return p.chooser.currentItem(), p.chkInterlaced.Checked()
+	return p.chooser.CurrentItem(), p.chkInterlaced.Checked()
 }
 
 func (p *patternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnPlace.Clicked(gtx) {
-		if pattern := p.chooser.currentItem(); pattern != nil {
+		if pattern := p.chooser.CurrentItem(); pattern != nil {
 			p.core.startPatternPlace(gtx, pattern, p.chkInterlaced.Checked())
 		}
 	}
@@ -260,7 +260,7 @@ func (p *patternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	p.resetPatterns(false)
 	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
 		dims := flexVertical(10,
-			rigid(p.chooser.layout),
+			rigid(p.chooser.Layout),
 			rigid(flexHorizontal(10,
 				rigid(p.radioPreview.Layout),
 				rigid(p.radioMetadata.Layout),
@@ -268,25 +268,25 @@ func (p *patternsPopout) layout(gtx layout.Context) layout.Dimensions {
 			)),
 			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = int(float32(chd.Size.Y) * 15.5)
-				gtx.Constraints.Max.X = p.chooser.dims.Size.X
-				return p.layoutPreview(gtx, p.chooser.dims.Size.X, chd.Size.Y*15)
+				gtx.Constraints.Max.X = p.chooser.Width()
+				return p.layoutPreview(gtx, p.chooser.Width(), chd.Size.Y*15)
 			}),
-			conditionalRigid(p.previewMode.Value != searchFilter && p.chooser.currentItem() != nil, flexHorizontal(20,
+			conditionalRigid(p.previewMode.Value != searchFilter && p.chooser.CurrentItem() != nil, flexHorizontal(20,
 				rigid(p.btnPlace.Layout),
 				rigid(p.chkInterlaced.Layout)), nil),
 			conditionalRigid(p.previewMode.Value == searchFilter, flexHorizontal(20,
 				rigid(p.btnFilterApply.Layout),
 				conditionalRigid(p.filterApplied, p.btnFilterClear.Layout, nil),
-				conditionalRigid(p.filterApplied, label("("+strconv.Itoa(len(p.chooser.items))+"/"+strconv.Itoa(patterns.Library.Len())+")"), nil),
+				conditionalRigid(p.filterApplied, label("("+strconv.Itoa(p.chooser.Len())+"/"+strconv.Itoa(patterns.Library.Len())+")"), nil),
 			), nil),
 		)(gtx)
-		p.chooser.layoutDropdown(gtx)
+		p.chooser.LayoutDropdown(gtx)
 		return dims
 	})
 }
 
 func (p *patternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt int) layout.Dimensions {
-	currentPattern := p.chooser.currentItem()
+	currentPattern := p.chooser.CurrentItem()
 	switch {
 	case p.previewMode.Value == searchFilter:
 		return p.layoutSearchFilter(gtx)
@@ -303,9 +303,9 @@ func (p *patternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt int) lay
 
 func (p *patternsPopout) layoutSearchFilter(gtx layout.Context) layout.Dimensions {
 	if r := p.core.gridHolder.grid.Rule(); r.IsCustom() {
-		p.filterRuleCurrent.setText(r.Rle())
+		p.filterRuleCurrent.SetText(r.Rle())
 	} else {
-		p.filterRuleCurrent.setText(r.Name())
+		p.filterRuleCurrent.SetText(r.Name())
 	}
 	if p.btnFilterApply.Clicked(gtx) {
 		p.filterApplied = true
@@ -316,11 +316,11 @@ func (p *patternsPopout) layoutSearchFilter(gtx layout.Context) layout.Dimension
 		p.resetPatterns(true)
 	}
 	p.chkFilterCurrentRule.Update(gtx)
-	labelMax := measureMaxText(gtx, font.Bold, "Name: ", "Rule: ", "Width: ", "Height: ", "Filename: ", "Origin: ", "Comment: ").Size.X
+	labelMax := measureMaxText(gtx, font.Bold, "Name: ", "Rule: ", "Width: ", "Height: ", "Filename: ", "Origin: ", "Comment: ")
 	return flexVertical(10,
 		rigid(flexHorizontal(20,
 			rigidLabel("Rule:", text.End, font.Bold, labelMax),
-			conditionalFlexed(p.chkFilterCurrentRule.Checked(), p.filterRuleCurrent.layout, p.filterRule.layout),
+			conditionalFlexed(p.chkFilterCurrentRule.Checked(), p.filterRuleCurrent.Layout, p.filterRule.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("", 0, 0, labelMax),
@@ -328,37 +328,37 @@ func (p *patternsPopout) layoutSearchFilter(gtx layout.Context) layout.Dimension
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Width:", text.End, font.Bold, labelMax),
-			flexed(p.filterWidthMin.layout),
+			flexed(p.filterWidthMin.Layout),
 			rigid(label("to")),
-			flexed(p.filterWidthMax.layout),
+			flexed(p.filterWidthMax.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Height:", text.End, font.Bold, labelMax),
-			flexed(p.filterHeightMin.layout),
+			flexed(p.filterHeightMin.Layout),
 			rigid(label("to")),
-			flexed(p.filterHeightMax.layout),
+			flexed(p.filterHeightMax.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Name:", text.End, font.Bold, labelMax),
-			flexed(p.filterName.layout),
+			flexed(p.filterName.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Filename:", text.End, font.Bold, labelMax),
-			flexed(p.filterFilename.layout),
+			flexed(p.filterFilename.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Origin:", text.End, font.Bold, labelMax),
-			flexed(p.filterOrigin.layout),
+			flexed(p.filterOrigin.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Comment:", text.End, font.Bold, labelMax),
-			flexed(p.filterComment.layout),
+			flexed(p.filterComment.Layout),
 		)),
 	)(gtx)
 }
 
 func (p *patternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern, gtx layout.Context) layout.Dimensions {
-	labelMax := measureMaxText(gtx, font.Bold, "Size: ", "Name: ", "Filename: ", "Origin: ", "Comment: ").Size.X
+	labelMax := measureMaxText(gtx, font.Bold, "Size: ", "Name: ", "Filename: ", "Origin: ", "Comment: ")
 	if p.ruleClick.Clicked(gtx) && pattern.Rule != nil {
 		p.core.setRule(*pattern.Rule)
 	}
@@ -426,18 +426,18 @@ func (p *patternsPopout) layoutPreviewImage(pattern *patterns.Pattern, gtx layou
 }
 
 func (p *patternsPopout) reset() {
-	p.chooser.opened = false
+	p.chooser.Opened(false)
 	p.resetPatterns(false)
 }
 
 func (p *patternsPopout) hasFocus(gtx layout.Context) bool {
 	_, radios := p.previewMode.Focused()
-	return radios || p.chooser.isFocused(gtx) || p.chkFilterCurrentRule.IsFocused(gtx) || p.chkInterlaced.IsFocused(gtx) ||
+	return radios || p.chooser.IsFocused(gtx) || p.chkFilterCurrentRule.IsFocused(gtx) || p.chkInterlaced.IsFocused(gtx) ||
 		p.btnPlace.IsFocused(gtx) || gtx.Focused(&p.ruleClick) ||
-		p.chkFilterCurrentRule.IsFocused(gtx) || p.filterName.isFocused(gtx) || p.filterRule.isFocused(gtx) ||
-		p.filterRuleCurrent.isFocused(gtx) || p.filterWidthMin.isFocused(gtx) || p.filterWidthMax.isFocused(gtx) ||
-		p.filterHeightMin.isFocused(gtx) || p.filterHeightMax.isFocused(gtx) ||
-		p.filterFilename.isFocused(gtx) || p.filterOrigin.isFocused(gtx) || p.filterComment.isFocused(gtx) ||
+		p.chkFilterCurrentRule.IsFocused(gtx) || p.filterName.IsFocused(gtx) || p.filterRule.IsFocused(gtx) ||
+		p.filterRuleCurrent.IsFocused(gtx) || p.filterWidthMin.IsFocused(gtx) || p.filterWidthMax.IsFocused(gtx) ||
+		p.filterHeightMin.IsFocused(gtx) || p.filterHeightMax.IsFocused(gtx) ||
+		p.filterFilename.IsFocused(gtx) || p.filterOrigin.IsFocused(gtx) || p.filterComment.IsFocused(gtx) ||
 		p.btnFilterApply.IsFocused(gtx) || p.btnFilterClear.IsFocused(gtx)
 
 }

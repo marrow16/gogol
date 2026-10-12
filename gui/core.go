@@ -2,9 +2,10 @@ package gui
 
 import (
 	"fmt"
-	"gioui.org/io/system"
-	help2 "github.com/marrow16/gogol/gui/help"
+	"github.com/marrow16/gogol/gui/controls"
+	"github.com/marrow16/gogol/gui/help"
 	"github.com/marrow16/gogol/gui/settings"
+	"image/color"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,6 +32,13 @@ var (
 
 func NewCore(s *settings.Settings) (*Core, error) {
 	theme = material.NewTheme()
+	// sync controls styling...
+	controls.Style.BorderColor = borderColor
+	controls.Style.BorderFocusedColor = borderFocusedColor
+	controls.Style.BackgroundColor = backgroundColor
+	controls.Style.ForegroundColor = foregroundColor
+	controls.Style.SelectedColor = selectedColor
+	controls.Style.SelectedFocusedColor = selectedFocusedColor
 	core = &Core{
 		settings: s,
 	}
@@ -138,7 +146,7 @@ func (c *Core) Run(w *app.Window) error {
 				c.fileFinder.layout(gtx)
 			} else {
 				c.handleKeys(gtx)
-				paint.FillShape(gtx.Ops, backgroundColor, c.windowRect.Op())
+				paint.FillShape(gtx.Ops, color.NRGBA{R: 147, G: 147, B: 147, A: 255}, c.windowRect.Op())
 				layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Flexed(1, c.gridHolder.layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -268,62 +276,49 @@ func (c *Core) handleKeys(gtx layout.Context) {
 	}
 }
 
-var popoutsHelpTopic = map[popoutType]help2.Topic{
-	popoutColors:                 help2.Colors,
-	popoutSizeWrappingBoundaries: help2.SizingWrapping,
-	popoutStepping:               help2.Stepping,
-	popoutCapturedPatterns:       help2.CapturedPatterns,
-	popoutPatterns:               help2.Patterns,
-	popoutLoadPatterns:           help2.LoadPatterns,
-	popoutImportGrid:             help2.ImportGrid,
-	popoutGridRecipes:            help2.GridRecipes,
-	popoutInstrumentation:        help2.Instrumentation,
-	popoutShortcuts:              help2.ShortCuts,
-	popoutMetaRules:              help2.MetaRules,
-	popoutCollectedRules:         help2.CollectedRules,
+var popoutsHelpTopic = map[popoutType]help.Topic{
+	popoutColors:                 help.Colors,
+	popoutSizeWrappingBoundaries: help.SizingWrapping,
+	popoutStepping:               help.Stepping,
+	popoutCapturedPatterns:       help.CapturedPatterns,
+	popoutPatterns:               help.Patterns,
+	popoutLoadPatterns:           help.LoadPatterns,
+	popoutImportGrid:             help.ImportGrid,
+	popoutGridRecipes:            help.GridRecipes,
+	popoutInstrumentation:        help.Instrumentation,
+	popoutShortcuts:              help.ShortCuts,
+	popoutMetaRules:              help.MetaRules,
+	popoutCollectedRules:         help.CollectedRules,
 }
 
-func (c *Core) showHelp(topic help2.Topic) {
+func (c *Core) showHelp(topic help.Topic) {
 	if topic == -1 {
 		// try to deduce help topic from mode or currently displayed...
 		switch {
 		case c.mode == editMode:
-			topic = help2.Editor
+			topic = help.Editor
 		case c.mode == heatMapMode:
-			topic = help2.HeatMap
+			topic = help.HeatMap
 		case c.mode == placePatternMode:
-			topic = help2.PlacePattern
+			topic = help.PlacePattern
 		case c.statusBar.showingPopup == popupRule:
-			topic = help2.Rules
+			topic = help.Rules
 		case c.statusBar.showingPopup == popupMenu:
 			if t, ok := popoutsHelpTopic[c.statusBar.menuPopup.popoutShowing()]; ok {
 				topic = t
 			} else {
-				topic = help2.MainMenu
+				topic = help.MainMenu
 			}
 		}
 	}
-	help2.Show(topic, c.settings)
-	if w := help2.HelpWindow(); w != nil {
-		go func() {
-			w.Perform(system.ActionRaise)
-		}()
-	}
+	help.Show(topic, c.settings)
 }
 
-func (c *Core) showFileFinder(title string, allowExts []string, allowDir bool, fn func(path string)) {
+func (c *Core) showFileFinder(title string, allowExts []string, allowDir bool, onSelect func(path string), onCancel func()) {
 	if c.fileFinder == nil {
 		c.fileFinder = newFileFinder(c)
 	}
-	c.fileFinder.allowDir = allowDir
-	c.fileFinder.allowExts = make(map[string]struct{}, len(allowExts))
-	for _, ext := range allowExts {
-		c.fileFinder.allowExts[strings.ToLower(ext)] = struct{}{}
-	}
-	c.fileFinder.onSelect = fn
-	c.fileFinder.title = title
-	c.fileFinder.checkCurrent = true
-	c.fileFinder.showing = true
+	c.fileFinder.show(title, allowExts, allowDir, onSelect, onCancel)
 	window.Invalidate()
 }
 

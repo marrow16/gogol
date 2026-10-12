@@ -12,6 +12,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/gui/icons"
 	"image"
+	"image/color"
 	"strconv"
 	"time"
 )
@@ -21,13 +22,15 @@ func newStatusBar(c *Core) *statusBar {
 		core:   c,
 		height: 30,
 	}
-	sb.buttons = []layout.FlexChild{
+	sb.buttonsStepping = []layout.FlexChild{
 		layout.Rigid(newStatusBarButton(sb.play, icons.Play).alt(
 			func() bool {
 				return sb.core.running
 			}, sb.pause, icons.Pause).layout),
 		layout.Rigid(newStatusBarButton(sb.step, icons.Step).layout),
 		layout.Rigid(newStatusBarButton(sb.stepAhead, icons.SkipForward).layout),
+	}
+	sb.buttonsRight = []layout.FlexChild{
 		layout.Rigid(newStatusBarButton(sb.zoomIn, icons.ZoomIn).layout),
 		layout.Rigid(newStatusBarButton(sb.zoomOut, icons.ZoomOut).layout),
 		layout.Rigid(newStatusBarButton(sb.menu, icons.Burger).highlightWhen(
@@ -36,23 +39,13 @@ func newStatusBar(c *Core) *statusBar {
 			}).layout),
 	}
 	sb.buttonsRecord = []layout.FlexChild{
-		layout.Rigid(newStatusBarButton(sb.play, icons.Play).alt(
-			func() bool {
-				return sb.core.running
-			}, sb.pause, icons.Pause).layout),
-		layout.Rigid(newStatusBarButton(sb.step, icons.Step).layout),
-		layout.Rigid(newStatusBarButton(sb.stepAhead, icons.SkipForward).layout),
-
 		layout.Rigid(newStatusBarButton(sb.stepBack, icons.Reverse).layout),
 		layout.Rigid(newStatusBarButton(sb.skipBack, icons.SkipBackward).layout),
-
-		layout.Rigid(newStatusBarButton(sb.zoomIn, icons.ZoomIn).layout),
-		layout.Rigid(newStatusBarButton(sb.zoomOut, icons.ZoomOut).layout),
-		layout.Rigid(newStatusBarButton(sb.menu, icons.Burger).highlightWhen(
-			func() bool {
-				return sb.showingPopup == popupMenu
-			}).layout),
 	}
+	sb.buttonA = layout.Rigid(newStatusBarButton(sb.extendedA, icons.ButtonA).layout)
+	sb.buttonB = layout.Rigid(newStatusBarButton(sb.extendedB, icons.ButtonB).layout)
+	sb.buttonC = layout.Rigid(newStatusBarButton(sb.extendedC, icons.ButtonC).layout)
+	sb.buttonD = layout.Rigid(newStatusBarButton(sb.extendedD, icons.ButtonD).layout)
 	sb.rulesPopup = newRulesPopup(sb)
 	sb.menuPopup = newMenuPopup(sb)
 	return sb
@@ -67,18 +60,23 @@ const (
 )
 
 type statusBar struct {
-	core          *Core
-	height        unit.Dp
-	rulesPopup    *rulesPopup
-	menuPopup     *menuPopup
-	showingPopup  popup
-	top           int
-	right         int
-	ruleClickable widget.Clickable
-	ruleDims      layout.Dimensions
-	stepDims      layout.Dimensions
-	buttons       []layout.FlexChild
-	buttonsRecord []layout.FlexChild
+	core            *Core
+	height          unit.Dp
+	rulesPopup      *rulesPopup
+	menuPopup       *menuPopup
+	showingPopup    popup
+	top             int
+	right           int
+	ruleClickable   widget.Clickable
+	ruleDims        layout.Dimensions
+	stepDims        layout.Dimensions
+	buttonsStepping []layout.FlexChild
+	buttonsRight    []layout.FlexChild
+	buttonsRecord   []layout.FlexChild
+	buttonA         layout.FlexChild
+	buttonB         layout.FlexChild
+	buttonC         layout.FlexChild
+	buttonD         layout.FlexChild
 }
 
 func (sb *statusBar) play() {
@@ -134,6 +132,38 @@ func (sb *statusBar) zoomOut() {
 func (sb *statusBar) menu() {
 	sb.core.stopShortcuts()
 	sb.showHidePopup(popupMenu)
+}
+
+func (sb *statusBar) extendedA() {
+	sb.core.stopShortcuts()
+	sb.showingPopup = popupNone
+	if scn, ok := sb.core.settings.ExtraButtons["A"]; ok {
+		sb.core.runShortcut(scn)
+	}
+}
+
+func (sb *statusBar) extendedB() {
+	sb.core.stopShortcuts()
+	sb.showingPopup = popupNone
+	if scn, ok := sb.core.settings.ExtraButtons["B"]; ok {
+		sb.core.runShortcut(scn)
+	}
+}
+
+func (sb *statusBar) extendedC() {
+	sb.core.stopShortcuts()
+	sb.showingPopup = popupNone
+	if scn, ok := sb.core.settings.ExtraButtons["C"]; ok {
+		sb.core.runShortcut(scn)
+	}
+}
+
+func (sb *statusBar) extendedD() {
+	sb.core.stopShortcuts()
+	sb.showingPopup = popupNone
+	if scn, ok := sb.core.settings.ExtraButtons["D"]; ok {
+		sb.core.runShortcut(scn)
+	}
 }
 
 func (sb *statusBar) showHidePopup(p popup) {
@@ -192,8 +222,8 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 	size := image.Point{X: gtx.Constraints.Max.X, Y: height}
 	sb.top = windowRect.Max.Y - height
 	sb.right = windowRect.Max.X
-	fill(gtx, popupBackground, size)
-	horizontalLine(gtx, popupBorder, size.X, 1)
+	paint.FillShape(gtx.Ops, backgroundColor, clip.Rect{Max: size}.Op())
+	horizontalLine(gtx, borderColor, size.X, 1)
 	gtx.Constraints = layout.Exact(size)
 	layout.Flex{
 		Axis:      layout.Horizontal,
@@ -237,33 +267,52 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if sb.core.isRecording() {
-				return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{
-						Axis:      layout.Horizontal,
-						Alignment: layout.End,
-						Gap:       3,
-					}.Layout(gtx, sb.buttonsRecord...)
-				})
-			}
 			return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{
 					Axis:      layout.Horizontal,
 					Alignment: layout.End,
 					Gap:       3,
-				}.Layout(gtx, sb.buttons...)
+				}.Layout(gtx, sb.buttons()...)
 			})
 		}),
 	)
 	return layout.Dimensions{Size: size}
 }
 
+func (sb *statusBar) buttons() []layout.FlexChild {
+	result := make([]layout.FlexChild, 0, 12)
+	if scn, ok := sb.core.settings.ExtraButtons["A"]; ok {
+		if _, ok = sb.core.settings.Shortcuts[scn]; ok {
+			result = append(result, sb.buttonA)
+		}
+	}
+	if scn, ok := sb.core.settings.ExtraButtons["B"]; ok {
+		if _, ok = sb.core.settings.Shortcuts[scn]; ok {
+			result = append(result, sb.buttonB)
+		}
+	}
+	if scn, ok := sb.core.settings.ExtraButtons["C"]; ok {
+		if _, ok = sb.core.settings.Shortcuts[scn]; ok {
+			result = append(result, sb.buttonC)
+		}
+	}
+	if scn, ok := sb.core.settings.ExtraButtons["D"]; ok {
+		if _, ok = sb.core.settings.Shortcuts[scn]; ok {
+			result = append(result, sb.buttonD)
+		}
+	}
+	result = append(result, sb.buttonsStepping...)
+	if sb.core.isRecording() {
+		result = append(result, sb.buttonsRecord...)
+	}
+	return append(result, sb.buttonsRight...)
+}
+
 func (sb *statusBar) label(gtx layout.Context, s string, align text.Alignment) layout.Dimensions {
 	return layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		size := gtx.Constraints.Max
-		drawInsetBorder(gtx, image.Rectangle{Max: image.Point{X: size.X, Y: size.Y}})
+		sb.drawInsetBorder(gtx, image.Rectangle{Max: image.Point{X: size.X, Y: size.Y}})
 		lbl := material.Label(theme, theme.TextSize, s)
-		lbl.Color = popupForeground
 		lbl.Alignment = align
 		lbl.MaxLines = 1
 		gtx.Constraints.Min.Y = size.Y
@@ -272,15 +321,17 @@ func (sb *statusBar) label(gtx layout.Context, s string, align text.Alignment) l
 	})
 }
 
-func drawInsetBorder(gtx layout.Context, r image.Rectangle) {
+var borderLightColor = color.NRGBA{R: 250, G: 250, B: 250, A: 255}
+
+func (sb *statusBar) drawInsetBorder(gtx layout.Context, r image.Rectangle) {
 	// top
-	paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{X: r.Min.X, Y: r.Min.Y + 4}, Max: image.Point{X: r.Max.X, Y: r.Min.Y + 5}}.Op())
+	paint.FillShape(gtx.Ops, borderColor, clip.Rect{Min: image.Point{X: r.Min.X, Y: r.Min.Y + 4}, Max: image.Point{X: r.Max.X, Y: r.Min.Y + 5}}.Op())
 	// left
-	paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{X: r.Min.X, Y: r.Min.Y + 4}, Max: image.Point{X: r.Min.X + 1, Y: r.Max.Y - 5}}.Op())
+	paint.FillShape(gtx.Ops, borderColor, clip.Rect{Min: image.Point{X: r.Min.X, Y: r.Min.Y + 4}, Max: image.Point{X: r.Min.X + 1, Y: r.Max.Y - 5}}.Op())
 	// bottom
-	paint.FillShape(gtx.Ops, popupBorderLight, clip.Rect{Min: image.Point{X: r.Min.X, Y: r.Max.Y - 4}, Max: image.Point{X: r.Max.X, Y: r.Max.Y - 5}}.Op())
+	paint.FillShape(gtx.Ops, borderLightColor, clip.Rect{Min: image.Point{X: r.Min.X, Y: r.Max.Y - 4}, Max: image.Point{X: r.Max.X, Y: r.Max.Y - 5}}.Op())
 	// right
-	paint.FillShape(gtx.Ops, popupBorderLight, clip.Rect{Min: image.Point{X: r.Max.X - 1, Y: r.Min.Y + 4}, Max: image.Point{X: r.Max.X, Y: r.Max.Y - 5}}.Op())
+	paint.FillShape(gtx.Ops, borderLightColor, clip.Rect{Min: image.Point{X: r.Max.X - 1, Y: r.Min.Y + 4}, Max: image.Point{X: r.Max.X, Y: r.Max.Y - 5}}.Op())
 }
 
 type statusBarButton struct {
@@ -334,7 +385,7 @@ func (b *statusBarButton) layout(gtx layout.Context) layout.Dimensions {
 			useImg := b.useImage()
 			r := useImg.Bounds()
 			if b.hltCheck != nil && b.hltCheck() {
-				paint.FillShape(gtx.Ops, popupHighlightColor, clip.UniformRRect(image.Rectangle{Max: size}, 4).Op(gtx.Ops))
+				paint.FillShape(gtx.Ops, selectedFocusedColor, clip.UniformRRect(image.Rectangle{Max: size}, 4).Op(gtx.Ops))
 			}
 			defer op.Affine(
 				f32.Affine2D{}.Scale(

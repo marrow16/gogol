@@ -1,20 +1,24 @@
-package gui
+package controls
 
 import (
 	"fmt"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"image"
+	"image/color"
 	"slices"
 	"strings"
 )
 
-type chooser[T any] struct {
+type Chooser[T any] struct {
+	theme          *material.Theme
 	labeller       func(T) string
 	dropdownRows   int
 	maxWidth       int
@@ -44,8 +48,9 @@ func defaultLabeller(item any) string {
 	}
 }
 
-func newChooser[T any](maxWidth int, items []T, onChange func(item *T), labeller func(T) string) *chooser[T] {
-	result := &chooser[T]{
+func NewChooser[T any](theme *material.Theme, maxWidth int, items []T, onChange func(item *T), labeller func(T) string) *Chooser[T] {
+	result := &Chooser[T]{
+		theme:    theme,
 		labeller: labeller,
 		editor: widget.Editor{
 			Alignment:  text.Start,
@@ -67,12 +72,21 @@ func newChooser[T any](maxWidth int, items []T, onChange func(item *T), labeller
 	return result
 }
 
-func (i *chooser[T]) onSubmit(fn func(text string)) *chooser[T] {
+func (i *Chooser[T]) OnSubmit(fn func(text string)) *Chooser[T] {
 	i.onSubmitFn = fn
 	return i
 }
 
-func (i *chooser[T]) currentItem() *T {
+func (i *Chooser[T]) Opened(opened bool) {
+	i.opened = opened
+}
+
+func (i *Chooser[T]) MiddleEllipsis(me bool) *Chooser[T] {
+	i.middleEllipsis = me
+	return i
+}
+
+func (i *Chooser[T]) CurrentItem() *T {
 	curr := i.editor.Text()
 	if idx := slices.IndexFunc(i.items, func(item T) bool {
 		return i.labeller(item) == curr
@@ -82,19 +96,31 @@ func (i *chooser[T]) currentItem() *T {
 	return nil
 }
 
-func (i *chooser[T]) resetItems(items []T) {
+func (i *Chooser[T]) Text() string {
+	return i.editor.Text()
+}
+
+func (i *Chooser[T]) Len() int {
+	return len(i.items)
+}
+
+func (i *Chooser[T]) ResetItems(items []T) {
 	i.items = items
 	i.filteredItems = items
 }
 
-func (i *chooser[T]) layout(gtx layout.Context) layout.Dimensions {
+func (i *Chooser[T]) Width() int {
+	return i.dims.Size.X
+}
+
+func (i *Chooser[T]) Layout(gtx layout.Context) layout.Dimensions {
 	i.update(gtx)
-	bc, bt := focusedBorder(i.isFocused(gtx))
+	bc, bt := Style.bordering(i.IsFocused(gtx))
 	i.dims = widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					maxChWd := measureText(gtx, "M")
+					maxChWd := measureText(gtx, i.theme, "M")
 					maxWidth := maxChWd.Size.X * i.maxWidth
 					if maxWidth < gtx.Constraints.Max.X {
 						gtx.Constraints.Max.X = maxWidth
@@ -102,17 +128,17 @@ func (i *chooser[T]) layout(gtx layout.Context) layout.Dimensions {
 					if gtx.Constraints.Min.X > gtx.Constraints.Max.X {
 						gtx.Constraints.Min.X = gtx.Constraints.Max.X
 					}
-					return material.Editor(theme, &i.editor, "").Layout(gtx)
+					return material.Editor(i.theme, &i.editor, "").Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					ch := "▼"
 					if i.opened {
 						ch = "▲"
 					}
-					btn := material.Button(theme, &i.button, ch)
-					btn.Inset = layout.Inset{Top: 3, Bottom: 3, Left: 3, Right: 3}
-					btn.Background = popupBackground
-					btn.Color = popupForeground
+					btn := material.Button(i.theme, &i.button, ch)
+					btn.Inset = layout.Inset{Top: 0, Bottom: 0, Left: 0, Right: 0}
+					btn.Background = Style.BackgroundColor
+					btn.Color = Style.ForegroundColor
 					btn.TextSize = unit.Sp(16)
 					return btn.Layout(gtx)
 				}),
@@ -122,7 +148,7 @@ func (i *chooser[T]) layout(gtx layout.Context) layout.Dimensions {
 	return i.dims
 }
 
-func (i *chooser[T]) update(gtx layout.Context) {
+func (i *Chooser[T]) update(gtx layout.Context) {
 	currentlyFocused := gtx.Focused(&i.editor)
 	if i.button.Clicked(gtx) {
 		i.opened = !i.opened
@@ -153,7 +179,7 @@ func (i *chooser[T]) update(gtx layout.Context) {
 	}
 }
 
-func (i *chooser[T]) handleKeys(gtx layout.Context) {
+func (i *Chooser[T]) handleKeys(gtx layout.Context) {
 	if i.opened {
 		i.handleOpenedKeys(gtx)
 		return
@@ -211,7 +237,7 @@ func (i *chooser[T]) handleKeys(gtx layout.Context) {
 	}
 }
 
-func (i *chooser[T]) handleOpenedKeys(gtx layout.Context) {
+func (i *Chooser[T]) handleOpenedKeys(gtx layout.Context) {
 	for {
 		ev, ok := gtx.Event(
 			key.Filter{Name: key.NameReturn},
@@ -277,7 +303,7 @@ func (i *chooser[T]) handleOpenedKeys(gtx layout.Context) {
 	}
 }
 
-func (i *chooser[T]) searchAndFilter() {
+func (i *Chooser[T]) searchAndFilter() {
 	if i.noRefilter {
 		i.noRefilter = false
 		return
@@ -319,7 +345,7 @@ func (i *chooser[T]) searchAndFilter() {
 	}
 }
 
-func (i *chooser[T]) changed() {
+func (i *Chooser[T]) changed() {
 	if i.onChangeFn != nil {
 		curr := i.editor.Text()
 		idx := slices.IndexFunc(i.filteredItems, func(item T) bool {
@@ -333,10 +359,10 @@ func (i *chooser[T]) changed() {
 	}
 }
 
-func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
+func (i *Chooser[T]) LayoutDropdown(gtx layout.Context) {
 	if i.opened && len(i.filteredItems) > 0 {
 		stack := op.Offset(image.Point{X: 0, Y: i.dims.Size.Y}).Push(gtx.Ops)
-		rowDims := measureText(gtx, "Xy")
+		rowDims := measureText(gtx, i.theme, "Xy")
 		showRows := min(len(i.filteredItems), i.dropdownRows)
 		height := rowDims.Size.Y * showRows
 		width := i.dims.Size.X
@@ -347,7 +373,7 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 				pgtx.Constraints.Max.X = width
 				pgtx.Constraints.Min.Y = height
 				pgtx.Constraints.Max.Y = height
-				fill(gtx, popupBackground, image.Point{X: width, Y: height})
+				paint.FillShape(gtx.Ops, Style.BackgroundColor, clip.Rect{Max: image.Point{X: width, Y: height}}.Op())
 				i.list.Axis = layout.Vertical
 				if len(i.rowClicks) != len(i.filteredItems) {
 					i.rowClicks = make([]widget.Clickable, len(i.filteredItems))
@@ -362,7 +388,7 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 				listDims := i.listStyle.Layout(pgtx, len(i.filteredItems), func(gtx layout.Context, index int) layout.Dimensions {
 					lbl := i.labeller(i.filteredItems[index])
 					for i.rowClicks[index].Clicked(gtx) {
-						i.setText(lbl)
+						i.SetText(lbl)
 						gtx.Execute(op.InvalidateCmd{})
 						gtx.Execute(key.FocusCmd{Tag: &i.editor})
 						i.editor.SetCaret(len(lbl), 0)
@@ -370,21 +396,25 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 					}
 					return i.rowClicks[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if lbl == i.editor.Text() {
-							fill(gtx, popupSelectedBackground, image.Point{X: width - fillAdj, Y: rowDims.Size.Y})
+							paint.FillShape(gtx.Ops, Style.SelectedColor, clip.Rect{Max: image.Point{X: width - fillAdj, Y: rowDims.Size.Y}}.Op())
 						}
 						gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 						return layout.Inset{Left: 3, Right: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							if i.middleEllipsis {
-								return label(middleEllipsis(gtx, lbl, gtx.Constraints.Max.X))(gtx)
+								lb := material.Label(i.theme, i.theme.TextSize, middleEllipsis(gtx, i.theme, lbl, gtx.Constraints.Max.X))
+								lb.MaxLines = 1
+								return lb.Layout(gtx)
 							}
-							return label(lbl)(gtx)
+							lb := material.Label(i.theme, i.theme.TextSize, lbl)
+							lb.MaxLines = 1
+							return lb.Layout(gtx)
 						})
 					})
 				})
-				border(pgtx, layout.Dimensions{
+				borders(pgtx, layout.Dimensions{
 					Size:     image.Point{X: width, Y: height},
 					Baseline: 0,
-				}, true, true, true, true)
+				}, Style.BorderColor, true, true, true, true)
 				return listDims
 			}),
 		)
@@ -392,8 +422,23 @@ func (i *chooser[T]) layoutDropdown(gtx layout.Context) {
 	}
 }
 
-func middleEllipsis(gtx layout.Context, s string, maxWidth int) string {
-	if measureText(gtx, s).Size.X <= maxWidth {
+func borders(gtx layout.Context, dims layout.Dimensions, c color.NRGBA, top, left, bottom, right bool) {
+	if top {
+		paint.FillShape(gtx.Ops, c, clip.Rect{Max: image.Point{X: dims.Size.X, Y: 1}}.Op())
+	}
+	if left {
+		paint.FillShape(gtx.Ops, c, clip.Rect{Max: image.Point{X: 1, Y: dims.Size.Y}}.Op())
+	}
+	if bottom {
+		paint.FillShape(gtx.Ops, c, clip.Rect{Min: image.Point{X: 0, Y: dims.Size.Y - 1}, Max: image.Point{X: dims.Size.X, Y: dims.Size.Y}}.Op())
+	}
+	if right {
+		paint.FillShape(gtx.Ops, c, clip.Rect{Min: image.Point{X: dims.Size.X - 1, Y: 0}, Max: image.Point{X: dims.Size.X, Y: dims.Size.Y}}.Op())
+	}
+}
+
+func middleEllipsis(gtx layout.Context, theme *material.Theme, s string, maxWidth int) string {
+	if measureText(gtx, theme, s).Size.X <= maxWidth {
 		return s
 	}
 	r := []rune(s)
@@ -408,24 +453,24 @@ func middleEllipsis(gtx layout.Context, s string, maxWidth int) string {
 		}
 
 		t := string(r[:left]) + "…" + string(r[right:])
-		if measureText(gtx, t).Size.X <= maxWidth {
+		if measureText(gtx, theme, t).Size.X <= maxWidth {
 			return t
 		}
 	}
 	return "…"
 }
 
-func (i *chooser[T]) setText(text string) {
+func (i *Chooser[T]) SetText(text string) {
 	if text != i.editor.Text() {
 		i.editor.SetText(text)
 		i.editor.SetCaret(len(text), 0)
 	}
 }
 
-func (i *chooser[T]) setFocused(gtx layout.Context) {
+func (i *Chooser[T]) SetFocused(gtx layout.Context) {
 	gtx.Execute(key.FocusCmd{Tag: &i.editor})
 }
 
-func (i *chooser[T]) isFocused(gtx layout.Context) bool {
+func (i *Chooser[T]) IsFocused(gtx layout.Context) bool {
 	return gtx.Focused(&i.editor) || i.opened || gtx.Focused(&i.button)
 }

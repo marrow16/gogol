@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/marrow16/gogol/animator"
 	"github.com/marrow16/gogol/gui/settings"
-	shortcuts2 "github.com/marrow16/gogol/gui/shortcuts"
+	"github.com/marrow16/gogol/gui/shortcuts"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/logic/meta"
 	"image/color"
@@ -88,7 +88,7 @@ func (c *Core) runShortcut(name string) bool {
 	}
 	c.statusBar.showHidePopup(popupNone)
 	c.startShortcuts(name)
-	shortcut, errs := shortcuts2.ParseShortcut(name, lines)
+	shortcut, errs := shortcuts.ParseShortcut(name, lines)
 	window.Invalidate()
 	for _, err := range errs {
 		c.shortcutErrorLogger.Warn("shortcut parse error", nil, "error", err.Error())
@@ -113,7 +113,7 @@ func (c *Core) runShortcut(name string) bool {
 	return true
 }
 
-func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHolder, repeats []int, nameFmt string) {
+func (c *Core) executeShortcut(callStack []string, actions []shortcuts.ActionHolder, repeats []int, nameFmt string) {
 	c.setShortcutsStatus("", repeats, false)
 	c.shortcutErrorLogger.callStack = callStack
 	for _, ah := range actions {
@@ -127,7 +127,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			c.setShortcutsCurrent(c.shortcutFormat(nameFmt, repeats))
 		}
 		switch ah.Action {
-		case shortcuts2.Repeat:
+		case shortcuts.Repeat:
 			if len(ah.Subs) > 0 {
 				if nTimes, err := c.shortcutVarIntMin(ah, 0); err == nil {
 					for i := range nTimes {
@@ -135,7 +135,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					}
 				}
 			}
-		case shortcuts2.IterateMetaRule:
+		case shortcuts.IterateMetaRule:
 			if len(ah.Subs) > 0 {
 				name := strings.TrimSpace(c.shortcutVarString(ah))
 				if (strings.HasPrefix(name, `"`) && strings.HasSuffix(name, `"`)) || (strings.HasPrefix(name, `'`) && strings.HasSuffix(name, `'`)) {
@@ -154,7 +154,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					c.shortcutErrorLogger.Error(fmt.Errorf("parse meta rule: %w", err), &ah)
 				}
 			}
-		case shortcuts2.IterateCollectedRules:
+		case shortcuts.IterateCollectedRules:
 			perms := make([]int, 0, len(c.settings.CollectedRules))
 			for p := range c.settings.CollectedRules {
 				perms = append(perms, p)
@@ -166,32 +166,32 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					c.executeShortcut(callStack, ah.Subs, append(append([]int{}, repeats...), i), nameFmt)
 				}
 			}
-		case shortcuts2.Run:
+		case shortcuts.Run:
 			c.start()
-		case shortcuts2.Stop:
+		case shortcuts.Stop:
 			c.stop()
-		case shortcuts2.Export:
+		case shortcuts.Export:
 			c.shortcutErrorLogger.Error(c.export(), &ah)
-		case shortcuts2.ExportImage:
+		case shortcuts.ExportImage:
 			c.stop()
 			if ah.HasOperand {
 				c.shortcutErrorLogger.Error(c.exportImage(c.shortcutMetadata(c.shortcutVarString(ah))), &ah)
 			} else {
 				c.shortcutErrorLogger.Error(c.exportImage(nil), &ah)
 			}
-		case shortcuts2.Clear:
+		case shortcuts.Clear:
 			c.clear()
-		case shortcuts2.Snapshot:
+		case shortcuts.Snapshot:
 			c.snapshot()
-		case shortcuts2.UndoToSnapshot:
+		case shortcuts.UndoToSnapshot:
 			c.undoToSnapshot()
-		case shortcuts2.ReplaySnapshot:
+		case shortcuts.ReplaySnapshot:
 			c.replaySnapshot()
-		case shortcuts2.Step:
+		case shortcuts.Step:
 			c.step()
-		case shortcuts2.StepBack:
+		case shortcuts.StepBack:
 			c.stepBack()
-		case shortcuts2.StepAhead:
+		case shortcuts.StepAhead:
 			switch {
 			case ah.IsInc:
 				c.shortcutSettingChange(func(settings *settings.Settings) {
@@ -214,7 +214,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			default:
 				c.stepAhead()
 			}
-		case shortcuts2.Randomize:
+		case shortcuts.Randomize:
 			if ah.HasOperand {
 				if n, err := c.shortcutVarIntRange(ah, 0, 100); err == nil {
 					c.randomize(n)
@@ -222,7 +222,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.randomize()
 			}
-		case shortcuts2.RandomizePopulation:
+		case shortcuts.RandomizePopulation:
 			if ah.HasOperand {
 				if n, err := c.shortcutVarIntRange(ah, 0, 100); err == nil {
 					c.randomizePopulation(n)
@@ -230,7 +230,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.randomizePopulation()
 			}
-		case shortcuts2.Randomization:
+		case shortcuts.Randomization:
 			switch {
 			case ah.IsInc:
 				c.shortcutSettingChange(func(settings *settings.Settings) {
@@ -251,7 +251,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					})
 				}
 			}
-		case shortcuts2.RandomChanges:
+		case shortcuts.RandomChanges:
 			if ah.HasOperand {
 				if n, err := c.shortcutVarIntRange(ah, 0, 100); err == nil {
 					c.randomChanges(n)
@@ -259,7 +259,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.randomChanges()
 			}
-		case shortcuts2.RandomAdditions:
+		case shortcuts.RandomAdditions:
 			if ah.HasOperand {
 				if n, err := c.shortcutVarIntRange(ah, 0, 100); err == nil {
 					c.randomAdditions(n)
@@ -267,7 +267,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.randomAdditions()
 			}
-		case shortcuts2.RandomCull:
+		case shortcuts.RandomCull:
 			if ah.HasOperand {
 				if n, err := c.shortcutVarIntRange(ah, 0, 100); err == nil {
 					c.randomCull(n)
@@ -275,7 +275,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.randomCull()
 			}
-		case shortcuts2.StepDelay:
+		case shortcuts.StepDelay:
 			switch {
 			case ah.IsInc:
 				c.shortcutSettingChange(func(settings *settings.Settings) {
@@ -296,7 +296,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					})
 				}
 			}
-		case shortcuts2.RulePerm:
+		case shortcuts.RulePerm:
 			switch {
 			case ah.IsInc:
 				c.permutationIncrement()
@@ -311,7 +311,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					}
 				}
 			}
-		case shortcuts2.RuleInt:
+		case shortcuts.RuleInt:
 			switch {
 			case ah.IsInc:
 				c.integerIncrement()
@@ -326,7 +326,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					}
 				}
 			}
-		case shortcuts2.BornWith:
+		case shortcuts.BornWith:
 			switch {
 			case ah.IsInc:
 				c.permutationIncrementBorn()
@@ -335,7 +335,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			case ah.HasOperand:
 				c.shortcutBornWith(ah)
 			}
-		case shortcuts2.SurvivesWith:
+		case shortcuts.SurvivesWith:
 			switch {
 			case ah.IsInc:
 				c.permutationIncrementSurvives()
@@ -344,14 +344,14 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			case ah.HasOperand:
 				c.shortcutSurvivesWith(ah)
 			}
-		case shortcuts2.RunRecipe:
+		case shortcuts.RunRecipe:
 			if ah.HasOperand {
 				c.runRecipe(c.shortcutVarString(ah))
 			} else if c.gridRecipes != nil {
 				c.stop()
 				c.gridRecipes.runRecipe()
 			}
-		case shortcuts2.Record:
+		case shortcuts.Record:
 			if ah.HasOperand {
 				if b, err := c.shortcutVarBool(ah); err == nil {
 					c.setInstrumentationRecord(b)
@@ -359,7 +359,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.setInstrumentationRecord(true)
 			}
-		case shortcuts2.RepeatDetect:
+		case shortcuts.RepeatDetect:
 			if ah.HasOperand {
 				if b, err := c.shortcutVarBool(ah); err == nil {
 					c.setInstrumentationRepeat(b)
@@ -367,14 +367,14 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.setInstrumentationRepeat(true)
 			}
-		case shortcuts2.HeatMap:
+		case shortcuts.HeatMap:
 			if ah.HasOperand {
 				hmt := logic.HeatMapperTypeFrom(c.shortcutVarString(ah))
 				c.setInstrumentationHeatMapper(hmt)
 			} else {
 				c.setInstrumentationHeatMapper(logic.ActivityHeatMapper)
 			}
-		case shortcuts2.HeatMapSave:
+		case shortcuts.HeatMapSave:
 			c.stop()
 			var errs []error
 			if ah.HasOperand {
@@ -385,17 +385,17 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			for _, err := range errs {
 				c.shortcutErrorLogger.Error(err, &ah)
 			}
-		case shortcuts2.HeatMapReveal:
+		case shortcuts.HeatMapReveal:
 			c.stop()
 			if c.heatMapperType != logic.NoHeatMapper && c.instrumentHeatMap != nil {
 				c.gridHolder.buildHeatMap(c.instrumentHeatMap)
 				c.mode = heatMapMode
 				window.Invalidate()
 			}
-		case shortcuts2.RepeatDetectSave:
+		case shortcuts.RepeatDetectSave:
 			c.stop()
 			c.shortcutErrorLogger.Error(c.saveRepeatDetect(), &ah)
-		case shortcuts2.AnimationSave:
+		case shortcuts.AnimationSave:
 			c.stop()
 			recorder := c.instrumentRecord
 			if recorder != nil && recorder.FramesCount() > 1 {
@@ -411,24 +411,24 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					_ = ani.Animate(filename, recorder)
 				}
 			}
-		case shortcuts2.CollectFiles:
+		case shortcuts.CollectFiles:
 			c.startShortcutsCollectFiles()
-		case shortcuts2.AddCollectedRule:
+		case shortcuts.AddCollectedRule:
 			c.shortcutSettingChange(func(settings *settings.Settings) {
 				settings.CollectedRules[c.gridHolder.grid.Rule().Permutation()] = true
 			})
-		case shortcuts2.RemoveCollectedRule:
+		case shortcuts.RemoveCollectedRule:
 			c.shortcutSettingChange(func(settings *settings.Settings) {
 				delete(settings.CollectedRules, c.gridHolder.grid.Rule().Permutation())
 			})
-		case shortcuts2.PreviousCollectedRule:
+		case shortcuts.PreviousCollectedRule:
 			c.shortcutCollectedRuleMove(false)
-		case shortcuts2.NextCollectedRule:
+		case shortcuts.NextCollectedRule:
 			c.shortcutCollectedRuleMove(true)
-		case shortcuts2.Call:
+		case shortcuts.Call:
 			subName := c.shortcutVarString(ah)
 			if lines, ok := c.settings.Shortcuts[subName]; ok {
-				sub, errs := shortcuts2.ParseShortcut(subName, lines)
+				sub, errs := shortcuts.ParseShortcut(subName, lines)
 				for _, err := range errs {
 					c.shortcutErrorLogger.Warn("shortcut parse error", &ah, "call", subName, "error", err.Error())
 				}
@@ -441,13 +441,13 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.shortcutErrorLogger.Error(fmt.Errorf("unknown shortcut %q", subName), &ah)
 			}
-		case shortcuts2.If:
+		case shortcuts.If:
 			if c.shortcutConditionEvaluate(ah.Operand, repeats) {
 				if len(ah.Subs) > 0 {
 					c.executeShortcut(callStack, ah.Subs, repeats, nameFmt)
 				}
 			}
-		case shortcuts2.While:
+		case shortcuts.While:
 			if len(ah.Subs) > 0 {
 				i := 0
 				for c.shortcutConditionEvaluate(ah.Operand, repeats) {
@@ -455,24 +455,24 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					i++
 				}
 			}
-		case shortcuts2.BreakIf:
+		case shortcuts.BreakIf:
 			if c.shortcutConditionEvaluate(ah.Operand, repeats) {
 				c.stop()
 				return
 			}
-		case shortcuts2.StopIf:
+		case shortcuts.StopIf:
 			if c.shortcutConditionEvaluate(ah.Operand, repeats) {
 				c.stop()
 				c.stopShortcuts()
 				return
 			}
-		case shortcuts2.Variable:
+		case shortcuts.Variable:
 			c.shortcutVariable(ah, repeats)
-		case shortcuts2.ClearVariable:
+		case shortcuts.ClearVariable:
 			c.shortcutSettingChange(func(settings *settings.Settings) {
 				c.settings.ShortcutVariables.Delete(ah.Operand)
 			})
-		case shortcuts2.ClearVariables:
+		case shortcuts.ClearVariables:
 			if ah.HasOperand {
 				c.shortcutSettingChange(func(settings *settings.Settings) {
 					for name := range strings.SplitSeq(ah.Operand, ";") {
@@ -484,23 +484,43 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					c.settings.ShortcutVariables.DeleteAll()
 				})
 			}
-		case shortcuts2.Name:
+		case shortcuts.ButtonAssign:
+			btn := c.shortcutVarString(ah)
+			if parts := strings.SplitN(btn, "=", 2); len(parts) == 2 && (parts[0] == "A" || parts[0] == "B" || parts[0] == "C" || parts[0] == "D") {
+				btn = parts[0]
+				if len(parts[1]) == 0 {
+					c.shortcutSettingChange(func(settings *settings.Settings) {
+						delete(settings.ExtraButtons, btn)
+					})
+				} else {
+					name := parts[1]
+					c.shortcutSettingChange(func(settings *settings.Settings) {
+						settings.ExtraButtons[btn] = name
+					})
+				}
+			} else if btn == "A" || btn == "B" || btn == "C" || btn == "D" {
+				name := callStack[len(callStack)-1]
+				c.shortcutSettingChange(func(settings *settings.Settings) {
+					settings.ExtraButtons[btn] = name
+				})
+			}
+		case shortcuts.Name:
 			nameFmt += ah.Operand
-		case shortcuts2.NameReset:
+		case shortcuts.NameReset:
 			nameFmt = ah.Operand
-		case shortcuts2.StepAheadBy:
+		case shortcuts.StepAheadBy:
 			if n, err := c.shortcutVarIntMin(ah, 0); err == nil {
 				c.stepAheadBy(n)
 			}
-		case shortcuts2.StepBackBy:
+		case shortcuts.StepBackBy:
 			if n, err := c.shortcutVarIntMin(ah, 0); err == nil {
 				c.skipBackBy(n)
 			}
-		case shortcuts2.MaxAdjacents:
+		case shortcuts.MaxAdjacents:
 			if n, err := c.shortcutVarIntRange(ah, 0, 8); err == nil {
 				c.maximumAdjacents(n)
 			}
-		case shortcuts2.Rule:
+		case shortcuts.Rule:
 			if r, ok := logic.Rules[c.shortcutVarString(ah)]; ok {
 				c.setRule(r)
 			} else if r, err := logic.NewRuleRle("", c.shortcutVarString(ah)); err == nil {
@@ -508,19 +528,19 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.shortcutErrorLogger.Error(err, &ah)
 			}
-		case shortcuts2.WrapMode:
+		case shortcuts.WrapMode:
 			if wm := logic.WrapModeFromString(c.shortcutVarString(ah), -1); wm != -1 {
 				c.setWrapMode(wm)
 			} else {
 				c.shortcutErrorLogger.Error(errors.New("invalid/unkown wrap mode"), &ah)
 			}
-		case shortcuts2.BoundaryMode:
+		case shortcuts.BoundaryMode:
 			if bm := logic.BoundaryModeFromString(c.shortcutVarString(ah), -1); bm != -1 {
 				c.setBoundaryMode(bm)
 			} else {
 				c.shortcutErrorLogger.Error(errors.New("invalid/unkown boundary mode"), &ah)
 			}
-		case shortcuts2.Sleep:
+		case shortcuts.Sleep:
 			if ah.HasOperand {
 				if n, err := c.shortcutVarIntMin(ah, 0); err == nil && n > 0 {
 					time.Sleep(time.Duration(n) * time.Millisecond)
@@ -528,7 +548,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				time.Sleep(1 * time.Second)
 			}
-		case shortcuts2.GridSize:
+		case shortcuts.GridSize:
 			if dims := strings.Split(strings.ToLower(c.shortcutVarString(ah)), "x"); len(dims) == 2 {
 				if wd, err := strconv.Atoi(dims[0]); err == nil && wd > 2 && wd <= 99999 {
 					if ht, err := strconv.Atoi(dims[1]); err == nil && ht > 2 && ht <= 99999 {
@@ -546,15 +566,15 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.shortcutErrorLogger.Error(errors.New("invalid dimensions (must be wXh)"), &ah)
 			}
-		case shortcuts2.GridHeight:
+		case shortcuts.GridHeight:
 			if n, err := c.shortcutVarIntRange(ah, 3, 99999); err == nil {
 				c.gridResize(n, c.settings.Width)
 			}
-		case shortcuts2.GridWidth:
+		case shortcuts.GridWidth:
 			if n, err := c.shortcutVarIntRange(ah, 3, 99999); err == nil {
 				c.gridResize(c.settings.Height, n)
 			}
-		case shortcuts2.HeatMapColors:
+		case shortcuts.HeatMapColors:
 			clrs := make([]color.NRGBA, 0)
 			for s := range strings.SplitSeq(ah.Operand, ";") {
 				if clr, ok := parseColor(c.shortcutResolveVar(s, ah)); ok {
@@ -570,7 +590,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 					settings.HeatMapColors = nil
 				})
 			}
-		case shortcuts2.NextMetaRule:
+		case shortcuts.NextMetaRule:
 			mrs := c.shortcutVarString(ah)
 			if strings.HasPrefix(mrs, `"`) && strings.HasSuffix(mrs, `"`) && len(mrs) > 2 {
 				name := mrs[1 : len(mrs)-1]
@@ -592,7 +612,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.shortcutErrorLogger.Error(fmt.Errorf("parse meta rule: %w", err), &ah)
 			}
-		case shortcuts2.PreviousMetaRule:
+		case shortcuts.PreviousMetaRule:
 			mrs := c.shortcutVarString(ah)
 			if strings.HasPrefix(mrs, `"`) && strings.HasSuffix(mrs, `"`) && len(mrs) > 2 {
 				name := mrs[1 : len(mrs)-1]
@@ -614,23 +634,23 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 			} else {
 				c.shortcutErrorLogger.Error(fmt.Errorf("parse meta rule: %w", err), &ah)
 			}
-		case shortcuts2.Log:
+		case shortcuts.Log:
 			c.shortcutLog(ah.Operand, repeats)
-		case shortcuts2.Status:
+		case shortcuts.Status:
 			if ah.HasOperand {
 				c.setShortcutsStatus(c.shortcutFormat(ah.Operand, repeats), nil, true)
 			} else {
 				c.setShortcutsStatus("", repeats, true)
 			}
-		case shortcuts2.Borders:
+		case shortcuts.Borders:
 			if b, err := c.shortcutVarBool(ah); err == nil {
 				c.setCellBorders(b)
 			}
-		case shortcuts2.CellSize:
+		case shortcuts.CellSize:
 			if n, err := c.shortcutVarIntRange(ah, 1, 100); err == nil {
 				c.setCellSize(n)
 			}
-		case shortcuts2.CellColorAlive:
+		case shortcuts.CellColorAlive:
 			if clr, ok := parseColor(c.shortcutVarString(ah)); ok {
 				c.stop()
 				c.shortcutSettingChange(func(settings *settings.Settings) {
@@ -638,7 +658,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 				})
 				c.gridHolder.grid.Draw()
 			}
-		case shortcuts2.CellColorDead:
+		case shortcuts.CellColorDead:
 			if clr, ok := parseColor(c.shortcutVarString(ah)); ok {
 				c.stop()
 				c.shortcutSettingChange(func(settings *settings.Settings) {
@@ -646,7 +666,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 				})
 				c.gridHolder.grid.Draw()
 			}
-		case shortcuts2.CellColorBorder:
+		case shortcuts.CellColorBorder:
 			if clr, ok := parseColor(c.shortcutVarString(ah)); ok {
 				c.stop()
 				c.shortcutSettingChange(func(settings *settings.Settings) {
@@ -654,7 +674,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts2.ActionHo
 				})
 				c.gridHolder.grid.Draw()
 			}
-		case shortcuts2.AnimationFormat:
+		case shortcuts.AnimationFormat:
 			if strings.ToLower(c.shortcutVarString(ah)) == "mp4" && animator.Mp4Available() {
 				c.shortcutSettingChange(func(settings *settings.Settings) {
 					settings.AnimationFormat = "mp4"
@@ -697,7 +717,7 @@ func (c *Core) shortcutSettingChange(fn func(settings *settings.Settings)) {
 	fn(c.settings)
 }
 
-func (c *Core) shortcutBornWith(ah shortcuts2.ActionHolder) {
+func (c *Core) shortcutBornWith(ah shortcuts.ActionHolder) {
 	bw, sw := c.gridHolder.grid.Rule().BornWith(), c.gridHolder.grid.Rule().SurvivesWith()
 	s := c.shortcutVarString(ah)
 	if after, ok := strings.CutPrefix(s, "|"); ok {
@@ -750,7 +770,7 @@ func (c *Core) shortcutBornWith(ah shortcuts2.ActionHolder) {
 	}
 }
 
-func (c *Core) shortcutSurvivesWith(ah shortcuts2.ActionHolder) {
+func (c *Core) shortcutSurvivesWith(ah shortcuts.ActionHolder) {
 	bw, sw := c.gridHolder.grid.Rule().BornWith(), c.gridHolder.grid.Rule().SurvivesWith()
 	s := c.shortcutVarString(ah)
 	if after, ok := strings.CutPrefix(s, "|"); ok {

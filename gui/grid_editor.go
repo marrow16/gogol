@@ -244,7 +244,7 @@ func (e *editor) drawLetter(kev key.Event) {
 	if (ch >= "A" && ch <= "Z") && kev.Modifiers != key.ModShift {
 		ch = strings.ToLower(ch)
 	}
-	if chpatt, ok := alphabet[ch]; ok {
+	if chpatt, ok := patterns.Alphabet[ch]; ok {
 		r, c := e.row-chpatt.Height+3, e.col
 		ajr, ajc := 0, chpatt.Width+1
 		switch e.patternRotation {

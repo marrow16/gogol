@@ -5,6 +5,8 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -21,10 +23,10 @@ func newRulesPopup(parent *statusBar) *rulesPopup {
 		core:   parent.core,
 		parent: parent,
 	}
-	p.rleInput = newInput("sbSB/012345678", 21, p.rleChanged)
-	p.permInput = newNumberInput[int](6, 0, (1<<18)-1, 1<<9, p.permChanged)
-	p.intInput = newNumberInput[int](6, 0, (1<<18)-1, 1<<9, p.intChanged)
-	p.nameInput = newInput("", 40, p.nameChanged).maximumWidth(21)
+	p.rleInput = controls.NewInput(theme, "sbSB/012345678", 21, p.rleChanged)
+	p.permInput = controls.NewNumberInput[int](theme, 6, 0, (1<<18)-1, 1<<9, p.permChanged)
+	p.intInput = controls.NewNumberInput[int](theme, 6, 0, (1<<18)-1, 1<<9, p.intChanged)
+	p.nameInput = controls.NewInput(theme, "", 40, p.nameChanged).MaximumWidth(21)
 	p.btnSaveName = controls.NewButton(theme, "Save")
 	p.btnAddCollected = controls.NewButton(theme, "Add Collected")
 	p.btnRemoveCollected = controls.NewButton(theme, "Remove Collected")
@@ -39,10 +41,10 @@ type rulesPopup struct {
 	sortedRules        []logic.Rule
 	list               widget.List
 	ruleClicks         []widget.Clickable
-	rleInput           *input
-	permInput          *numberInput[int]
-	intInput           *numberInput[int]
-	nameInput          *input
+	rleInput           *controls.Input
+	permInput          *controls.NumberInput[int]
+	intInput           *controls.NumberInput[int]
+	nameInput          *controls.Input
 	btnSaveName        *controls.Button
 	inputsDirty        bool
 	btnAddCollected    *controls.Button
@@ -56,9 +58,9 @@ func (p *rulesPopup) rleChanged(text string) {
 			idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule(), func(a, b logic.Rule) int {
 				return strings.Compare(a.Name(), b.Name())
 			})
-			p.permInput.setValue(r.Permutation())
-			p.intInput.setValue(r.Integer())
-			p.nameInput.setText(r.Name())
+			p.permInput.SetValue(r.Permutation())
+			p.intInput.SetValue(r.Integer())
+			p.nameInput.SetText(r.Name())
 			if found {
 				p.selectedIndex = idx
 				p.list.ScrollTo(idx)
@@ -75,9 +77,9 @@ func (p *rulesPopup) permChanged(n int) {
 		idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule(), func(a, b logic.Rule) int {
 			return strings.Compare(a.Name(), b.Name())
 		})
-		p.rleInput.setText(r.Rle())
-		p.nameInput.setText(r.Name())
-		p.intInput.setValue(r.Integer())
+		p.rleInput.SetText(r.Rle())
+		p.nameInput.SetText(r.Name())
+		p.intInput.SetValue(r.Integer())
 		if found {
 			p.selectedIndex = idx
 			p.list.ScrollTo(idx)
@@ -93,9 +95,9 @@ func (p *rulesPopup) intChanged(n int) {
 		idx, found := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule(), func(a, b logic.Rule) int {
 			return strings.Compare(a.Name(), b.Name())
 		})
-		p.rleInput.setText(r.Rle())
-		p.nameInput.setText(r.Name())
-		p.permInput.setValue(r.Permutation())
+		p.rleInput.SetText(r.Rle())
+		p.nameInput.SetText(r.Name())
+		p.permInput.SetValue(r.Permutation())
 		if found {
 			p.selectedIndex = idx
 			p.list.ScrollTo(idx)
@@ -138,14 +140,14 @@ func (p *rulesPopup) updateInputs() {
 func (p *rulesPopup) refreshInputs() {
 	p.inputsDirty = false
 	rule := p.core.gridHolder.grid.Rule()
-	p.rleInput.setText(rule.Rle())
-	p.permInput.setValue(rule.Permutation())
-	p.intInput.setValue(rule.Integer())
-	p.nameInput.setText(rule.Name())
+	p.rleInput.SetText(rule.Rle())
+	p.permInput.SetValue(rule.Permutation())
+	p.intInput.SetValue(rule.Integer())
+	p.nameInput.SetText(rule.Name())
 }
 
 func (p *rulesPopup) saveRuleName() {
-	if name := p.nameInput.editor.Text(); len(name) > 0 {
+	if name := p.nameInput.Text(); len(name) > 0 {
 		rle := p.core.gridHolder.grid.Rule().Rle()
 		if r, err := logic.NewRuleRle(name, rle); err == nil {
 			if ok := logic.AddRule(name, r); ok {
@@ -182,8 +184,8 @@ func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
 		)
 	})
 	call := macro.Stop()
-	fill(gtx, popupBackground, dims.Size)
-	border(gtx, dims, true, true, false, true)
+	paint.FillShape(gtx.Ops, backgroundColor, clip.Rect{Max: dims.Size}.Op())
+	borders(gtx, dims, borderColor, true, true, false, true)
 	call.Add(gtx.Ops)
 	return dims
 }
@@ -192,34 +194,34 @@ func (p *rulesPopup) layoutDetails() layout.FlexChild {
 	custom := p.core.gridHolder.grid.Rule().IsCustom()
 	canSave := false
 	if custom {
-		if name := p.nameInput.editor.Text(); len(name) > 0 && name != p.core.gridHolder.grid.Rule().Name() {
+		if name := p.nameInput.Text(); len(name) > 0 && name != p.core.gridHolder.grid.Rule().Name() {
 			canSave = true
 		}
 	}
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		horizontalLine(gtx, popupBorder, gtx.Constraints.Max.X, 1)
-		maxText := measureMaxText(gtx, font.Bold, "Rule: ", "Perm.: ", "Name: ", "Integer: ").Size.X
+		horizontalLine(gtx, borderColor, gtx.Constraints.Max.X, 1)
+		maxText := measureMaxText(gtx, font.Bold, "Rule: ", "Perm.: ", "Name: ", "Integer: ")
 		return layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}.Layout(gtx, flexVertical(10,
 			rigid(flexHorizontal(0,
 				rigidLabel("Name: ", text.End, font.Bold, maxText),
-				conditionalFlexed(custom, p.nameInput.layout, borderedInset(2, 2, 4, 4, label(p.core.gridHolder.grid.Rule().Name()))),
+				conditionalFlexed(custom, p.nameInput.Layout, borderedInset(2, 2, 4, 4, label(p.core.gridHolder.grid.Rule().Name()))),
 				conditionalRigid(custom && canSave, label(" "), nil),
 				conditionalRigid(custom && canSave, p.btnSaveName.Layout, nil),
 			)),
 			rigid(flexHorizontal(0,
 				rigidLabel("Rule: ", text.End, font.Bold, maxText),
-				flexed(p.rleInput.layout),
+				flexed(p.rleInput.Layout),
 			)),
 			rigid(flexHorizontal(0,
 				rigidLabel("Perm.: ", text.End, font.Bold, maxText),
-				flexed(p.permInput.layout),
+				flexed(p.permInput.Layout),
 			)),
 			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Constraints.Max.X
 				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
 					rigid(flexHorizontal(0,
 						rigidLabel("Integer: ", text.End, font.Bold, maxText),
-						flexed(p.intInput.layout),
+						flexed(p.intInput.Layout),
 					)),
 					conditionalRigid(
 						p.core.settings.CollectedRules[p.core.gridHolder.grid.Rule().Permutation()],
@@ -260,11 +262,11 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 				}
 				return p.ruleClicks[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					if index == idx {
-						bg := popupSelectedBackground
-						if !p.rleInput.isFocused(gtx) && !p.permInput.isFocused(gtx) && !p.intInput.isFocused(gtx) && !p.nameInput.isFocused(gtx) {
-							bg = popupSelectedFocusedBackground
+						bg := selectedColor
+						if !p.rleInput.IsFocused(gtx) && !p.permInput.IsFocused(gtx) && !p.intInput.IsFocused(gtx) && !p.nameInput.IsFocused(gtx) {
+							bg = selectedFocusedColor
 						}
-						fill(gtx, bg, image.Point{X: pgtx.Constraints.Max.X, Y: rowDims.Size.Y})
+						paint.FillShape(gtx.Ops, bg, clip.Rect{Max: image.Point{X: pgtx.Constraints.Max.X, Y: rowDims.Size.Y}}.Op())
 					}
 					gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 					r := p.sortedRules[index]
@@ -294,17 +296,17 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 
 func (p *rulesPopup) handleEvents(gtx layout.Context) {
 	switch {
-	case p.rleInput.isFocused(gtx):
-		p.rleInput.update(gtx)
+	case p.rleInput.IsFocused(gtx):
+		p.rleInput.Update(gtx)
 		return
-	case p.permInput.isFocused(gtx):
-		p.permInput.update(gtx)
+	case p.permInput.IsFocused(gtx):
+		p.permInput.Update(gtx)
 		return
-	case p.intInput.isFocused(gtx):
-		p.intInput.update(gtx)
+	case p.intInput.IsFocused(gtx):
+		p.intInput.Update(gtx)
 		return
-	case p.nameInput.isFocused(gtx):
-		p.nameInput.update(gtx)
+	case p.nameInput.IsFocused(gtx):
+		p.nameInput.Update(gtx)
 		return
 	}
 	for {
@@ -326,9 +328,9 @@ func (p *rulesPopup) handleEvents(gtx layout.Context) {
 		switch kev.Name {
 		case key.NameTab:
 			if kev.Modifiers == key.ModShift {
-				p.permInput.setFocused(gtx)
+				p.permInput.SetFocused(gtx)
 			} else {
-				p.rleInput.setFocused(gtx)
+				p.rleInput.SetFocused(gtx)
 			}
 		case key.NameEnter, key.NameReturn:
 			p.parent.showHidePopup(popupNone)

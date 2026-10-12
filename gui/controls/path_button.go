@@ -4,15 +4,14 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"image/color"
 )
 
-func NewPathButton(theme *material.Theme, fg, bg color.NRGBA) *PathButton {
+func NewPathButton(theme *material.Theme) *PathButton {
 	b := &PathButton{}
 	s := material.Button(theme, &b.clickable, "…")
-	s.Inset = layout.Inset{Top: 4, Bottom: 4, Left: 4, Right: 4}
-	s.Background = bg
-	s.Color = fg
+	s.Inset = layout.Inset{Top: 4, Bottom: 0, Left: 4, Right: 4}
+	s.Background = Style.BackgroundColor
+	s.Color = Style.ForegroundColor
 	s.TextSize = theme.TextSize
 	b.style = s
 	return b
@@ -24,7 +23,10 @@ type PathButton struct {
 }
 
 func (b *PathButton) Layout(gtx layout.Context) layout.Dimensions {
-	return b.style.Layout(gtx)
+	bc, bt := Style.bordering(b.IsFocused(gtx))
+	return widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return b.style.Layout(gtx)
+	})
 }
 
 func (b *PathButton) Clicked(gtx layout.Context) bool {

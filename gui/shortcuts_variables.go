@@ -206,9 +206,8 @@ func (c *Core) shortcutResolveVar(s string, ah shortcuts.ActionHolder) string {
 		}
 		if v, ok := c.settings.ShortcutVariables.Get(after); ok {
 			return v
-		} else {
-			c.shortcutErrorLogger.Warn(fmt.Sprintf("unknown variable %q", after), &ah)
 		}
+		c.shortcutErrorLogger.Warn(fmt.Sprintf("unknown variable %q", after), &ah)
 	}
 	return s
 }

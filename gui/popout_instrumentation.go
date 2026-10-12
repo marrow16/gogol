@@ -11,7 +11,10 @@ import (
 	"github.com/marrow16/gogol/gui/controls"
 	"github.com/marrow16/gogol/logic"
 	"image"
+	"net/url"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 )
 
@@ -24,7 +27,7 @@ type instrumentationPopout struct {
 	btnRepeatSave   *controls.Button
 	// record...
 	chkRecord        *controls.Checkbox
-	skipBackBy       *numberInput[int]
+	skipBackBy       *controls.NumberInput[int]
 	btnRecordReset   *controls.Button
 	btnSaveAnimation *controls.Button
 	animationSaving  bool
@@ -85,7 +88,7 @@ func newInstrumentationPopout(p *menuPopup, c *Core) *instrumentationPopout {
 	result.radioAll = controls.NewRadioButton(theme, result.heatMapType, logic.AllHeatMapper.String(), "All")
 	result.radioGif = controls.NewRadioButton(theme, result.animationFormat, "gif", "Gif")
 	result.radioMp4 = controls.NewRadioButton(theme, result.animationFormat, "mp4", "Mp4")
-	result.skipBackBy = newNumberInput[int](4, 1, 9999, 100, result.skipBackByChanged)
+	result.skipBackBy = controls.NewNumberInput[int](theme, 4, 1, 9999, 100, result.skipBackByChanged)
 	return result
 }
 
@@ -100,7 +103,7 @@ func (p *instrumentationPopout) reset() {
 	p.chkRecord.SetChecked(p.core.instrumentRecord != nil)
 	p.chkHeatMap.SetChecked(p.core.instrumentHeatMap != nil)
 	p.heatMapType.Value = p.core.heatMapperType.String()
-	p.skipBackBy.setValue(p.core.settings.SkipBackBy)
+	p.skipBackBy.SetValue(p.core.settings.SkipBackBy)
 	af := p.core.settings.AnimationFormat
 	if af != "gif" && af != "mp4" {
 		af = "gif"
@@ -125,7 +128,7 @@ func (p *instrumentationPopout) layout(gtx layout.Context) layout.Dimensions {
 		}),
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
-			horizontalLine(gtx, popupBorder, width, 1)
+			horizontalLine(gtx, borderColor, width, 1)
 			return layout.Dimensions{Size: image.Point{X: width, Y: 1}}
 		}),
 		rigidFixedWidth(p.chkRecord.Layout, width, 0),
@@ -143,7 +146,7 @@ func (p *instrumentationPopout) layout(gtx layout.Context) layout.Dimensions {
 		}),
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
-			horizontalLine(gtx, popupBorder, width, 1)
+			horizontalLine(gtx, borderColor, width, 1)
 			return layout.Dimensions{Size: image.Point{X: width, Y: 1}}
 		}),
 		rigidFixedWidth(p.chkHeatMap.Layout, width, 0),
@@ -176,7 +179,7 @@ func (p *instrumentationPopout) update(gtx layout.Context) {
 		p.core.setInstrumentationRepeat(true)
 	}
 	if p.btnRepeatSave.Clicked(gtx) {
-		p.core.saveRepeatDetect()
+		_ = p.core.saveRepeatDetect()
 	}
 	if p.btnRecordReset.Clicked(gtx) {
 		if !p.animationSaving {
@@ -225,6 +228,27 @@ func (p *instrumentationPopout) update(gtx layout.Context) {
 	}
 }
 
+func openInBrowser(filename string) {
+	fp, err := filepath.Abs(filename)
+	if err != nil {
+		return
+	}
+	u := (&url.URL{
+		Scheme: "file",
+		Path:   fp,
+	}).String()
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", "-a", "Google Chrome", u)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", u)
+	default:
+		cmd = exec.Command("xdg-open", u)
+	}
+	_ = cmd.Start()
+}
+
 func (p *instrumentationPopout) selectedHeatMapType() logic.HeatMapperType {
 	hmt := logic.HeatMapperTypeFrom(p.heatMapType.Value)
 	if hmt == logic.NoHeatMapper {
@@ -242,7 +266,7 @@ func (p *instrumentationPopout) foundLabel(lblFound, lblNotFound string) string 
 }
 
 func (p *instrumentationPopout) layoutRepeat(gtx layout.Context) layout.Dimensions {
-	labelMax := measureMaxText(gtx, font.Bold, "Examined: ", "Found: ", "First: ", "Repeat: ", "Period: ").Size.X
+	labelMax := measureMaxText(gtx, font.Bold, "Examined: ", "Found: ", "First: ", "Repeat: ", "Period: ")
 	return layout.Inset{Left: 16, Bottom: 4}.Layout(gtx, flexVertical(0,
 		rigid(flexHorizontal(20,
 			rigidLabel("Examined:", text.End, 0, labelMax),
@@ -272,7 +296,7 @@ func (p *instrumentationPopout) layoutRepeat(gtx layout.Context) layout.Dimensio
 }
 
 func (p *instrumentationPopout) layoutRecord(gtx layout.Context) layout.Dimensions {
-	labelMax := measureMaxText(gtx, font.Bold, "Steps recorded: ", "Skip back by: ").Size.X
+	labelMax := measureMaxText(gtx, font.Bold, "Steps recorded: ", "Skip back by: ")
 	canSave := !p.animationSaving && p.core.instrumentRecord.FramesCount() > 0
 	if p.animationFormat.Update(gtx) {
 		p.core.settings.AnimationFormat = p.animationFormat.Value
@@ -284,7 +308,7 @@ func (p *instrumentationPopout) layoutRecord(gtx layout.Context) layout.Dimensio
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Skip back by:", text.End, 0, labelMax),
-			flexed(p.skipBackBy.layout),
+			flexed(p.skipBackBy.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigid(inset(4, 4, 0, 0, p.btnRecordReset.Layout)),
@@ -332,7 +356,7 @@ func (p *instrumentationPopout) saveAnimation() {
 }
 
 func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context) layout.Dimensions {
-	labelMax := measureMaxText(gtx, font.Bold, "Steps: ", "Type: ").Size.X
+	labelMax := measureMaxText(gtx, font.Bold, "Steps: ", "Type: ")
 	return layout.Inset{Left: 16, Bottom: 4}.Layout(gtx, flexVertical(0,
 		rigid(flexHorizontal(20,
 			rigidLabel("Type:", text.End, 0, labelMax),
@@ -378,7 +402,7 @@ func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context) layout.Dimensi
 func (p *instrumentationPopout) hasFocus(gtx layout.Context) bool {
 	_, heatRadios := p.heatMapType.Focused()
 	_, animRadios := p.animationFormat.Focused()
-	return heatRadios || animRadios || p.skipBackBy.isFocused(gtx) ||
+	return heatRadios || animRadios || p.skipBackBy.IsFocused(gtx) ||
 		p.chkRecord.IsFocused(gtx) || p.chkRepeatDetect.IsFocused(gtx) || p.chkHeatMap.IsFocused(gtx) ||
 		p.btnRepeatReset.IsFocused(gtx) || p.btnRepeatSave.IsFocused(gtx) || p.btnRecordReset.IsFocused(gtx) || p.btnSaveAnimation.IsFocused(gtx) ||
 		p.btnHeatMapReset.IsFocused(gtx) || p.btnHeatMapReveal.IsFocused(gtx) || p.btnHeatMapSave.IsFocused(gtx)

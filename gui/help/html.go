@@ -185,7 +185,7 @@ func copyIndexHtml(hb *strings.Builder) {
 			}
 		}
 		function hashChanged() {
-			var id = location.hash.slice(1);
+			let id = location.hash.slice(1);
 			if (!id) {
 				id = 0;
 			}
