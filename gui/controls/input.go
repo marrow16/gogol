@@ -1,4 +1,4 @@
-package gui
+package controls
 
 import (
 	"gioui.org/io/key"
@@ -10,18 +10,19 @@ import (
 	"gioui.org/widget/material"
 )
 
-type input struct {
+type Input struct {
+	theme      *material.Theme
 	editor     widget.Editor
 	style      material.EditorStyle
-	theme      *material.Theme
 	onChangeFn func(text string)
 	onSubmitFn func(text string)
 	upDownFn   func(k key.Name, text string) (string, bool)
 	maxWidth   int
 }
 
-func newInput(filter any, maxLen int, fn func(text string)) *input {
-	result := &input{
+func NewInput(theme *material.Theme, filter any, maxLen int, fn func(text string)) *Input {
+	result := &Input{
+		theme:      theme,
 		onChangeFn: fn,
 		editor: widget.Editor{
 			Alignment:  text.Start,
@@ -30,46 +31,58 @@ func newInput(filter any, maxLen int, fn func(text string)) *input {
 			SingleLine: true,
 			Submit:     true,
 		},
-		theme: theme,
 	}
 	result.style = material.Editor(theme, &result.editor, "")
 	return result
 }
 
-func (i *input) upDownSupport(fn func(k key.Name, text string) (string, bool)) *input {
+func (i *Input) UpDownSupport(fn func(k key.Name, text string) (string, bool)) *Input {
 	i.upDownFn = fn
 	return i
 }
 
-func (i *input) maximumWidth(w int) *input {
+func (i *Input) MaximumWidth(w int) *Input {
 	i.maxWidth = w
 	return i
 }
 
-func (i *input) onSubmit(fn func(string)) *input {
+func (i *Input) OnSubmit(fn func(string)) *Input {
 	i.onSubmitFn = fn
 	return i
 }
 
-func (i *input) setText(text string) {
+func (i *Input) ReadOnly(ro bool) *Input {
+	i.editor.ReadOnly = ro
+	return i
+}
+
+func (i *Input) SetCaret(start, end int) {
+	i.editor.SetCaret(start, end)
+}
+
+func (i *Input) SetText(text string) {
 	if text != i.editor.Text() {
 		i.editor.SetText(text)
 		i.editor.SetCaret(len(text), -len(text))
 	}
 }
 
-func (i *input) setFocused(gtx layout.Context) {
+func (i *Input) Text() string {
+	return i.editor.Text()
+}
+
+func (i *Input) SetFocused(gtx layout.Context) {
 	gtx.Execute(key.FocusCmd{Tag: &i.editor})
 }
 
-func (i *input) isFocused(gtx layout.Context) bool {
+func (i *Input) IsFocused(gtx layout.Context) bool {
 	return gtx.Focused(&i.editor)
 }
 
-func (i *input) layout(gtx layout.Context) layout.Dimensions {
-	i.update(gtx)
+func (i *Input) Layout(gtx layout.Context) layout.Dimensions {
+	i.Update(gtx)
 	if i.maxWidth > 0 {
-		maxChWd := measureText(gtx, "M")
+		maxChWd := measureText(gtx, i.theme, "M")
 		maxWidth := maxChWd.Size.X * i.maxWidth
 		if maxWidth < gtx.Constraints.Max.X {
 			gtx.Constraints.Max.X = maxWidth
@@ -78,7 +91,7 @@ func (i *input) layout(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		}
 	} else if i.editor.MaxLen > 0 {
-		maxChWd := measureText(gtx, "M")
+		maxChWd := measureText(gtx, i.theme, "M")
 		maxWidth := maxChWd.Size.X * i.editor.MaxLen
 		if maxWidth < gtx.Constraints.Max.X {
 			gtx.Constraints.Max.X = maxWidth
@@ -87,13 +100,13 @@ func (i *input) layout(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		}
 	}
-	bc, bt := focusedBorder(!i.editor.ReadOnly && i.isFocused(gtx))
+	bc, bt := Style.bordering(!i.editor.ReadOnly && i.IsFocused(gtx))
 	return widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, i.style.Layout)
 	})
 }
 
-func (i *input) update(gtx layout.Context) {
+func (i *Input) Update(gtx layout.Context) {
 	currentlyFocused := gtx.Focused(&i.editor)
 	if currentlyFocused && i.upDownFn != nil {
 		for {
@@ -115,17 +128,17 @@ func (i *input) update(gtx layout.Context) {
 			case key.Event:
 				if evt.State == key.Press {
 					if s, ok := i.upDownFn(evt.Name, i.editor.Text()); ok {
-						i.setText(s)
+						i.SetText(s)
 					}
 				}
 			case pointer.Event:
 				if evt.Scroll.Y == 0 {
 					if s, ok := i.upDownFn(key.NameUpArrow, i.editor.Text()); ok {
-						i.setText(s)
+						i.SetText(s)
 					}
 				} else {
 					if s, ok := i.upDownFn(key.NameDownArrow, i.editor.Text()); ok {
-						i.setText(s)
+						i.SetText(s)
 					}
 				}
 			}
@@ -152,57 +165,57 @@ func (i *input) update(gtx layout.Context) {
 	}
 }
 
-type filterType int
+type InputFilterType int
 
-func filterFromType(v any) filterType {
+func filterFromType(v any) InputFilterType {
 	switch v.(type) {
 	case int:
-		return filterInt
+		return FilterInt
 	case uint:
-		return filterUint
+		return FilterUint
 	case float64:
 
-		return filterFloat
+		return FilterFloat
 	}
-	return filterNone
+	return FilterNone
 }
 
-func (f filterType) String() string {
+func (f InputFilterType) String() string {
 	switch f {
-	case filterAlphabet:
+	case FilterAlphabet:
 		return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	case filterAlphabetUpper:
+	case FilterAlphabetUpper:
 		return "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	case filterAlphabetLower:
+	case FilterAlphabetLower:
 		return "abcdefghijklmnopqrstuvwxyz"
-	case filterInt:
+	case FilterInt:
 		return "-0123456789"
-	case filterUint:
+	case FilterUint:
 		return "0123456789"
-	case filterFloat:
+	case FilterFloat:
 		return "-.0123456789"
-	case filterFloatPositive:
+	case FilterFloatPositive:
 		return ".0123456789"
 	}
 	return ""
 }
 
 const (
-	filterNone filterType = iota
-	filterAlphabet
-	filterAlphabetLower
-	filterAlphabetUpper
-	filterInt
-	filterUint
-	filterFloat
-	filterFloatPositive
+	FilterNone InputFilterType = iota
+	FilterAlphabet
+	FilterAlphabetLower
+	FilterAlphabetUpper
+	FilterInt
+	FilterUint
+	FilterFloat
+	FilterFloatPositive
 )
 
 func buildFilterString(filter any) string {
 	switch ft := filter.(type) {
 	case string:
 		return ft
-	case filterType:
+	case InputFilterType:
 		return ft.String()
 	}
 	return ""

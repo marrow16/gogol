@@ -42,6 +42,7 @@ func NewSettings() *Settings {
 		HeatMappingHalfLife: 0.996,
 		Shortcuts:           make(map[string][]string),
 		ShortcutVariables:   newVariables(),
+		ExtraButtons:        make(map[string]string),
 		Fps:                 20,
 		MetaRules: map[string]string{
 			"Plus Worlds": `AllOf(
@@ -142,6 +143,7 @@ type Settings struct {
 	AnimationFormat     string
 	Fps                 int
 	FileFinderAdvanced  bool
+	ExtraButtons        map[string]string
 }
 
 func (s *Settings) Save(grid *logic.Grid, zoom float32) {
@@ -211,6 +213,7 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				AnimationFormat:     s.AnimationFormat,
 				Fps:                 s.Fps,
 				FileFinderAdvanced:  s.FileFinderAdvanced,
+				ExtraButtons:        s.ExtraButtons,
 			}
 			if pattern, err := s.PatternFromGrid(grid); err == nil {
 				var buf bytes.Buffer
@@ -411,6 +414,9 @@ func (s *Settings) fromPrefs(p prefs) {
 		s.Fps = p.Fps
 	}
 	s.FileFinderAdvanced = p.FileFinderAdvanced
+	if p.ExtraButtons != nil {
+		s.ExtraButtons = p.ExtraButtons
+	}
 	if len(p.Grid) > 0 {
 		if pattern, err := patterns.NewPatternFromRle(strings.NewReader(p.Grid)); err == nil {
 			rule := pattern.Rule
@@ -497,6 +503,7 @@ type prefs struct {
 	AnimationFormat     string              `json:"animation_format"`
 	Fps                 int                 `json:"fps"`
 	FileFinderAdvanced  bool                `json:"file_finder_advanced"`
+	ExtraButtons        map[string]string   `json:"extra_buttons,omitempty"`
 }
 
 var colorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")

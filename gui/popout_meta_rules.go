@@ -3,7 +3,6 @@ package gui
 import (
 	"gioui.org/layout"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/gui/controls"
 	"github.com/marrow16/gogol/gui/help"
 	"github.com/marrow16/gogol/logic"
@@ -16,16 +15,16 @@ import (
 type metaRulesPopout struct {
 	parent       *menuPopup
 	core         *Core
-	chooser      *chooser[string]
+	chooser      *controls.Chooser[string]
 	btnCreate    *controls.Button
 	btnDelete    *controls.Button
-	editor       widget.Editor
+	editor       *controls.Editor
 	mode         *widget.Enum
 	radioEdit    *controls.RadioButton
 	radioMatches *controls.RadioButton
 	parseError   error
 	linkHelp     widget.Clickable
-	listMatched  *ListControl[logic.Rule]
+	listMatched  *controls.List[logic.Rule]
 	btnAddAll    *controls.Button
 	current      string
 	currentRule  meta.Evaluator
@@ -45,37 +44,38 @@ func newMetaRulesPopout(p *menuPopup, c *Core) *metaRulesPopout {
 		btnDelete: controls.NewButton(theme, "Delete"),
 		btnAddAll: controls.NewButton(theme, "Add all to collected rules"),
 	}
-	result.chooser = newChooser[string](38,
+	result.chooser = controls.NewChooser[string](theme, 38,
 		result.sortedMetaRules(),
 		result.metaRuleSelected,
 		func(name string) string {
 			return name
 		},
 	)
-	result.chooser.setText(c.settings.SelectedMetaRule)
+	result.chooser.SetText(c.settings.SelectedMetaRule)
+	result.editor = controls.NewEditor(theme, result.editorChange)
 	result.mode = &widget.Enum{Value: metaRuleEdit}
 	result.radioEdit = controls.NewRadioButton(theme, result.mode, metaRuleEdit, "Edit")
 	result.radioMatches = controls.NewRadioButton(theme, result.mode, metaRuleMatches, "Matching Rules")
-	result.listMatched = NewListControl[logic.Rule](theme, []logic.Rule{}, true).
-		rowRenderer(result.layoutMatchedRule).
-		onItemSelect(func(r logic.Rule, _ bool) {
+	result.listMatched = controls.NewList[logic.Rule](theme, []logic.Rule{}, true).
+		RowRenderer(result.layoutMatchedRule).
+		OnItemSelect(func(r logic.Rule, _ bool) {
 			c.gridHolder.grid.SetRule(r)
 			window.Invalidate()
 		}).
-		onIsSelected(func(index int, r logic.Rule) bool {
+		OnIsSelected(func(index int, r logic.Rule) bool {
 			return r.Permutation() == c.gridHolder.grid.Rule().Permutation()
 		})
 	return result
 }
 
 func (p *metaRulesPopout) layout(gtx layout.Context) layout.Dimensions {
-	selected := p.chooser.currentItem()
-	currName := p.chooser.editor.Text()
+	selected := p.chooser.CurrentItem()
+	currName := p.chooser.Text()
 	if p.btnCreate.Clicked(gtx) {
 		if selected == nil && currName != "" {
 			if _, exists := p.core.settings.MetaRules[currName]; !exists {
 				p.core.settings.MetaRules[currName] = "B() / S()"
-				p.chooser.resetItems(p.sortedMetaRules())
+				p.chooser.ResetItems(p.sortedMetaRules())
 				p.editor.SetText("B() / S()")
 			}
 		}
@@ -85,9 +85,9 @@ func (p *metaRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 	editorHt := ht - mt.Size.Y
 	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
 		dims := flexVertical(10,
-			rigid(p.chooser.layout),
+			rigid(p.chooser.Layout),
 			rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Max.X = p.chooser.dims.Size.X
+				gtx.Constraints.Max.X = p.chooser.Width()
 				if selected != nil {
 					gtx.Constraints.Min.Y = ht
 					return p.layoutMetaRule(gtx, editorHt)
@@ -97,20 +97,19 @@ func (p *metaRulesPopout) layout(gtx layout.Context) layout.Dimensions {
 				return flexHorizontal(0, rigid(p.btnCreate.Layout))(gtx)
 			}),
 		)(gtx)
-		p.chooser.layoutDropdown(gtx)
+		p.chooser.LayoutDropdown(gtx)
 		return dims
 	})
 }
 
 func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, editorHt int) layout.Dimensions {
 	if p.btnDelete.Clicked(gtx) {
-		name := p.chooser.editor.Text()
+		name := p.chooser.Text()
 		delete(p.core.settings.MetaRules, name)
-		p.chooser.resetItems(p.sortedMetaRules())
+		p.chooser.ResetItems(p.sortedMetaRules())
 		return layout.Dimensions{}
 	}
 	p.mode.Update(gtx)
-	p.updateEditor(gtx)
 	return flexVertical(10,
 		rigid(flexHorizontal(20,
 			rigid(p.btnDelete.Layout),
@@ -120,12 +119,12 @@ func (p *metaRulesPopout) layoutMetaRule(gtx layout.Context, editorHt int) layou
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = editorHt
 			gtx.Constraints.Min.Y = editorHt
-			gtx.Constraints.Min.X = p.chooser.dims.Size.X
+			gtx.Constraints.Min.X = p.chooser.Width()
 			switch p.mode.Value {
 			case metaRuleMatches:
 				return p.layoutMatchedRules(gtx, editorHt)
 			default:
-				return p.layoutEditor(gtx, editorHt)
+				return p.editor.Layout(gtx)
 			}
 		}),
 		rigid(func(gtx layout.Context) layout.Dimensions {
@@ -164,24 +163,13 @@ func (p *metaRulesPopout) layoutNavButtons(gtx layout.Context) layout.Dimensions
 	return label("No matched rules found")(gtx)
 }
 
-func (p *metaRulesPopout) layoutEditor(gtx layout.Context, editorHt int) layout.Dimensions {
-	gtx.Constraints.Max.Y = editorHt
-	gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
-	gtx.Constraints.Min.X = p.chooser.dims.Size.X
-	style := material.Editor(theme, &p.editor, "")
-	bc, bt := focusedBorder(gtx.Focused(&p.editor))
-	return widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, style.Layout)
-	})
-}
-
 func (p *metaRulesPopout) layoutMatchedRules(gtx layout.Context, editorHt int) layout.Dimensions {
 	gtx.Constraints.Max.Y = editorHt
 	gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
-	gtx.Constraints.Min.X = p.chooser.dims.Size.X
-	p.parseCurrent()
+	gtx.Constraints.Min.X = p.chooser.Width()
+	p.parseCurrent(p.editor.Text())
 	if p.parseError != nil || p.currentRule == nil {
-		return widget.Border{Color: popupBorder, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return widget.Border{Color: borderColor, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return label("Error - No matching rules")(gtx)
 			})
@@ -189,7 +177,7 @@ func (p *metaRulesPopout) layoutMatchedRules(gtx layout.Context, editorHt int) l
 	}
 	count := len(p.matched)
 	if count == 0 {
-		return widget.Border{Color: popupBorder, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return widget.Border{Color: borderColor, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return label("No matching rules")(gtx)
 			})
@@ -209,11 +197,11 @@ func (p *metaRulesPopout) layoutMatchedRule(gtx layout.Context, index int, r log
 	))(gtx)
 }
 
-func (p *metaRulesPopout) parseCurrent() {
-	mrs := p.editor.Text()
-	if mrs != p.current || p.currentRule == nil {
-		p.current = mrs
-		if r, err := meta.ParseRule(mrs); err == nil {
+func (p *metaRulesPopout) parseCurrent(text string) {
+	//text := p.editor.Text()
+	if text != p.current || p.currentRule == nil {
+		p.current = text
+		if r, err := meta.ParseRule(text); err == nil {
 			p.matched = make([]logic.Rule, 0)
 			p.currentRule = r
 			for r := range p.currentRule.MatchingRules() {
@@ -225,38 +213,30 @@ func (p *metaRulesPopout) parseCurrent() {
 			p.currentRule = nil
 			p.parseError = err
 		}
-		p.listMatched.resetItems(p.matched)
+		p.listMatched.ResetItems(p.matched)
 	}
 }
 
-func (p *metaRulesPopout) updateEditor(gtx layout.Context) {
-	for {
-		ev, ok := p.editor.Update(gtx)
-		if !ok {
-			break
-		}
-		if _, ok = ev.(widget.ChangeEvent); ok {
-			p.parseCurrent()
-			if p.parseError == nil {
-				name := p.chooser.editor.Text()
-				if _, ok = p.core.settings.MetaRules[name]; ok {
-					p.core.settings.MetaRules[name] = strings.ReplaceAll(p.current, "    ", "\t")
-				}
-			}
+func (p *metaRulesPopout) editorChange(text string, _ layout.Context) {
+	p.parseCurrent(text)
+	if p.parseError == nil {
+		name := p.chooser.Text()
+		if _, ok := p.core.settings.MetaRules[name]; ok {
+			p.core.settings.MetaRules[name] = strings.ReplaceAll(text, "    ", "\t")
 		}
 	}
 }
 
 func (p *metaRulesPopout) hasFocus(gtx layout.Context) bool {
 	on, radiosFocused := p.mode.Focused()
-	return radiosFocused || p.chooser.isFocused(gtx) ||
+	return radiosFocused || p.chooser.IsFocused(gtx) ||
 		p.btnCreate.IsFocused(gtx) || p.btnDelete.IsFocused(gtx) ||
-		gtx.Focused(&p.editor) || p.btnAddAll.IsFocused(gtx) ||
+		p.editor.IsFocused(gtx) || p.btnAddAll.IsFocused(gtx) ||
 		(on == metaRuleMatches && p.listMatched.IsFocused(gtx))
 }
 
 func (p *metaRulesPopout) reset() {
-	//??
+	// nothing to reset
 }
 
 func (p *metaRulesPopout) metaRuleSelected(name *string) {

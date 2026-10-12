@@ -87,6 +87,7 @@ const (
 	Variable
 	ClearVariable
 	ClearVariables
+	ButtonAssign
 	maxAction
 )
 
@@ -230,6 +231,8 @@ func (a Action) String() string {
 		return "clear-variable"
 	case ClearVariables:
 		return "clear-variables"
+	case ButtonAssign:
+		return "button-assign"
 	}
 	return ""
 }
@@ -239,9 +242,8 @@ func (a Action) Syntax() string {
 	if af, ok := actionsRegistry[syntax]; ok && af.operand != none {
 		if af.operandSyntax != "" {
 			return syntax + ":" + af.operandSyntax
-		} else {
-			return syntax + ":operand"
 		}
+		return syntax + ":operand"
 	}
 	return syntax
 }
@@ -627,5 +629,10 @@ var actionsRegistry = map[string]registryItem{
 		action:        ClearVariables,
 		operand:       optional,
 		operandSyntax: "name,...",
+	},
+	ButtonAssign.String(): {
+		action:        ButtonAssign,
+		operand:       required,
+		operandSyntax: "A|B|C|D",
 	},
 }

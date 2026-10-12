@@ -14,6 +14,10 @@ var (
 	iconStep         = icon{alt: "step", image: icons.Step}
 	iconZoomIn       = icon{alt: "zoom-in", image: icons.ZoomIn}
 	iconZoomOut      = icon{alt: "zoom-out", image: icons.ZoomOut}
+	iconA            = icon{alt: "button-a", image: icons.ButtonA}
+	iconB            = icon{alt: "button-b", image: icons.ButtonB}
+	iconC            = icon{alt: "button-c", image: icons.ButtonC}
+	iconD            = icon{alt: "button-d", image: icons.ButtonD}
 	allIcons         = []icon{
 		iconBackward,
 		iconBurger,
@@ -24,6 +28,7 @@ var (
 		iconStep,
 		iconZoomIn,
 		iconZoomOut,
+		iconA, iconB, iconC, iconD,
 	}
 )
 

@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"os/exec"
 	"runtime"
 	"strings"
 
@@ -11,7 +12,7 @@ import (
 )
 
 const (
-	gogolGuiVersion = "1.4.64"
+	gogolGuiVersion = "1.4.65"
 	gogolRepo       = "https://github.com/marrow16/gogol"
 )
 
@@ -33,6 +34,19 @@ type aboutPopout struct {
 	v        string
 }
 
+func openURL(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default: // Linux, BSD, etc.
+		cmd = exec.Command("xdg-open", url)
+	}
+	return cmd.Start()
+}
+
 func (p *aboutPopout) layout(gtx layout.Context) layout.Dimensions {
 	m := measureText(gtx, "M")
 	minX := m.Size.X * 30
@@ -45,7 +59,7 @@ func (p *aboutPopout) layout(gtx layout.Context) layout.Dimensions {
 		rigidLabel("GoGoL", text.Middle, font.Bold, minX),
 		rigidLabel(p.v, text.Middle, 0, minX),
 		rigidSpacerVertical(m.Size.Y/2),
-		rigidLabel("Author: Martin \"Marrow\" Rowlinson", text.Middle, 0, minX),
+		rigidLabel(`Author: Martin "Marrow" Rowlinson`, text.Middle, 0, minX),
 		rigidFixedWidth(linkLabel(&p.linkRepo, gogolRepo), minX, layout.Center),
 		rigidSpacerVertical(m.Size.Y/2),
 	))

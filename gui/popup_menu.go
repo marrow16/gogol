@@ -244,8 +244,8 @@ func (p *menuPopup) layout(gtx layout.Context) layout.Dimensions {
 	})
 	p.width = dims.Size.X
 	call := macro.Stop()
-	fill(gtx, popupBackground, dims.Size)
-	border(gtx, dims, true, true, false, false)
+	paint.FillShape(gtx.Ops, backgroundColor, clip.Rect{Max: dims.Size}.Op())
+	borders(gtx, dims, borderColor, true, true, false, false)
 	call.Add(gtx.Ops)
 	p.layoutPopouts(gtx)
 	return dims
@@ -270,8 +270,8 @@ func (p *menuPopup) layoutPopouts(gtx layout.Context) {
 	y := p.selectedItemY()
 	stack := op.Offset(image.Point{X: x, Y: y}).Push(gtx.Ops)
 	defer stack.Pop()
-	fill(gtx, popupBackground, dims.Size)
-	border(gtx, dims, true, true, true, true)
+	paint.FillShape(gtx.Ops, backgroundColor, clip.Rect{Max: dims.Size}.Op())
+	borders(gtx, dims, borderColor, true, true, true, true)
 	call.Add(gtx.Ops)
 }
 
@@ -392,8 +392,7 @@ func (m menuItems) measureWidth(gtx layout.Context) int {
 			lbls = append(lbls, "<< "+item.label)
 		}
 	}
-	dims := measureMaxText(gtx, font.Normal, lbls...)
-	return dims.Size.X
+	return measureMaxText(gtx, font.Normal, lbls...)
 }
 
 type menuItem struct {
@@ -414,7 +413,7 @@ func (i *menuItem) layout(gtx layout.Context, width int) layout.Dimensions {
 		dims.Size.Y = (dims.Size.Y * 2) / 3
 		i.height = dims.Size.Y
 		// draw separator line...
-		paint.FillShape(gtx.Ops, popupBorder, clip.Rect{Min: image.Point{X: 0, Y: dims.Size.Y / 2}, Max: image.Point{X: dims.Size.X, Y: (dims.Size.Y / 2) + 1}}.Op())
+		paint.FillShape(gtx.Ops, borderColor, clip.Rect{Min: image.Point{X: 0, Y: dims.Size.Y / 2}, Max: image.Point{X: dims.Size.X, Y: (dims.Size.Y / 2) + 1}}.Op())
 		return dims
 	}
 	for i.clickable.Clicked(gtx) {
@@ -445,7 +444,7 @@ func (i *menuItem) layout(gtx layout.Context, width int) layout.Dimensions {
 		})
 		call := macro.Stop()
 		if i.index == i.parent.selected {
-			fill(gtx, popupSelectedBackground, dims.Size)
+			paint.FillShape(gtx.Ops, selectedColor, clip.Rect{Max: dims.Size}.Op())
 		}
 		call.Add(gtx.Ops)
 		i.height = dims.Size.Y

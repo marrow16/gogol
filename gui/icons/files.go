@@ -13,6 +13,24 @@ var backward []byte
 //go:embed burger.png
 var burger []byte
 
+//go:embed button-a.png
+var buttonA []byte
+
+//go:embed button-b.png
+var buttonB []byte
+
+//go:embed button-c.png
+var buttonC []byte
+
+//go:embed button-d.png
+var buttonD []byte
+
+//go:embed close.png
+var closeIcon []byte
+
+//go:embed copy.png
+var copyIcon []byte
+
 //go:embed pause.png
 var pause []byte
 
@@ -37,6 +55,9 @@ var zoomIn []byte
 //go:embed zoomOut.png
 var zoomOut []byte
 
+//go:embed search.png
+var search []byte
+
 //go:embed folder.png
 var folder []byte
 
@@ -52,9 +73,16 @@ var fileJSON []byte
 var (
 	Backward     = mustImage(backward)
 	Burger       = mustImage(burger)
+	ButtonA      = mustImage(buttonA)
+	ButtonB      = mustImage(buttonB)
+	ButtonC      = mustImage(buttonC)
+	ButtonD      = mustImage(buttonD)
+	Close        = mustImage(closeIcon)
+	Copy         = mustImage(copyIcon)
 	Pause        = mustImage(pause)
 	Play         = mustImage(play)
 	Reverse      = mustImage(reverse)
+	Search       = mustImage(search)
 	SkipBackward = mustImage(skipBackward)
 	SkipForward  = mustImage(skipForward)
 	Step         = mustImage(step)

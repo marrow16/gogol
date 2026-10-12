@@ -1,8 +1,6 @@
-package gui
+package patterns
 
-import "github.com/marrow16/gogol/patterns"
-
-var alphabet = map[string]patterns.Pattern{
+var Alphabet = map[string]Pattern{
 	"!": {Height: 9, Width: 1, Cells: []bool{
 		true,
 		true,

@@ -14,7 +14,8 @@ import (
 type gridRecipesPopout struct {
 	parent     *menuPopup
 	core       *Core
-	chooser    *chooser[string]
+	setFocused bool
+	chooser    *controls.Chooser[string]
 	btnPath    *controls.PathButton
 	btnRun     *controls.Button
 	btnSaveRle *controls.Button
@@ -26,20 +27,19 @@ func newGridRecipesPopout(p *menuPopup, c *Core) *gridRecipesPopout {
 	result := &gridRecipesPopout{
 		parent:     p,
 		core:       c,
-		btnPath:    controls.NewPathButton(theme, popupForeground, popupBackground),
+		setFocused: true,
+		btnPath:    controls.NewPathButton(theme),
 		btnRun:     controls.NewButton(theme, "Run"),
 		btnSaveRle: controls.NewButton(theme, "Save as RLE"),
 	}
-	result.chooser = newChooser[string](38,
+	result.chooser = controls.NewChooser[string](theme, 38,
 		result.sortedRecipes(),
 		result.recipeSelected,
 		func(recipe string) string {
 			return recipe
 		},
-	)
-	result.chooser.middleEllipsis = true
-	result.chooser.onSubmit(result.submitFilename)
-	result.chooser.setText(c.settings.SelectedRecipe)
+	).MiddleEllipsis(true).OnSubmit(result.submitFilename)
+	result.chooser.SetText(c.settings.SelectedRecipe)
 	c.gridRecipes = result
 	return result
 }
@@ -65,7 +65,7 @@ func (p *gridRecipesPopout) submitFilename(recipe string) {
 	_, p.error = recipes.Load(recipe)
 	if p.error == nil {
 		p.core.settings.AddRecipe(recipe)
-		p.chooser.resetItems(p.sortedRecipes())
+		p.chooser.ResetItems(p.sortedRecipes())
 	}
 }
 
@@ -74,7 +74,7 @@ func (p *gridRecipesPopout) reset() {
 
 func (p *gridRecipesPopout) getCurrentRecipe() (*recipes.Recipe, string) {
 	p.error = nil
-	filename := p.chooser.currentItem()
+	filename := p.chooser.CurrentItem()
 	if filename == nil {
 		p.error = errors.New("No recipe selected")
 		return nil, ""
@@ -114,9 +114,11 @@ func (p *gridRecipesPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnPath.Clicked(gtx) {
 		p.core.showFileFinder("Select Grid Recipe", []string{".json"}, false, func(path string) {
 			p.core.settings.AddRecipe(path)
-			p.chooser.resetItems(p.sortedRecipes())
-			p.chooser.setText(path)
-			p.chooser.setFocused(gtx)
+			p.chooser.ResetItems(p.sortedRecipes())
+			p.chooser.SetText(path)
+			p.setFocused = true
+		}, func() {
+			p.setFocused = true
 		})
 	}
 	if p.btnRun.Clicked(gtx) {
@@ -128,7 +130,11 @@ func (p *gridRecipesPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.linkHelp.Clicked(gtx) {
 		p.core.showHelp(help.GridRecipesReference)
 	}
-	curr := p.chooser.currentItem()
+	if p.setFocused {
+		p.chooser.SetFocused(gtx)
+		p.setFocused = false
+	}
+	curr := p.chooser.CurrentItem()
 	gap := 20
 	if curr == nil {
 		gap = 0
@@ -136,7 +142,7 @@ func (p *gridRecipesPopout) layout(gtx layout.Context) layout.Dimensions {
 	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
 		dims := flexVertical(10,
 			rigid(flexHorizontal(0,
-				rigid(p.chooser.layout),
+				rigid(p.chooser.Layout),
 				rigid(p.btnPath.Layout),
 			)),
 			rigid(flexHorizontal(gap,
@@ -147,11 +153,11 @@ func (p *gridRecipesPopout) layout(gtx layout.Context) layout.Dimensions {
 				conditionalRigid(p.error == nil && curr == nil, linkLabel(&p.linkHelp, "(see help)"), nil),
 			)),
 		)(gtx)
-		p.chooser.layoutDropdown(gtx)
+		p.chooser.LayoutDropdown(gtx)
 		return dims
 	})
 }
 
 func (p *gridRecipesPopout) hasFocus(gtx layout.Context) bool {
-	return p.chooser.isFocused(gtx) || p.btnRun.IsFocused(gtx) || p.btnSaveRle.IsFocused(gtx) || p.btnPath.IsFocused(gtx) || gtx.Focused(&p.linkHelp)
+	return p.chooser.IsFocused(gtx) || p.btnRun.IsFocused(gtx) || p.btnSaveRle.IsFocused(gtx) || p.btnPath.IsFocused(gtx) || gtx.Focused(&p.linkHelp)
 }

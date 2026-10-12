@@ -23,7 +23,7 @@ import (
 type capturedPatternsPopout struct {
 	parent        *menuPopup
 	core          *Core
-	chooser       *chooser[*patterns.Pattern]
+	chooser       *controls.Chooser[*patterns.Pattern]
 	previewMode   *widget.Enum
 	radioPreview  *controls.RadioButton
 	radioMetadata *controls.RadioButton
@@ -36,10 +36,10 @@ type capturedPatternsPopout struct {
 	btnClear      *controls.Button
 	ruleClick     widget.Clickable
 	error         error
-	name          *input
-	filename      *input
-	origin        *input
-	comment       *input
+	name          *controls.Input
+	filename      *controls.Input
+	origin        *controls.Input
+	comment       *controls.Editor
 	// pattern identification...
 	btnIdentify        *controls.Button
 	chkWithPhases      *controls.Checkbox
@@ -72,13 +72,11 @@ func newCapturedPatternsPopout(p *menuPopup, c *Core) *capturedPatternsPopout {
 	}
 	result.radioPreview = controls.NewRadioButton(theme, result.previewMode, previewImage, "Preview")
 	result.radioMetadata = controls.NewRadioButton(theme, result.previewMode, previewMetadata, "Metadata")
-	result.name = newInput("", 0, result.updateName)
-	result.filename = newInput("", 0, result.updateFilename)
-	result.origin = newInput("", 0, result.updateOrigin)
-	result.comment = newInput("", 0, result.updateComment)
-	result.comment.editor.SingleLine = false
-	result.comment.editor.Submit = false
-	result.chooser = newChooser[*patterns.Pattern](38,
+	result.name = controls.NewInput(theme, "", 0, result.updateName)
+	result.filename = controls.NewInput(theme, "", 0, result.updateFilename)
+	result.origin = controls.NewInput(theme, "", 0, result.updateOrigin)
+	result.comment = controls.NewEditor(theme, result.updateComment)
+	result.chooser = controls.NewChooser[*patterns.Pattern](theme, 38,
 		c.settings.CapturedPatterns,
 		result.patternSelected,
 		func(pattern *patterns.Pattern) string {
@@ -101,7 +99,7 @@ func (p *capturedPatternsPopout) addCapturedPattern(pattern patterns.Pattern, ra
 			pattern.Rule = &rule
 		}
 		p.core.settings.CapturedPatterns = append(p.core.settings.CapturedPatterns, &pattern)
-		p.chooser.resetItems(p.core.settings.CapturedPatterns)
+		p.chooser.ResetItems(p.core.settings.CapturedPatterns)
 	} else {
 		origin := p.core.settings.Originator
 		if len(origin) == 0 {
@@ -118,24 +116,24 @@ func (p *capturedPatternsPopout) addCapturedPattern(pattern patterns.Pattern, ra
 				Origination: origin,
 				Rule:        &rule,
 				Filename:    name + ".rle"})
-		p.chooser.resetItems(p.core.settings.CapturedPatterns)
+		p.chooser.ResetItems(p.core.settings.CapturedPatterns)
 	}
-	p.chooser.setText(name)
+	p.chooser.SetText(name)
 }
 
 func (p *capturedPatternsPopout) updateName(text string) {
-	if c := p.chooser.currentItem(); c != nil {
+	if c := p.chooser.CurrentItem(); c != nil {
 		patt := *c
 		if strings.EqualFold(patt.Name+".rle", patt.Filename) {
 			patt.Filename = text + ".rle"
-			p.filename.setText(patt.Filename)
+			p.filename.SetText(patt.Filename)
 		}
 		patt.Name = text
-		if p.chooser.editor.Text() != text {
+		if p.chooser.Text() != text {
 			if text == "" {
-				p.chooser.setText(patt.Filename)
+				p.chooser.SetText(patt.Filename)
 			} else {
-				p.chooser.setText(patt.Name)
+				p.chooser.SetText(patt.Name)
 			}
 		}
 	}
@@ -143,21 +141,21 @@ func (p *capturedPatternsPopout) updateName(text string) {
 
 func (p *capturedPatternsPopout) updateFilename(text string) {
 	p.error = nil
-	if c := p.chooser.currentItem(); c != nil {
+	if c := p.chooser.CurrentItem(); c != nil {
 		patt := *c
 		patt.Filename = text
 	}
 }
 
 func (p *capturedPatternsPopout) updateOrigin(text string) {
-	if c := p.chooser.currentItem(); c != nil {
+	if c := p.chooser.CurrentItem(); c != nil {
 		patt := *c
 		patt.Origination = text
 	}
 }
 
-func (p *capturedPatternsPopout) updateComment(text string) {
-	if c := p.chooser.currentItem(); c != nil {
+func (p *capturedPatternsPopout) updateComment(text string, _ layout.Context) {
+	if c := p.chooser.CurrentItem(); c != nil {
 		patt := *c
 		patt.Comments = strings.Split(text, "\n")
 	}
@@ -167,10 +165,10 @@ func (p *capturedPatternsPopout) patternSelected(pattern **patterns.Pattern) {
 	p.error = nil
 	if pattern != nil {
 		patt := *pattern
-		p.name.setText(patt.Name)
-		p.filename.setText(patt.Filename)
-		p.origin.setText(patt.Origination)
-		p.comment.setText(strings.Join(patt.Comments, "\n"))
+		p.name.SetText(patt.Name)
+		p.filename.SetText(patt.Filename)
+		p.origin.SetText(patt.Origination)
+		p.comment.SetText(strings.Join(patt.Comments, "\n"))
 	}
 }
 
@@ -219,7 +217,7 @@ func (p *capturedPatternsPopout) savePattern(pattern *patterns.Pattern) {
 				}
 			}
 			p.identLibLen = 0
-			p.chooser.resetItems(p.core.settings.CapturedPatterns)
+			p.chooser.ResetItems(p.core.settings.CapturedPatterns)
 		}
 	} else {
 		p.error = err
@@ -232,12 +230,12 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 		return p.layoutNoPatterns(gtx)
 	}
 	m := measureText(gtx, "M")
-	currentPattern := p.chooser.currentItem()
+	currentPattern := p.chooser.CurrentItem()
 	p.previewMode.Update(gtx)
 	if p.btnSave.Clicked(gtx) {
 		if currentPattern != nil {
 			p.savePattern(*currentPattern)
-			currentPattern = p.chooser.currentItem()
+			currentPattern = p.chooser.CurrentItem()
 		}
 	}
 	if p.btnRemove.Clicked(gtx) {
@@ -248,7 +246,7 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 					break
 				}
 			}
-			p.chooser.resetItems(p.core.settings.CapturedPatterns)
+			p.chooser.ResetItems(p.core.settings.CapturedPatterns)
 		}
 	}
 	if p.btnClear.Clicked(gtx) {
@@ -263,8 +261,8 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	p.readPaste(gtx)
 	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
 		dims := flexVertical(10,
-			rigid(p.chooser.layout),
-			rigidLeftRight(p.chooser.dims.Size.X,
+			rigid(p.chooser.Layout),
+			rigidLeftRight(p.chooser.Width(),
 				flexHorizontal(10,
 					rigid(p.radioPreview.Layout),
 					rigid(p.radioMetadata.Layout),
@@ -276,8 +274,8 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 			),
 			rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = int(float32(m.Size.Y) * 15.5)
-				gtx.Constraints.Max.X = p.chooser.dims.Size.X
-				return p.layoutPreview(gtx, p.chooser.dims.Size.X, m.Size.Y*15)
+				gtx.Constraints.Max.X = p.chooser.Width()
+				return p.layoutPreview(gtx, p.chooser.Width(), m.Size.Y*15)
 			}),
 			rigid(func(gtx layout.Context) layout.Dimensions {
 				switch {
@@ -295,7 +293,7 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 				}
 			}),
 		)(gtx)
-		p.chooser.layoutDropdown(gtx)
+		p.chooser.LayoutDropdown(gtx)
 		return dims
 	})
 }
@@ -319,15 +317,15 @@ func (p *capturedPatternsPopout) readPaste(gtx layout.Context) {
 					pattern.Name = strconv.Itoa(len(p.core.settings.CapturedPatterns)+1) + " (Pasted " + time.Now().Format("2006-01-02 15-04-05") + ")"
 				}
 				p.core.settings.CapturedPatterns = append(p.core.settings.CapturedPatterns, &pattern)
-				p.chooser.resetItems(p.core.settings.CapturedPatterns)
-				p.chooser.setText(pattern.Name)
+				p.chooser.ResetItems(p.core.settings.CapturedPatterns)
+				p.chooser.SetText(pattern.Name)
 			}
 		}
 	}
 }
 
 func (p *capturedPatternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt int) layout.Dimensions {
-	currentPattern := p.chooser.currentItem()
+	currentPattern := p.chooser.CurrentItem()
 	switch {
 	case currentPattern == nil:
 		return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceAround}.Layout(gtx,
@@ -348,7 +346,7 @@ func (p *capturedPatternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt 
 
 func (p *capturedPatternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern, gtx layout.Context) layout.Dimensions {
 	txtDim := measureText(gtx, "My")
-	labelMax := measureMaxText(gtx, font.Bold, "Size: ", "Filename: ", "Origin: ", "Comment: ").Size.X
+	labelMax := measureMaxText(gtx, font.Bold, "Size: ", "Filename: ", "Origin: ", "Comment: ")
 	if p.ruleClick.Clicked(gtx) && pattern.Rule != nil {
 		p.core.setRule(*pattern.Rule)
 	}
@@ -363,22 +361,22 @@ func (p *capturedPatternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Name:", text.End, font.Bold, labelMax),
-			flexed(p.name.layout),
+			flexed(p.name.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Filename:", text.End, font.Bold, labelMax),
-			flexed(p.filename.layout),
+			flexed(p.filename.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Origin:", text.End, font.Bold, labelMax),
-			flexed(p.origin.layout),
+			flexed(p.origin.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidLabel("Comment:", text.End, font.Bold, labelMax),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = txtDim.Size.Y * 7
 				gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
-				return p.comment.layout(gtx)
+				return p.comment.Layout(gtx)
 			}),
 		)),
 	)
@@ -531,10 +529,10 @@ func (p *capturedPatternsPopout) identify(pattern *patterns.Pattern, withPhases 
 
 func (p *capturedPatternsPopout) hasFocus(gtx layout.Context) bool {
 	_, radios := p.previewMode.Focused()
-	return radios || p.chooser.isFocused(gtx) || p.btnSave.IsFocused(gtx) || p.chkAddLibrary.IsFocused(gtx) ||
+	return radios || p.chooser.IsFocused(gtx) || p.btnSave.IsFocused(gtx) || p.chkAddLibrary.IsFocused(gtx) ||
 		p.btnRemove.IsFocused(gtx) || p.btnClear.IsFocused(gtx) || p.btnPlace.IsFocused(gtx) || p.btnPaste.IsFocused(gtx) ||
-		p.name.isFocused(gtx) || p.filename.isFocused(gtx) ||
-		p.origin.isFocused(gtx) || p.comment.isFocused(gtx) ||
+		p.name.IsFocused(gtx) || p.filename.IsFocused(gtx) ||
+		p.origin.IsFocused(gtx) || p.comment.IsFocused(gtx) ||
 		p.btnIdentify.IsFocused(gtx) || p.chkWithPhases.IsFocused(gtx) || gtx.Focused(&p.ruleClick)
 }
 

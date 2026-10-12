@@ -3,7 +3,6 @@ package gui
 import (
 	"errors"
 	"gioui.org/font"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/text"
 	"github.com/marrow16/gogol/gui/controls"
@@ -16,37 +15,37 @@ import (
 )
 
 type importGridPopout struct {
-	parent    *menuPopup
-	core      *Core
-	path      *input
-	btnImport *controls.Button
-	btnPath   *controls.PathButton
-	chkResize *controls.Checkbox
-	error     error
+	parent     *menuPopup
+	core       *Core
+	setFocused bool
+	path       *controls.Input
+	btnImport  *controls.Button
+	btnPath    *controls.PathButton
+	chkResize  *controls.Checkbox
+	error      error
 }
 
 func newImportGridPopout(p *menuPopup, c *Core) *importGridPopout {
 	result := &importGridPopout{
-		parent:    p,
-		core:      c,
-		path:      newInput("", 256, nil).maximumWidth(30),
-		btnImport: controls.NewButton(theme, "Import"),
-		btnPath:   controls.NewPathButton(theme, popupForeground, popupBackground),
-		chkResize: controls.NewCheckBox(theme, "Resize grid", true),
+		parent:     p,
+		core:       c,
+		setFocused: true,
+		btnImport:  controls.NewButton(theme, "Import"),
+		btnPath:    controls.NewPathButton(theme),
+		chkResize:  controls.NewCheckBox(theme, "Resize grid", true),
 	}
-	result.path.onChangeFn = result.clearError
+	result.path = controls.NewInput(theme, "", 256, result.clearError).MaximumWidth(30)
 	return result
 }
 
-func (p *importGridPopout) reset() {
-}
+func (p *importGridPopout) reset() {}
 
 func (p *importGridPopout) clearError(_ string) {
 	p.error = nil
 }
 
 func (p *importGridPopout) importGrid() {
-	path := p.path.editor.Text()
+	path := p.path.Text()
 	if path == "" {
 		p.error = errors.New("Please enter a path")
 		return
@@ -99,20 +98,21 @@ func (p *importGridPopout) layout(gtx layout.Context) layout.Dimensions {
 	}
 	if p.btnPath.Clicked(gtx) {
 		p.core.showFileFinder("Import Grid", []string{".rle"}, false, func(path string) {
-			p.path.setText(path)
-			gtx.Execute(key.FocusCmd{Tag: &p.path.editor})
+			p.path.SetText(path)
+			p.setFocused = true
+		}, func() {
+			p.setFocused = true
 		})
-		/*
-			filePicker(func(filename string) {
-				p.path.setText(strings.TrimSpace(string(filename)))
-			})
-		*/
 	}
-	labelMax := measureMaxText(gtx, font.Normal, "Path: ").Size.X
+	if p.setFocused {
+		p.path.SetFocused(gtx)
+		p.setFocused = false
+	}
+	labelMax := measureMaxText(gtx, font.Normal, "Path: ")
 	return popoutLayout(gtx, flexVertical(8,
 		rigid(flexHorizontal(0,
 			rigidLabel("Path: ", text.End, 0, labelMax),
-			flexed(p.path.layout),
+			flexed(p.path.Layout),
 			rigid(p.btnPath.Layout),
 		)),
 		rigid(flexHorizontal(20,
@@ -125,6 +125,6 @@ func (p *importGridPopout) layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *importGridPopout) hasFocus(gtx layout.Context) bool {
-	return p.path.isFocused(gtx) || p.chkResize.IsFocused(gtx) ||
+	return p.path.IsFocused(gtx) || p.chkResize.IsFocused(gtx) ||
 		p.btnImport.IsFocused(gtx) || p.btnPath.IsFocused(gtx)
 }

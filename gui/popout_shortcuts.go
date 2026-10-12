@@ -25,13 +25,14 @@ func newShortcutsPopout(p *menuPopup, c *Core) *shortcutsPopout {
 		variablesList:   widget.List{Axis: layout.Vertical},
 		btnVarsClearAll: controls.NewButton(theme, "Clear All"),
 	}
-	result.chooser = newChooser[string](38,
+	result.chooser = controls.NewChooser[string](theme, 38,
 		result.sortedShortcuts(),
 		result.shortcutSelected,
 		func(name string) string {
 			return name
 		},
 	)
+	result.editor = controls.NewEditor(theme, result.editorChange)
 	c.settings.ShortcutVariables.NotifyChanges(result.variableChanges)
 	result.sortVariables(c.settings.ShortcutVariables.Clone())
 	return result
@@ -40,11 +41,11 @@ func newShortcutsPopout(p *menuPopup, c *Core) *shortcutsPopout {
 type shortcutsPopout struct {
 	parent        *menuPopup
 	core          *Core
-	chooser       *chooser[string]
+	chooser       *controls.Chooser[string]
 	btnCreate     *controls.Button
 	btnDelete     *controls.Button
 	btnRun        *controls.Button
-	editor        widget.Editor
+	editor        *controls.Editor
 	syntaxCheckAt time.Time
 	syntaxErrors  []error
 	errorsList    widget.List
@@ -96,14 +97,14 @@ func (p *shortcutsPopout) shortcutSelected(name *string) {
 }
 
 func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
-	selected := p.chooser.currentItem()
-	curr := p.chooser.editor.Text()
+	selected := p.chooser.CurrentItem()
+	curr := p.chooser.Text()
 	isVars := selected != nil && *selected == variablesShortcutName
 	if p.btnCreate.Clicked(gtx) {
 		if selected == nil && curr != "" {
 			if _, exists := p.core.settings.Shortcuts[curr]; !exists {
 				p.core.settings.Shortcuts[curr] = []string{}
-				p.chooser.resetItems(p.sortedShortcuts())
+				p.chooser.ResetItems(p.sortedShortcuts())
 				p.editor.SetText("")
 			}
 		}
@@ -113,9 +114,9 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 	editorHt := ht - mt.Size.Y
 	return popoutLayout(gtx, func(gtx layout.Context) layout.Dimensions {
 		dims := flexVertical(10,
-			rigid(p.chooser.layout),
+			rigid(p.chooser.Layout),
 			rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Max.X = p.chooser.dims.Size.X
+				gtx.Constraints.Max.X = p.chooser.Width()
 				switch {
 				case isVars:
 					gtx.Constraints.Min.Y = ht
@@ -135,7 +136,7 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 				)(gtx)
 			}),
 			conditionalRigid(!isVars && selected != nil && len(p.syntaxErrors) > 0, func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Max.X = p.chooser.dims.Size.X
+				gtx.Constraints.Max.X = p.chooser.Width()
 				return flexHorizontal(8,
 					rigid(label("Errors:")),
 					rigid(func(gtx layout.Context) layout.Dimensions {
@@ -153,7 +154,7 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 				)(gtx)
 			}, nil),
 		)(gtx)
-		p.chooser.layoutDropdown(gtx)
+		p.chooser.LayoutDropdown(gtx)
 		return dims
 	})
 }
@@ -171,13 +172,13 @@ func (p *shortcutsPopout) isConflictKey(k string) bool {
 
 func (p *shortcutsPopout) layoutShortcut(gtx layout.Context, editorHt int) layout.Dimensions {
 	if p.btnDelete.Clicked(gtx) {
-		name := p.chooser.editor.Text()
+		name := p.chooser.Text()
 		delete(p.core.settings.Shortcuts, name)
-		p.chooser.resetItems(p.sortedShortcuts())
-		p.chooser.setText("")
+		p.chooser.ResetItems(p.sortedShortcuts())
+		p.chooser.SetText("")
 		return layout.Dimensions{}
 	}
-	key := p.chooser.editor.Text()
+	key := p.chooser.Text()
 	if p.btnRun.Clicked(gtx) {
 		p.core.runShortcut(key)
 	}
@@ -186,7 +187,14 @@ func (p *shortcutsPopout) layoutShortcut(gtx layout.Context, editorHt int) layou
 	}
 	canKey := p.isAllowedKey(key)
 	conflict := p.isConflictKey(key)
-	p.updateEditor(gtx)
+	if !p.syntaxCheckAt.IsZero() {
+		if !gtx.Now.Before(p.syntaxCheckAt) {
+			p.syntaxCheckAt = time.Time{}
+			p.checkSyntax()
+		} else {
+			gtx.Execute(op.InvalidateCmd{At: p.syntaxCheckAt})
+		}
+	}
 	return flexVertical(10,
 		rigidLeftRight(0,
 			flexHorizontal(20,
@@ -203,37 +211,17 @@ func (p *shortcutsPopout) layoutShortcut(gtx layout.Context, editorHt int) layou
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = editorHt
 			gtx.Constraints.Min.Y = editorHt
-			gtx.Constraints.Min.X = p.chooser.dims.Size.X
-			style := material.Editor(theme, &p.editor, "")
-			bc, bt := focusedBorder(gtx.Focused(&p.editor))
-			return widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, style.Layout)
-			})
+			gtx.Constraints.Min.X = p.chooser.Width()
+			return p.editor.Layout(gtx)
 		}),
 	)(gtx)
 }
 
-func (p *shortcutsPopout) updateEditor(gtx layout.Context) {
-	for {
-		ev, ok := p.editor.Update(gtx)
-		if !ok {
-			break
-		}
-		if _, ok = ev.(widget.ChangeEvent); ok {
-			p.syntaxCheckAt = gtx.Now.Add(250 * time.Millisecond)
-			name := p.chooser.editor.Text()
-			if _, ok = p.core.settings.Shortcuts[name]; ok {
-				p.core.settings.Shortcuts[name] = strings.Split(p.editor.Text(), "\n")
-			}
-		}
-	}
-	if !p.syntaxCheckAt.IsZero() {
-		if !gtx.Now.Before(p.syntaxCheckAt) {
-			p.syntaxCheckAt = time.Time{}
-			p.checkSyntax()
-		} else {
-			gtx.Execute(op.InvalidateCmd{At: p.syntaxCheckAt})
-		}
+func (p *shortcutsPopout) editorChange(text string, gtx layout.Context) {
+	p.syntaxCheckAt = gtx.Now.Add(200 * time.Millisecond)
+	name := p.chooser.Text()
+	if _, ok := p.core.settings.Shortcuts[name]; ok {
+		p.core.settings.Shortcuts[name] = strings.Split(text, "\n")
 	}
 }
 
@@ -255,7 +243,7 @@ func (p *shortcutsPopout) layoutVariables(gtx layout.Context, editorHt int) layo
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = editorHt, editorHt
-			return widget.Border{Color: popupBorder, Width: 1, CornerRadius: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return widget.Border{Color: borderColor, Width: 1, CornerRadius: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return material.List(theme, &p.variablesList).Layout(gtx, len(p.variables), func(gtx layout.Context, index int) layout.Dimensions {
 					return label(" $" + p.variables[index][0] + ` = "` + p.variables[index][1] + `"`)(gtx)
 				})
@@ -265,9 +253,9 @@ func (p *shortcutsPopout) layoutVariables(gtx layout.Context, editorHt int) layo
 }
 
 func (p *shortcutsPopout) hasFocus(gtx layout.Context) bool {
-	return p.chooser.isFocused(gtx) ||
+	return p.chooser.IsFocused(gtx) ||
 		p.btnCreate.IsFocused(gtx) || p.btnDelete.IsFocused(gtx) || p.btnRun.IsFocused(gtx) ||
-		gtx.Focused(&p.editor)
+		p.editor.IsFocused(gtx)
 }
 
 func (p *shortcutsPopout) reset() {}

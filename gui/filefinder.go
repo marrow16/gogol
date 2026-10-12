@@ -48,16 +48,21 @@ func newFileFinder(core *Core) *fileFinder {
 		btnAdvAddPattern:         controls.NewButton(theme, "Add Pattern"),
 		btnAdvCapturePattern:     controls.NewButton(theme, "Capture Pattern"),
 		btnAdvCopyPattern:        controls.NewButton(theme, "Copy Pattern"),
+		btnSearch:                controls.NewIconButton(icons.Search, (theme.TextSize*5)/4),
+		btnSearchClose:           controls.NewIconButton(icons.Close, (theme.TextSize*5)/4),
 	}
-	result.list = NewListControl[*dirEntry](theme, nil, false).
-		rowRenderer(result.layoutEntry).
-		onItemSelect(result.selectEntry).
-		onItemNavigate(result.navigateEntry).
-		onIsSelected(func(index int, entry *dirEntry) bool {
+	result.searchInput = controls.NewInput(theme, nil, 20, nil).OnSubmit(result.searchSubmit)
+	result.list = controls.NewList[*dirEntry](theme, nil, false).
+		RowRenderer(result.layoutEntry).
+		OnItemSelect(result.selectEntry).
+		OnItemNavigate(result.navigateEntry).
+		OnIsSelected(func(index int, entry *dirEntry) bool {
 			return entry == result.result
 		})
-	result.list.selectedBg = color.NRGBA{R: 220, G: 220, B: 220, A: 255}
-	result.list.focusedBg = color.NRGBA{R: 220, G: 220, B: 220, A: 255}
+	result.keyCtrlFilters = []event.Filter{
+		key.Filter{Name: key.NameEscape},
+		key.Filter{Name: key.NameF1},
+	}
 	result.keyFilters = []event.Filter{
 		key.Filter{Name: key.NameEscape},
 		key.Filter{Name: key.NameF1},
@@ -74,6 +79,20 @@ func newFileFinder(core *Core) *fileFinder {
 	return result
 }
 
+func (f *fileFinder) show(title string, allowExts []string, allowDir bool, onSelect func(path string), onCancel func()) {
+	f.allowDir = allowDir
+	f.allowExts = make(map[string]struct{}, len(allowExts))
+	for _, ext := range allowExts {
+		f.allowExts[strings.ToLower(ext)] = struct{}{}
+	}
+	f.onSelect = onSelect
+	f.onCancel = onCancel
+	f.title = title
+	f.checkCurrent = true
+	f.searchClose()
+	f.showing = true
+}
+
 func isHidden(name string) bool {
 	return strings.HasPrefix(name, ".")
 }
@@ -85,23 +104,32 @@ type fileFinder struct {
 	allowDir          bool
 	result            *dirEntry
 	onSelect          func(path string)
+	onCancel          func()
 	title             string
 	btnOpen           *controls.Button
 	btnOpenDisabled   *controls.Button
 	btnCancel         *controls.Button
 	chkOnlySelectable *controls.Checkbox
+	keyCtrlFilters    []event.Filter
 	keyFilters        []event.Filter
 
 	checkCurrent bool
 	currentDir   *dirEntry
 	backTo       *dirEntry
-	list         *ListControl[*dirEntry]
+	list         *controls.List[*dirEntry]
 	scannedDir   *dirEntry
 	currentPath  []*dirEntry
 	error        error
 
 	previewMetadataShowing   bool
 	previewMetadataClickable *widget.Clickable
+	// searching...
+	search         string
+	searchShowing  bool
+	searchActive   bool
+	searchInput    *controls.Input
+	btnSearch      *controls.IconButton
+	btnSearchClose *controls.IconButton
 	// advanced buttons...
 	btnAdvDelete         *controls.Button
 	btnAdvAddPattern     *controls.Button
@@ -202,24 +230,66 @@ func (f *fileFinder) canSelectPath(path string) bool {
 
 func (f *fileFinder) layout(gtx layout.Context) {
 	f.setCurrentDir()
-	gtx.Execute(key.FocusCmd{Tag: &f.list.tag})
+	if !f.searchShowing {
+		f.list.Focus(gtx)
+	}
 	layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		f.header(),
+		f.header(gtx),
 		f.breadcrumbs(gtx),
 		f.body(),
 		f.footer(gtx),
 	)
 }
 
-func (f *fileFinder) header() layout.FlexChild {
+func (f *fileFinder) searchSubmit(s string) {
+	if len(s) == 0 {
+		return
+	}
+	f.search = strings.ToLower(s)
+	f.searchActive = true
+	f.scannedDir = nil
+}
+
+func (f *fileFinder) searchClose() {
+	f.searchShowing = false
+	if f.searchActive {
+		f.scannedDir = nil
+	}
+	f.searchActive = false
+}
+
+func (f *fileFinder) header(gtx layout.Context) layout.FlexChild {
+	if f.btnSearch.Clicked(gtx) {
+		f.searchShowing = true
+		f.searchInput.SetFocused(gtx)
+	}
+	if f.btnSearchClose.Clicked(gtx) {
+		f.searchClose()
+	}
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		dims := layout.Inset{Top: 8, Left: 8, Bottom: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			lbl := material.Label(theme, (theme.TextSize*5)/4, f.title)
-			lbl.Font.Weight = font.Bold
-			lbl.MaxLines = 1
-			return lbl.Layout(gtx)
-		})
-		border(gtx, dims, false, false, true, false)
+		dims := layout.Inset{Top: 8, Left: 8, Bottom: 8, Right: 8}.Layout(gtx,
+			flexHorizontal(0, rigidLeftRight(0,
+				func(gtx layout.Context) layout.Dimensions {
+					lbl := material.Label(theme, (theme.TextSize*5)/4, f.title)
+					lbl.Font.Weight = font.Bold
+					lbl.MaxLines = 1
+					return lbl.Layout(gtx)
+				},
+				func(gtx layout.Context) layout.Dimensions {
+					if !f.searchShowing {
+						return f.btnSearch.Layout(gtx)
+					}
+					return flexHorizontal(10,
+						rigid(label("Search:")),
+						flexed(f.searchInput.Layout),
+						rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Top: 2}.Layout(gtx, f.btnSearchClose.Layout)
+						}),
+					)(gtx)
+				},
+			)),
+		)
+		borders(gtx, dims, borderColor, false, false, true, false)
 		return dims
 	})
 }
@@ -260,7 +330,7 @@ func (f *fileFinder) breadcrumbs(gtx layout.Context) layout.FlexChild {
 		dims := layout.Inset{Top: 8, Left: 8, Bottom: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Gap: 6}.Layout(gtx, items...)
 		})
-		border(gtx, dims, false, false, true, false)
+		borders(gtx, dims, borderColor, false, false, true, false)
 		return dims
 	})
 }
@@ -275,8 +345,12 @@ func (f *fileFinder) body() layout.FlexChild {
 }
 
 func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
+	useFilters := f.keyFilters
+	if f.searchInput.IsFocused(gtx) {
+		useFilters = f.keyCtrlFilters
+	}
 	for {
-		ev, ok := gtx.Event(f.keyFilters...)
+		ev, ok := gtx.Event(useFilters...)
 		if !ok {
 			break
 		}
@@ -284,6 +358,9 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 			switch kev.Name {
 			case key.NameEscape:
 				f.showing = false
+				if f.onCancel != nil {
+					f.onCancel()
+				}
 				window.Invalidate()
 			case key.NameF1:
 				f.core.showHelp(-1)
@@ -300,10 +377,11 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 					window.Invalidate()
 				}
 			case key.NameRightArrow:
-				if f.list.selectedIndex >= 0 && f.list.selectedIndex < len(f.list.items) && !f.list.items[f.list.selectedIndex].isFile {
+				idx := f.list.Selected()
+				if idx >= 0 && idx < len(f.list.Items) && !f.list.Items[idx].isFile {
 					f.result = nil
-					f.currentPath = append(f.currentPath, f.list.items[f.list.selectedIndex])
-					f.currentDir = f.list.items[f.list.selectedIndex]
+					f.currentPath = append(f.currentPath, f.list.Items[idx])
+					f.currentDir = f.list.Items[idx]
 					window.Invalidate()
 				}
 			default:
@@ -328,7 +406,7 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 						name:      name,
 						clickable: new(widget.Clickable),
 					})
-				} else if !onlySelectable || f.canSelectPath(path) {
+				} else if (!onlySelectable || f.canSelectPath(path)) && (!f.searchActive || strings.Contains(strings.ToLower(name), f.search)) {
 					files = append(files, &dirEntry{
 						parent: f,
 						path:   path,
@@ -345,16 +423,16 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 			return strings.Compare(strings.ToLower(a.name), strings.ToLower(b.name))
 		})
 		items := append(dirs, files...)
-		f.list.resetItems(items)
+		f.list.ResetItems(items)
 		if f.backTo != nil {
 			for i, e := range items {
 				if e.isFile {
 					break
 				}
 				if e.path == f.backTo.path {
-					f.list.selectedIndex = i
+					f.list.SetSelected(i)
 					f.result = e
-					f.list.scrollTo(f.list.selectedIndex)
+					f.list.ScrollTo(i)
 					break
 				}
 			}
@@ -362,49 +440,53 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 		}
 		if f.result == nil && len(items) > 0 {
 			f.result = items[0]
-			f.list.scrollTo(f.list.selectedIndex)
+			f.list.ScrollTo(f.list.Selected())
 		}
 	}
 	return layout.Flexed(1.5, func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Inset{Top: 4, Left: 4, Bottom: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return f.list.Layout(gtx)
 		})
-		border(gtx, dims, false, false, false, true)
+		borders(gtx, dims, borderColor, false, false, false, true)
 		return dims
 	})
 }
 
 func (f *fileFinder) handleNavKeys(k string) {
-	idx := f.list.selectedIndex
-	if idx >= 0 && idx < len(f.list.items) {
-		curr := f.list.items[idx]
+	idx := f.list.Selected()
+	if idx >= 0 && idx < len(f.list.Items) {
+		curr := f.list.Items[idx]
 		if !curr.isFile {
-			if strings.HasPrefix(strings.ToUpper(curr.name), k) && idx+1 < len(f.list.items) &&
-				strings.HasPrefix(strings.ToUpper(f.list.items[idx+1].name), k) {
-				f.list.selectedIndex++
-				f.list.ensureVisible(f.list.selectedIndex)
-				f.navigateEntry(f.list.items[f.list.selectedIndex])
+			if strings.HasPrefix(strings.ToUpper(curr.name), k) && idx+1 < len(f.list.Items) &&
+				strings.HasPrefix(strings.ToUpper(f.list.Items[idx+1].name), k) {
+				idx := f.list.Selected()
+				idx++
+				f.list.SetSelected(idx)
+				f.list.EnsureVisible(idx)
+				f.navigateEntry(f.list.Items[idx])
 			} else {
-				for i, e := range f.list.items {
+				for i, e := range f.list.Items {
 					if strings.HasPrefix(strings.ToUpper(e.name), k) {
-						f.list.selectedIndex = i
-						f.list.ensureVisible(f.list.selectedIndex)
-						f.navigateEntry(f.list.items[f.list.selectedIndex])
+						f.list.SetSelected(i)
+						f.list.EnsureVisible(i)
+						f.navigateEntry(f.list.Items[i])
 						break
 					}
 				}
 			}
-		} else if strings.HasPrefix(strings.ToUpper(curr.name), k) && idx+1 < len(f.list.items) &&
-			strings.HasPrefix(strings.ToUpper(f.list.items[idx+1].name), k) {
-			f.list.selectedIndex++
-			f.list.ensureVisible(f.list.selectedIndex)
-			f.navigateEntry(f.list.items[f.list.selectedIndex])
+		} else if strings.HasPrefix(strings.ToUpper(curr.name), k) && idx+1 < len(f.list.Items) &&
+			strings.HasPrefix(strings.ToUpper(f.list.Items[idx+1].name), k) {
+			idx := f.list.Selected()
+			idx++
+			f.list.SetSelected(idx)
+			f.list.EnsureVisible(idx)
+			f.navigateEntry(f.list.Items[idx])
 		} else {
-			for i, e := range f.list.items {
+			for i, e := range f.list.Items {
 				if strings.HasPrefix(strings.ToUpper(e.name), k) {
-					f.list.selectedIndex = i
-					f.list.ensureVisible(f.list.selectedIndex)
-					f.navigateEntry(f.list.items[f.list.selectedIndex])
+					f.list.SetSelected(i)
+					f.list.EnsureVisible(i)
+					f.navigateEntry(f.list.Items[i])
 					break
 				}
 			}
@@ -446,7 +528,7 @@ func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
 					rigid(f.entryPreview(f.result)),
 				)(gtx)
 			})
-			border(gtx, dims, false, true, false, false)
+			borders(gtx, dims, borderColor, false, true, false, false)
 			return dims
 		})
 	}
@@ -454,7 +536,7 @@ func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
 		dims := layout.Inset{Top: 4, Left: 4, Bottom: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return f.entryPreview(f.result)(gtx)
 		})
-		border(gtx, dims, false, true, false, false)
+		borders(gtx, dims, borderColor, false, true, false, false)
 		return dims
 	})
 }
@@ -462,16 +544,16 @@ func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
 func (f *fileFinder) deleteFile(entry *dirEntry) {
 	if err := os.Remove(entry.path); err == nil {
 		// remove from list and refresh...
-		if idx := slices.IndexFunc(f.list.items, func(e *dirEntry) bool {
+		if idx := slices.IndexFunc(f.list.Items, func(e *dirEntry) bool {
 			return e.path == entry.path
 		}); idx != -1 {
-			items := append(f.list.items[:idx], f.list.items[idx+1:]...)
+			items := append(f.list.Items[:idx], f.list.Items[idx+1:]...)
 			f.result = nil
-			f.list.resetItems(items)
+			f.list.ResetItems(items)
 			if idx < len(items) {
-				f.list.selectedIndex = idx
+				f.list.SetSelected(idx)
 				f.result = items[idx]
-				f.list.ensureVisible(f.list.selectedIndex)
+				f.list.EnsureVisible(idx)
 			} else {
 				f.result = nil
 			}
@@ -530,6 +612,9 @@ func (f *fileFinder) footer(gtx layout.Context) layout.FlexChild {
 	}
 	if f.btnCancel.Clicked(gtx) {
 		f.showing = false
+		if f.onCancel != nil {
+			f.onCancel()
+		}
 		window.Invalidate()
 	}
 	if f.chkOnlySelectable.Update(gtx) {
@@ -554,9 +639,26 @@ func (f *fileFinder) footer(gtx layout.Context) layout.FlexChild {
 				}),
 			)
 		})
-		border(gtx, dims, true, false, false, false)
+		borders(gtx, dims, borderColor, true, false, false, false)
 		return dims
 	})
+}
+
+func (f *fileFinder) initialDir() (path string, info os.FileInfo, err error) {
+	path, err = os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	np := filepath.Join(path, "Documents")
+	if i, err := os.Stat(np); err == nil && i.IsDir() {
+		path = np
+		np = filepath.Join(path, "GoGoL")
+		if i, err = os.Stat(np); err == nil && i.IsDir() {
+			path = np
+		}
+	}
+	info, err = os.Stat(path)
+	return
 }
 
 func (f *fileFinder) setCurrentDir() {
@@ -568,18 +670,7 @@ func (f *fileFinder) setCurrentDir() {
 		}
 	}
 	if f.currentDir == nil {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			f.error = err
-			return
-		}
-		if i, err := os.Stat(filepath.Join(home, "Documents")); err == nil && i.IsDir() {
-			home = filepath.Join(home, "Documents")
-			if i, err = os.Stat(filepath.Join(home, "GoGoL")); err == nil && i.IsDir() {
-				home = filepath.Join(home, "GoGoL")
-			}
-		}
-		info, err := os.Stat(home)
+		path, info, err := f.initialDir()
 		if err != nil {
 			f.error = err
 			return
@@ -587,12 +678,11 @@ func (f *fileFinder) setCurrentDir() {
 		f.checkCurrent = false
 		f.currentDir = &dirEntry{
 			parent:    f,
-			path:      home,
+			path:      path,
 			name:      info.Name(),
 			clickable: new(widget.Clickable),
 		}
 		f.currentPath = []*dirEntry{f.currentDir}
-		path := home
 		for {
 			parent := filepath.Dir(path)
 			if parent == path {
@@ -749,7 +839,7 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 	return flexVertical(0,
 		rigid(p),
 		rigid(func(gtx layout.Context) layout.Dimensions {
-			border(gtx, layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: gtx.Dp(8)}}, false, false, true, false)
+			borders(gtx, layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: gtx.Dp(8)}}, borderColor, false, false, true, false)
 			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(16)}}
 		}),
 		flexed(func(gtx layout.Context) layout.Dimensions {
@@ -860,7 +950,7 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 	return flexVertical(0,
 		rigid(p),
 		rigid(func(gtx layout.Context) layout.Dimensions {
-			border(gtx, layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: gtx.Dp(8)}}, false, false, true, false)
+			borders(gtx, layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: gtx.Dp(8)}}, borderColor, false, false, true, false)
 			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(16)}}
 		}),
 		flexed(func(gtx layout.Context) layout.Dimensions {
@@ -973,12 +1063,12 @@ func (e *dirEntry) buildPreviewJson() (layout.Widget, [][2]string, error) {
 	return flexVertical(0,
 		rigid(p),
 		rigid(func(gtx layout.Context) layout.Dimensions {
-			border(gtx, layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: gtx.Dp(8)}}, false, false, true, false)
+			borders(gtx, layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: gtx.Dp(8)}}, borderColor, false, false, true, false)
 			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(16)}}
 		}),
 		flexed(func(gtx layout.Context) layout.Dimensions {
 			dims := layout.Dimensions{Size: gtx.Constraints.Max}
-			border(gtx, dims, true, true, true, true)
+			borders(gtx, dims, borderColor, true, true, true, true)
 			return material.List(theme, e.previewScrollV).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 				return material.List(theme, e.previewScrollH).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 					gtx.Constraints.Min = image.Point{}
@@ -1006,7 +1096,7 @@ func (e *dirEntry) buildPreviewCommon() (layout.Widget, error) {
 			return lbl.Layout(gtx)
 		}),
 		rigid(func(gtx layout.Context) layout.Dimensions {
-			labelMax := measureMaxText(gtx, font.Bold, "Modified: ", "Size:: ", "Dimensions: ").Size.X
+			labelMax := measureMaxText(gtx, font.Bold, "Modified: ", "Size:: ", "Dimensions: ")
 			rows := []layout.FlexChild{
 				rigid(flexHorizontal(20,
 					rigidLabel("Size:", text.End, font.Bold, labelMax),
@@ -1070,7 +1160,7 @@ func (e *dirEntry) buildPreviewMetadataRows() layout.Widget {
 			for _, m := range e.previewMetadata {
 				labels = append(labels, m[0]+": ")
 			}
-			labelMax := measureMaxText(gtx, font.Bold, labels...).Size.X
+			labelMax := measureMaxText(gtx, font.Bold, labels...)
 			rows := make([]layout.FlexChild, 0, len(e.previewMetadata))
 			for _, m := range e.previewMetadata {
 				rows = append(rows, rigid(flexHorizontal(20,
@@ -1129,7 +1219,7 @@ func (e *dirEntry) buildPreviewDir(allowExts map[string]struct{}) (layout.Widget
 			return lbl.Layout(gtx)
 		}),
 		rigid(func(gtx layout.Context) layout.Dimensions {
-			labelMax := measureMaxText(gtx, font.Bold, "Files: ", "Modified: ", "Sub-dirs: ").Size.X
+			labelMax := measureMaxText(gtx, font.Bold, "Files: ", "Modified: ", "Sub-dirs: ")
 			return flexVertical(4,
 				rigid(flexHorizontal(20,
 					rigidLabel("Modified:", text.End, font.Bold, labelMax),
