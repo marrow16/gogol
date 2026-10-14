@@ -486,7 +486,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts.ActionHol
 			}
 		case shortcuts.ButtonAssign:
 			btn := c.shortcutVarString(ah)
-			if parts := strings.SplitN(btn, "=", 2); len(parts) == 2 && (parts[0] == "A" || parts[0] == "B" || parts[0] == "C" || parts[0] == "D") {
+			if parts := strings.SplitN(btn, "=", 2); len(parts) == 2 && (parts[0] == "A" || parts[0] == "B" || parts[0] == "C" || parts[0] == "D" || parts[0] == "E" || parts[0] == "F") {
 				btn = parts[0]
 				if len(parts[1]) == 0 {
 					c.shortcutSettingChange(func(settings *settings.Settings) {
@@ -498,7 +498,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts.ActionHol
 						settings.ExtraButtons[btn] = name
 					})
 				}
-			} else if btn == "A" || btn == "B" || btn == "C" || btn == "D" {
+			} else if btn == "A" || btn == "B" || btn == "C" || btn == "D" || btn == "E" || btn == "F" {
 				name := callStack[len(callStack)-1]
 				c.shortcutSettingChange(func(settings *settings.Settings) {
 					settings.ExtraButtons[btn] = name

@@ -152,7 +152,7 @@ var contentShortCutsRef = content{
 			{{codeCopyable(shortcuts.PreviousCollectedRule.Syntax())}, {"Skips to the previous rule in collected rules"}},
 			{{codeCopyable(shortcuts.IterateCollectedRules.Syntax())}, {"Iterates over collected rules"}},
 			{{codeCopyable(shortcuts.ButtonAssign.Syntax())}, {"Assigns statusbar button to the current shortcut"}},
-			{{codeCopyable(shortcuts.ButtonAssign.AltSyntax(1) + ":A|B|C|D=name")}, {
+			{{codeCopyable(shortcuts.ButtonAssign.AltSyntax(1) + ":A|B|C|D|E|F=name")}, {
 				"Assigns statusbar button to the specified shortcut ", italic("name"), ".\n",
 				italic("Note: If the name is empty, the button is unassigned."),
 			}},

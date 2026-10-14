@@ -42,10 +42,14 @@ func newStatusBar(c *Core) *statusBar {
 		layout.Rigid(newStatusBarButton(sb.stepBack, icons.Reverse).layout),
 		layout.Rigid(newStatusBarButton(sb.skipBack, icons.SkipBackward).layout),
 	}
-	sb.buttonA = layout.Rigid(newStatusBarButton(sb.extendedA, icons.ButtonA).layout)
-	sb.buttonB = layout.Rigid(newStatusBarButton(sb.extendedB, icons.ButtonB).layout)
-	sb.buttonC = layout.Rigid(newStatusBarButton(sb.extendedC, icons.ButtonC).layout)
-	sb.buttonD = layout.Rigid(newStatusBarButton(sb.extendedD, icons.ButtonD).layout)
+	sb.buttonsExtra = []layout.FlexChild{
+		layout.Rigid(newStatusBarButton(sb.extendedA, icons.ButtonA).layout),
+		layout.Rigid(newStatusBarButton(sb.extendedB, icons.ButtonB).layout),
+		layout.Rigid(newStatusBarButton(sb.extendedC, icons.ButtonC).layout),
+		layout.Rigid(newStatusBarButton(sb.extendedD, icons.ButtonD).layout),
+		layout.Rigid(newStatusBarButton(sb.extendedE, icons.ButtonE).layout),
+		layout.Rigid(newStatusBarButton(sb.extendedF, icons.ButtonF).layout),
+	}
 	sb.rulesPopup = newRulesPopup(sb)
 	sb.menuPopup = newMenuPopup(sb)
 	return sb
@@ -73,10 +77,7 @@ type statusBar struct {
 	buttonsStepping []layout.FlexChild
 	buttonsRight    []layout.FlexChild
 	buttonsRecord   []layout.FlexChild
-	buttonA         layout.FlexChild
-	buttonB         layout.FlexChild
-	buttonC         layout.FlexChild
-	buttonD         layout.FlexChild
+	buttonsExtra    []layout.FlexChild
 }
 
 func (sb *statusBar) play() {
@@ -162,6 +163,22 @@ func (sb *statusBar) extendedD() {
 	sb.core.stopShortcuts()
 	sb.showingPopup = popupNone
 	if scn, ok := sb.core.settings.ExtraButtons["D"]; ok {
+		sb.core.runShortcut(scn)
+	}
+}
+
+func (sb *statusBar) extendedE() {
+	sb.core.stopShortcuts()
+	sb.showingPopup = popupNone
+	if scn, ok := sb.core.settings.ExtraButtons["E"]; ok {
+		sb.core.runShortcut(scn)
+	}
+}
+
+func (sb *statusBar) extendedF() {
+	sb.core.stopShortcuts()
+	sb.showingPopup = popupNone
+	if scn, ok := sb.core.settings.ExtraButtons["F"]; ok {
 		sb.core.runShortcut(scn)
 	}
 }
@@ -280,25 +297,13 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 }
 
 func (sb *statusBar) buttons() []layout.FlexChild {
-	result := make([]layout.FlexChild, 0, 12)
-	if scn, ok := sb.core.settings.ExtraButtons["A"]; ok {
-		if _, ok = sb.core.settings.Shortcuts[scn]; ok {
-			result = append(result, sb.buttonA)
-		}
-	}
-	if scn, ok := sb.core.settings.ExtraButtons["B"]; ok {
-		if _, ok = sb.core.settings.Shortcuts[scn]; ok {
-			result = append(result, sb.buttonB)
-		}
-	}
-	if scn, ok := sb.core.settings.ExtraButtons["C"]; ok {
-		if _, ok = sb.core.settings.Shortcuts[scn]; ok {
-			result = append(result, sb.buttonC)
-		}
-	}
-	if scn, ok := sb.core.settings.ExtraButtons["D"]; ok {
-		if _, ok = sb.core.settings.Shortcuts[scn]; ok {
-			result = append(result, sb.buttonD)
+	result := make([]layout.FlexChild, 0, 14)
+	for i, f := range sb.buttonsExtra {
+		btn := string(rune('A' + i))
+		if scn, ok := sb.core.settings.ExtraButtons[btn]; ok {
+			if _, ok = sb.core.settings.Shortcuts[scn]; ok {
+				result = append(result, f)
+			}
 		}
 	}
 	result = append(result, sb.buttonsStepping...)

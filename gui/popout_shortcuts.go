@@ -1,12 +1,15 @@
 package gui
 
 import (
+	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/gui/controls"
 	"github.com/marrow16/gogol/gui/help"
+	"github.com/marrow16/gogol/gui/icons"
+	"github.com/marrow16/gogol/gui/settings"
 	"github.com/marrow16/gogol/gui/shortcuts"
 	"slices"
 	"strings"
@@ -24,6 +27,8 @@ func newShortcutsPopout(p *menuPopup, c *Core) *shortcutsPopout {
 		errorsList:      widget.List{Axis: layout.Vertical},
 		variablesList:   widget.List{Axis: layout.Vertical},
 		btnVarsClearAll: controls.NewButton(theme, "Clear All"),
+		addVarName:      controls.NewInput(theme, nil, 0, nil),
+		btnAddVariable:  controls.NewIconButton(icons.Plus, (theme.TextSize*5)/4),
 	}
 	result.chooser = controls.NewChooser[string](theme, 38,
 		result.sortedShortcuts(),
@@ -53,23 +58,35 @@ type shortcutsPopout struct {
 	// variables...
 	varsMutex       sync.Mutex
 	variablesList   widget.List
-	variables       [][2]string
+	variables       []*variableHolder
+	btnAddVariable  *controls.IconButton
+	addVarName      *controls.Input
+	varNameFocus    string
 	btnVarsClearAll *controls.Button
 }
 
-func (p *shortcutsPopout) variableChanges(_ string, _ bool, all map[string]string) {
+func (p *shortcutsPopout) variableChanges(name string, del bool, all map[string]string) {
+	if len(name) != 0 && !del {
+		for _, h := range p.variables {
+			if h.name == name {
+				h.value = all[name]
+				h.editor.SetText(h.value)
+				return
+			}
+		}
+	}
 	p.sortVariables(all)
 }
 
 func (p *shortcutsPopout) sortVariables(all map[string]string) {
 	p.varsMutex.Lock()
 	defer p.varsMutex.Unlock()
-	p.variables = make([][2]string, 0, len(all))
+	p.variables = make([]*variableHolder, 0, len(all))
 	for k, v := range all {
-		p.variables = append(p.variables, [2]string{k, v})
+		p.variables = append(p.variables, newVariableHolder(p.core.settings.ShortcutVariables, k, v))
 	}
-	slices.SortFunc(p.variables, func(a, b [2]string) int {
-		return strings.Compare(a[0], b[0])
+	slices.SortFunc(p.variables, func(a, b *variableHolder) int {
+		return strings.Compare(a.name, b.name)
 	})
 }
 
@@ -235,6 +252,17 @@ func (p *shortcutsPopout) layoutVariables(gtx layout.Context, editorHt int) layo
 		p.core.settings.ShortcutVariables.DeleteAll()
 		p.sortVariables(p.core.settings.ShortcutVariables.Clone())
 	}
+	if p.btnAddVariable.Clicked(gtx) {
+		name := p.addVarName.Text()
+		if validVariableName(name) {
+			if _, exists := p.core.settings.ShortcutVariables.Get(name); !exists {
+				p.core.settings.ShortcutVariables.Set(name, "")
+				p.addVarName.SetText("")
+				p.varNameFocus = name
+				window.Invalidate()
+			}
+		}
+	}
 	return flexVertical(10,
 		rigidLeftRight(0,
 			label("Variables:"),
@@ -243,19 +271,84 @@ func (p *shortcutsPopout) layoutVariables(gtx layout.Context, editorHt int) layo
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = editorHt, editorHt
+			names := make([]string, len(p.variables))
+			for i, v := range p.variables {
+				names[i] = "M$" + v.name
+			}
+			nw := measureMaxText(gtx, font.Bold, names...)
+			variables := p.variables
 			return widget.Border{Color: borderColor, Width: 1, CornerRadius: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.List(theme, &p.variablesList).Layout(gtx, len(p.variables), func(gtx layout.Context, index int) layout.Dimensions {
-					return label(" $" + p.variables[index][0] + ` = "` + p.variables[index][1] + `"`)(gtx)
+				return material.List(theme, &p.variablesList).Layout(gtx, len(variables)+1, func(gtx layout.Context, index int) layout.Dimensions {
+					if index >= len(p.variables) {
+						return layout.Inset{Top: 4, Left: 4, Right: 4}.Layout(gtx, flexHorizontal(10,
+							rigid(p.btnAddVariable.Layout),
+							rigid(func(gtx layout.Context) layout.Dimensions {
+								gtx.Constraints.Min.X = gtx.Constraints.Max.X
+								return p.addVarName.Layout(gtx)
+							}),
+						))
+					}
+					if p.varNameFocus == variables[index].name {
+						p.varNameFocus = ""
+						variables[index].editor.SetFocused(gtx)
+					}
+					return variables[index].layout(gtx, nw)
 				})
 			})
 		}),
 	)(gtx)
 }
 
+type variableHolder struct {
+	variables *settings.Variables
+	name      string
+	value     string
+	editor    *controls.Input
+	btnDelete *controls.IconButton
+}
+
+func (h *variableHolder) layout(gtx layout.Context, nameWidth int) layout.Dimensions {
+	if h.btnDelete.Clicked(gtx) {
+		h.variables.Delete(h.name)
+		window.Invalidate()
+	}
+	return layout.Inset{Top: 4, Left: 4, Right: 4}.Layout(gtx, flexHorizontal(10,
+		rigid(h.btnDelete.Layout),
+		rigidLabel("$"+h.name, 0, font.Bold, nameWidth),
+		rigid(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return h.editor.Layout(gtx)
+		})))
+}
+
+func (h *variableHolder) valueChanged(s string) {
+	if h.value != s {
+		h.value = s
+		h.variables.Set(h.name, s)
+	}
+}
+
+func newVariableHolder(variables *settings.Variables, name string, value string) *variableHolder {
+	result := &variableHolder{
+		variables: variables,
+		name:      name,
+		value:     value,
+		btnDelete: controls.NewIconButton(icons.Minus, (theme.TextSize*5)/4),
+	}
+	result.editor = controls.NewInput(theme, nil, 0, result.valueChanged)
+	result.editor.SetText(value)
+	return result
+}
+
 func (p *shortcutsPopout) hasFocus(gtx layout.Context) bool {
+	for _, h := range p.variables {
+		if h.editor.IsFocused(gtx) {
+			return true
+		}
+	}
 	return p.chooser.IsFocused(gtx) ||
 		p.btnCreate.IsFocused(gtx) || p.btnDelete.IsFocused(gtx) || p.btnRun.IsFocused(gtx) ||
-		p.editor.IsFocused(gtx)
+		p.editor.IsFocused(gtx) || p.addVarName.IsFocused(gtx)
 }
 
 func (p *shortcutsPopout) reset() {}
