@@ -25,6 +25,12 @@ var buttonC []byte
 //go:embed button-d.png
 var buttonD []byte
 
+//go:embed button-e.png
+var buttonE []byte
+
+//go:embed button-f.png
+var buttonF []byte
+
 //go:embed close.png
 var closeIcon []byte
 
@@ -36,6 +42,12 @@ var pause []byte
 
 //go:embed play.png
 var play []byte
+
+//go:embed plus.png
+var plus []byte
+
+//go:embed minus.png
+var minus []byte
 
 //go:embed reverse.png
 var reverse []byte
@@ -77,10 +89,14 @@ var (
 	ButtonB      = mustImage(buttonB)
 	ButtonC      = mustImage(buttonC)
 	ButtonD      = mustImage(buttonD)
+	ButtonE      = mustImage(buttonE)
+	ButtonF      = mustImage(buttonF)
 	Close        = mustImage(closeIcon)
 	Copy         = mustImage(copyIcon)
 	Pause        = mustImage(pause)
 	Play         = mustImage(play)
+	Plus         = mustImage(plus)
+	Minus        = mustImage(minus)
 	Reverse      = mustImage(reverse)
 	Search       = mustImage(search)
 	SkipBackward = mustImage(skipBackward)

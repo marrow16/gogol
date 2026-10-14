@@ -13,7 +13,7 @@ func TestGenerateHelpHtmls(t *testing.T) {
 			_ = f.Close()
 		}
 	}()
-	if f, err := os.Create("../../_help/index.html"); err == nil {
+	if f, err := os.Create("../../docs/index.html"); err == nil {
 		files = append(files, f)
 		var sb strings.Builder
 		copyIndexHtml(&sb)
@@ -21,7 +21,7 @@ func TestGenerateHelpHtmls(t *testing.T) {
 	}
 	for tp, c := range contents {
 		if tp != Index {
-			if f, err := os.Create("../../_help/" + strings.TrimSuffix(strings.ReplaceAll(tp.String(), "/", " "), " Help") + ".html"); err == nil {
+			if f, err := os.Create("../../docs/" + strings.TrimSuffix(strings.ReplaceAll(tp.String(), "/", " "), " Help") + ".html"); err == nil {
 				files = append(files, f)
 				var sb strings.Builder
 				copyHtml(&sb, tp, c)

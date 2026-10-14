@@ -239,7 +239,7 @@ func (a Action) String() string {
 
 func (a Action) Syntax() string {
 	syntax := a.String()
-	if af, ok := actionsRegistry[syntax]; ok && af.operand != none {
+	if af, ok := actionsRegistry[syntax]; ok && (af.operand != none || af.subActions) {
 		if af.operandSyntax != "" {
 			return syntax + ":" + af.operandSyntax
 		}
@@ -531,7 +531,7 @@ var actionsRegistry = map[string]registryItem{
 	},
 	IterateCollectedRules.String(): {
 		action:        IterateCollectedRules,
-		operand:       required,
+		operand:       none,
 		subActions:    true,
 		operandSyntax: "action,...",
 	},
@@ -633,6 +633,6 @@ var actionsRegistry = map[string]registryItem{
 	ButtonAssign.String(): {
 		action:        ButtonAssign,
 		operand:       required,
-		operandSyntax: "A|B|C|D",
+		operandSyntax: "A|B|C|D|E|F",
 	},
 }

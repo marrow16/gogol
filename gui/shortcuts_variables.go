@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func (c *Core) shortcutCheckVariableName(name string, ah shortcuts.ActionHolder) (ok bool) {
+func validVariableName(name string) (ok bool) {
 	if len(name) > 0 {
 		ok = true
 		for i, ch := range name {
@@ -17,7 +17,11 @@ func (c *Core) shortcutCheckVariableName(name string, ah shortcuts.ActionHolder)
 			}
 		}
 	}
-	if !ok {
+	return ok
+}
+
+func (c *Core) shortcutCheckVariableName(name string, ah shortcuts.ActionHolder) (ok bool) {
+	if ok = validVariableName(name); !ok {
 		c.shortcutErrorLogger.Error(fmt.Errorf("invalid variable name %q", name), &ah)
 	}
 	return ok

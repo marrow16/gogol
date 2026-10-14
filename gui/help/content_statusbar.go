@@ -54,7 +54,7 @@ var contentStatusBar = content{
 		content: content{"skip backward the simulation ", keys{altMac, keyBack}},
 	},
 	indent{indent: 10, content: content{
-		"There are also four user definable buttons: ", iconA, " ", iconB, " ", iconC, " ", iconD,
+		"There are also six user definable buttons: ", iconA, " ", iconB, " ", iconC, " ", iconD, " ", iconE, " ", iconF,
 		" - which can be assigned to shortcuts using ", code("button\u2011assign"), italic(" (see "), ShortCutsRef.linkItalic("shortcut actions"), italic(")."),
 	}},
 }

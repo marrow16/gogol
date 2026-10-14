@@ -71,7 +71,7 @@ type holder struct {
 	backs    []Topic
 	// searching...
 	searching         bool
-	search            widget.Clickable
+	search            *controls.IconButton
 	exit              *controls.IconButton
 	searchEdit        widget.Editor
 	results           []Topic
@@ -95,6 +95,7 @@ func (h *holder) show(topic Topic, settings *settings.Settings) *app.Window {
 		h.window = new(app.Window)
 		h.fonts = gofont.Collection()
 		h.theme = material.NewTheme()
+		h.search = controls.NewIconButton(icons.Search, (h.theme.TextSize*5)/4)
 		h.exit = controls.NewIconButton(icons.Close, (h.theme.TextSize*5)/4)
 		h.copy = controls.NewIconButton(icons.Copy, h.theme.TextSize)
 		h.theme.Shaper = text.NewShaper(text.WithCollection(h.fonts))
@@ -410,9 +411,7 @@ func (h *holder) header(gtx layout.Context) layout.FlexChild {
 							}
 							return linkLabel(&h.back, h.theme, "Back")(gtx)
 						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return linkLabel(&h.search, h.theme, "Search")(gtx)
-						}),
+						layout.Rigid(h.search.Layout),
 					)
 				}),
 			)
