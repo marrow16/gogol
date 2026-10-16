@@ -211,6 +211,8 @@ func (c *Core) cycleShowingHeatMapType() {
 func (c *Core) clearMode() {
 	makeDirty := c.mode == heatMapMode
 	c.mode = noMode
+	c.status = ""
+	c.statusExpires = time.Time{}
 	c.changes.Store(0)
 	c.gridHolder.overlay = nil
 	c.gridHolder.stopEditing()

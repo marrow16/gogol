@@ -421,8 +421,13 @@ func (c *Core) zoomIn() {
 }
 
 func (c *Core) zoomOut() {
-	newZoom := c.gridHolder.zoom / 1.1
-	if float32(c.settings.CellSize)*newZoom >= 1.0 {
+	if newZoom := c.gridHolder.zoom / 1.1; newZoom >= 0.1 {
+		c.gridHolder.zoom = newZoom
+	}
+}
+
+func (c *Core) zoom(n int) {
+	if newZoom := float32(n) / 100.0; newZoom >= 0.1 {
 		c.gridHolder.zoom = newZoom
 	}
 }

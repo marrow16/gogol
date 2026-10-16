@@ -198,6 +198,9 @@ func (c *Core) shortcutToken(token shortcutToken, repeats []int, rIndex int, var
 	case tokenCellColorBorder:
 		clr := c.settings.CellBorderColor
 		return fmt.Sprintf("#%02X%02X%02X", clr.R, clr.G, clr.B)
+	case tokenZoom:
+		zf := c.gridHolder.zoom * 100
+		return strconv.Itoa(int(zf))
 	case tokenNow:
 		return now.Format("2006-01-02 15-04-05") + fmt.Sprintf("-%03d", now.Nanosecond()/1e6)
 	case tokenTimestamp:
@@ -328,6 +331,7 @@ const (
 	tokenCellColorAlive                        // %cell-color-alive
 	tokenCellColorDead                         // %cell-color-dead
 	tokenCellColorBorder                       // %cell-color-border
+	tokenZoom                                  // %zoom
 	tokenDateYY
 	tokenDateYYYY
 	tokenDateM
@@ -412,6 +416,7 @@ var shortcutTokenPairs = []shortcutTokenPair{
 	{tokenCellColorAlive, "cell-color-alive"},
 	{tokenCellColorDead, "cell-color-dead"},
 	{tokenCellColorBorder, "cell-color-border"},
+	{tokenZoom, "zoom"},
 	{tokenNow, "now"},
 	{tokenTimestamp, "timestamp"},
 	{tokenDateYY, "YY"},

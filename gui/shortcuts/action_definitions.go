@@ -88,6 +88,8 @@ const (
 	ClearVariable
 	ClearVariables
 	ButtonAssign
+	Zoom
+	Javascript
 	maxAction
 )
 
@@ -233,6 +235,10 @@ func (a Action) String() string {
 		return "clear-variables"
 	case ButtonAssign:
 		return "button-assign"
+	case Zoom:
+		return "zoom"
+	case Javascript:
+		return "javascript"
 	}
 	return ""
 }
@@ -634,5 +640,15 @@ var actionsRegistry = map[string]registryItem{
 		action:        ButtonAssign,
 		operand:       required,
 		operandSyntax: "A|B|C|D|E|F",
+	},
+	Zoom.String(): {
+		action:        Zoom,
+		operand:       required,
+		operandSyntax: "n",
+	},
+	Javascript.String(): {
+		action:        Javascript,
+		operand:       required,
+		operandSyntax: "filename",
 	},
 }
