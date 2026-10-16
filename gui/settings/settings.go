@@ -372,7 +372,7 @@ func (s *Settings) fromPrefs(p prefs) {
 	if p.CellSize > 0 {
 		s.CellSize = p.CellSize
 	}
-	if zf := p.Zoom * float32(s.CellSize); zf >= 1.0 {
+	if zf := p.Zoom * float32(s.CellSize); zf >= 0.1 {
 		s.Zoom = p.Zoom
 	}
 	if r, err := logic.NewRuleRle("", p.Rule); err == nil {
