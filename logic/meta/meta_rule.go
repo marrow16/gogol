@@ -16,6 +16,7 @@ type Evaluator interface {
 	MatchingRules() iter.Seq[logic.Rule]
 	Next(currentPermutation int) int
 	Previous(currentPermutation int) int
+	List() []logic.Rule
 	String() string
 }
 
@@ -102,6 +103,20 @@ func (r Rule) Previous(currentPermutation int) int {
 		}
 	}
 	return currentPermutation
+}
+
+func (r Rule) List() []logic.Rule {
+	result := make([]logic.Rule, 0, 512*512)
+	for b := range 512 {
+		for s := range 512 {
+			perm := uint32((b * 512) + s)
+			if r.Matches(perm) {
+				rule, _ := logic.NewRuleFromPermutation(int(perm))
+				result = append(result, rule)
+			}
+		}
+	}
+	return result
 }
 
 func (r Rule) String() string {
@@ -304,6 +319,20 @@ func (cr CompositeRule) Previous(currentPermutation int) int {
 		}
 	}
 	return currentPermutation
+}
+
+func (cr CompositeRule) List() []logic.Rule {
+	result := make([]logic.Rule, 0, 512*512)
+	for b := range 512 {
+		for s := range 512 {
+			perm := uint32((b * 512) + s)
+			if cr.Matches(perm) {
+				rule, _ := logic.NewRuleFromPermutation(int(perm))
+				result = append(result, rule)
+			}
+		}
+	}
+	return result
 }
 
 func (cr CompositeRule) String() string {

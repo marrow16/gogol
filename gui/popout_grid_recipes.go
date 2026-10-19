@@ -86,12 +86,12 @@ func (p *gridRecipesPopout) getCurrentRecipe() (*recipes.Recipe, string) {
 	return nil, ""
 }
 
-func (p *gridRecipesPopout) runRecipe() {
+func (p *gridRecipesPopout) runRecipe() error {
 	if recipe, _ := p.getCurrentRecipe(); recipe != nil {
 		grid, resized, err := recipe.Run(p.core.gridHolder.grid, true)
 		if err != nil {
 			p.error = err
-			return
+			return err
 		}
 		if resized {
 			p.core.settings.Height, p.core.settings.Width, p.core.settings.WrapMode, p.core.settings.BoundaryMode = grid.Height(), grid.Width(), grid.WrapMode(), grid.BoundaryMode()
@@ -102,6 +102,7 @@ func (p *gridRecipesPopout) runRecipe() {
 			p.core.resetInstrumentation()
 		}
 	}
+	return errors.New("no recipe selected")
 }
 
 func (p *gridRecipesPopout) saveRecipeRle() {

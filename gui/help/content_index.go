@@ -18,7 +18,7 @@ var contentIndex = content{
 	Patterns, "\n",
 	PlacePattern, "\n",
 	Rules, "\n",
-	ShortCuts, indent{indent: 20, content: content{ShortCutsRef}},
+	ShortCuts, indent{indent: 20, content: content{ShortCutsRef}}, indent{indent: 20, content: content{ShortCutsJsRef}},
 	SizingWrapping, "\n",
 	StatusBar, "\n",
 	Stepping, "\n",

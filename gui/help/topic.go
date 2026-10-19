@@ -22,6 +22,7 @@ const (
 	Instrumentation
 	ShortCuts
 	ShortCutsRef
+	ShortCutsJsRef
 	MetaRules
 	MetaRulesRef
 	CollectedRules
@@ -84,6 +85,8 @@ func (t Topic) String() string {
 		return "Shortcuts Help"
 	case ShortCutsRef:
 		return "Shortcuts Actions Reference"
+	case ShortCutsJsRef:
+		return "Shortcuts Javascript Reference"
 	case MetaRules:
 		return "Meta Rules Help"
 	case MetaRulesRef:

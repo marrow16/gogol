@@ -346,11 +346,19 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts.ActionHol
 			}
 		case shortcuts.RunRecipe:
 			if ah.HasOperand {
-				c.runRecipe(c.shortcutVarString(ah))
+				if filename, err := resolveSavePath(c.shortcutVarString(ah)); err == nil {
+					if err = c.runRecipeFile(filename); err != nil {
+						c.shortcutErrorLogger.Error(err, &ah)
+					}
+				} else {
+					c.shortcutErrorLogger.Error(err, &ah)
+				}
 			} else if c.gridRecipes != nil {
 				c.stop()
 				c.gridRecipes.runRecipe()
 			}
+		case shortcuts.Javascript:
+			c.shortcutJavascript(ah)
 		case shortcuts.Record:
 			if ah.HasOperand {
 				if b, err := c.shortcutVarBool(ah); err == nil {

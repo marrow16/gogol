@@ -219,6 +219,7 @@ func (sb *statusBar) showHidePopup(p popup) {
 			sb.core.stop()
 			sb.core.clearMode()
 			sb.menuPopup.focused = false
+			sb.menuPopup.reset()
 		}
 	}
 }
