@@ -49,10 +49,16 @@ func newStatusBar(c *Core) *statusBar {
 		layout.Rigid(newStatusBarButton(sb.extendedD, icons.ButtonD).layout),
 		layout.Rigid(newStatusBarButton(sb.extendedE, icons.ButtonE).layout),
 		layout.Rigid(newStatusBarButton(sb.extendedF, icons.ButtonF).layout),
+		layout.Rigid(newStatusBarButton(sb.extendedPlus, icons.Plus).layout),
+		layout.Rigid(newStatusBarButton(sb.extendedMinus, icons.Minus).layout),
 	}
 	sb.rulesPopup = newRulesPopup(sb)
 	sb.menuPopup = newMenuPopup(sb)
 	return sb
+}
+
+func isValidButton(btn string) bool {
+	return btn == "A" || btn == "B" || btn == "C" || btn == "D" || btn == "E" || btn == "F" || btn == "+" || btn == "-"
 }
 
 type popup int
@@ -183,6 +189,22 @@ func (sb *statusBar) extendedF() {
 	}
 }
 
+func (sb *statusBar) extendedPlus() {
+	sb.core.stopShortcuts()
+	sb.showingPopup = popupNone
+	if scn, ok := sb.core.settings.ExtraButtons["+"]; ok {
+		sb.core.runShortcut(scn)
+	}
+}
+
+func (sb *statusBar) extendedMinus() {
+	sb.core.stopShortcuts()
+	sb.showingPopup = popupNone
+	if scn, ok := sb.core.settings.ExtraButtons["-"]; ok {
+		sb.core.runShortcut(scn)
+	}
+}
+
 func (sb *statusBar) showHidePopup(p popup) {
 	sb.core.stopShortcuts()
 	if sb.showingPopup == p {
@@ -197,6 +219,7 @@ func (sb *statusBar) showHidePopup(p popup) {
 			sb.core.stop()
 			sb.core.clearMode()
 			sb.menuPopup.focused = false
+			sb.menuPopup.reset()
 		}
 	}
 }
@@ -300,6 +323,12 @@ func (sb *statusBar) buttons() []layout.FlexChild {
 	result := make([]layout.FlexChild, 0, 14)
 	for i, f := range sb.buttonsExtra {
 		btn := string(rune('A' + i))
+		if btn == "G" {
+			btn = "+"
+		}
+		if btn == "H" {
+			btn = "-"
+		}
 		if scn, ok := sb.core.settings.ExtraButtons[btn]; ok {
 			if _, ok = sb.core.settings.Shortcuts[scn]; ok {
 				result = append(result, f)

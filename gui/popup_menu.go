@@ -223,6 +223,10 @@ func (p *menuPopup) showPattern(name string) {
 	}
 }
 
+func (p *menuPopup) reset() {
+	p.resetPopout(p.selected)
+}
+
 func (p *menuPopup) resetPopout(n int) {
 	if pout, ok := p.popouts[p.menuItems[n].popout]; ok {
 		pout.reset()

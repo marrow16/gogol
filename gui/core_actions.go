@@ -421,8 +421,13 @@ func (c *Core) zoomIn() {
 }
 
 func (c *Core) zoomOut() {
-	newZoom := c.gridHolder.zoom / 1.1
-	if float32(c.settings.CellSize)*newZoom >= 1.0 {
+	if newZoom := c.gridHolder.zoom / 1.1; newZoom >= 0.1 {
+		c.gridHolder.zoom = newZoom
+	}
+}
+
+func (c *Core) zoom(n int) {
+	if newZoom := float32(n) / 100.0; newZoom >= 0.1 {
 		c.gridHolder.zoom = newZoom
 	}
 }
@@ -499,7 +504,7 @@ func (c *Core) randomizePopulation(rf ...int) {
 }
 
 func (c *Core) population() int {
-	c.stop()
+	//c.stop()
 	return c.gridHolder.grid.Population()
 }
 
@@ -626,6 +631,22 @@ func (c *Core) replaySnapshot() {
 	}
 }
 
+func (c *Core) exportName(filename string) (err error) {
+	c.stop()
+	var p patterns.Pattern
+	if p, err = c.settings.PatternFromGrid(c.gridHolder.grid); err == nil {
+		p.Name = "Grid"
+		var f *os.File
+		if f, err = saveFile(filename, false); err == nil {
+			defer func() {
+				_ = f.Close()
+			}()
+			err = patterns.PatternRleEncode(p, f)
+		}
+	}
+	return err
+}
+
 func (c *Core) export() (err error) {
 	c.stop()
 	var p patterns.Pattern
@@ -646,9 +667,8 @@ func (c *Core) export() (err error) {
 	return err
 }
 
-func (c *Core) exportImage(metadata [][2]string) (err error) {
+func (c *Core) exportImageName(filename string, metadata [][2]string) (err error) {
 	c.stop()
-	filename := c.nowFilename("Grid Export", ".png")
 	var f *os.File
 	if f, err = saveFile(filename, false); err == nil {
 		defer func() {
@@ -666,13 +686,35 @@ func (c *Core) exportImage(metadata [][2]string) (err error) {
 	return err
 }
 
-func (c *Core) runRecipe(filename string) {
+func (c *Core) exportImage(metadata [][2]string) (err error) {
+	return c.exportImageName(c.nowFilename("Grid Export", ".png"), metadata)
+}
+
+func (c *Core) runRecipe(recipe *recipes.Recipe) error {
+	c.stop()
+	grid, resized, err := recipe.Run(c.gridHolder.grid, true)
+	if err != nil {
+		return err
+	}
+	if resized {
+		c.settings.Height, c.settings.Width, c.settings.WrapMode, c.settings.BoundaryMode = grid.Height(), grid.Width(), grid.WrapMode(), grid.BoundaryMode()
+		c.gridHolder.replaceGrid(grid)
+		c.resetInstrumentation()
+		window.Invalidate()
+	} else {
+		c.resetInstrumentation()
+		c.gridHolder.grid.Draw()
+		window.Invalidate()
+	}
+	return nil
+}
+
+func (c *Core) runRecipeFile(filename string) error {
 	c.stop()
 	if recipe, err := recipes.Load(filename); err == nil {
-		c.resetInstrumentation()
 		grid, resized, err := recipe.Run(c.gridHolder.grid, true)
 		if err != nil {
-			return
+			return err
 		}
 		if resized {
 			c.settings.Height, c.settings.Width, c.settings.WrapMode, c.settings.BoundaryMode = grid.Height(), grid.Width(), grid.WrapMode(), grid.BoundaryMode()
@@ -684,6 +726,9 @@ func (c *Core) runRecipe(filename string) {
 			c.gridHolder.grid.Draw()
 			window.Invalidate()
 		}
+		return nil
+	} else {
+		return err
 	}
 }
 
@@ -738,6 +783,32 @@ func (c *Core) setInstrumentationHeatMapper(hmt logic.HeatMapperType) {
 	c.heatMapperType = hmt
 	c.instrumentHeatMap = c.heatMapperType.New(c.gridHolder.grid, c.settings.HeatMappingHalfLife)
 	c.updateInstrumentation()
+}
+
+func (c *Core) saveNamedHeatMapImage(filename string, hmt logic.HeatMapperType, metadata [][2]string) error {
+	c.stop()
+	if c.instrumentHeatMap != nil {
+		hm := c.instrumentHeatMap
+		if all, ok := c.instrumentHeatMap.(*logic.AllHeatMapInstrument); ok {
+			hm = all.Specific(hmt)
+		}
+		if f, err := saveFile(filename, false); err == nil {
+			defer func() {
+				_ = f.Close()
+			}()
+			img := imaging.HeatMap(hm, c.settings.Height, c.settings.Width, imaging.Config{
+				CellSize:    c.settings.CellSize,
+				Borders:     c.settings.CellBorders,
+				AliveColor:  c.settings.CellAliveColor,
+				DeadColor:   c.settings.CellDeadColor,
+				BorderColor: c.settings.CellBorderColor,
+			}, c.settings.HeatMapColors)
+			_ = imaging.PngEncode(f, img, formatHeatmapMetadata(metadata, c.heatMapperType))
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Core) saveHeatMapImage(metadata [][2]string) (errs []error) {

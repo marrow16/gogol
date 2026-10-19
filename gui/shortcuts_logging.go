@@ -67,7 +67,7 @@ func (l *shortcutsLogger) Write(p []byte) (n int, err error) {
 	return n, err
 }
 
-func (l *shortcutsLogger) Error(err error, ah *shortcuts.ActionHolder) {
+func (l *shortcutsLogger) Error(err error, ah *shortcuts.ActionHolder, addArgs ...any) {
 	if err != nil && l != nil && l.logger != nil {
 		args := make([]any, 0)
 		if len(l.callStack) > 0 {
@@ -76,6 +76,7 @@ func (l *shortcutsLogger) Error(err error, ah *shortcuts.ActionHolder) {
 				args = append(args, "call-stack", strings.Join(l.callStack, " "))
 			}
 		}
+		args = append(args, addArgs...)
 		if ah != nil {
 			action := ah.Action.String()
 			if ah.IsInc {

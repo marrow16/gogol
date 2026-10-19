@@ -57,6 +57,7 @@ var contents = map[Topic]content{
 	Rules:                contentRules,
 	ShortCuts:            contentShortcuts,
 	ShortCutsRef:         contentShortCutsRef,
+	ShortCutsJsRef:       contentShortCutsJsRef,
 	SizingWrapping:       contentSizingWrapping,
 	StatusBar:            contentStatusBar,
 	Stepping:             contentStepping,

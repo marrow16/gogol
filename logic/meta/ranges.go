@@ -8,6 +8,7 @@ import (
 )
 
 type Ranges []Range
+
 type Range [2]uint32 // 0 is min, 1 is max (but order isn't really important - the min/max is resolved when used)
 
 func Single(perm uint32) Range {
@@ -84,6 +85,18 @@ func (rn Ranges) Previous(currentPermutation int) int {
 		}
 	}
 	return currentPermutation
+}
+
+func (rn Ranges) List() []logic.Rule {
+	result := make([]logic.Rule, 0, 512*512)
+	mn, mx := rn.Minimum(), rn.Maximum()
+	for perm := mn; perm <= mx; perm++ {
+		if rn.Matches(perm) {
+			rule, _ := logic.NewRuleFromPermutation(int(perm))
+			result = append(result, rule)
+		}
+	}
+	return result
 }
 
 func (rn Ranges) String() string {
