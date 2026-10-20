@@ -7,6 +7,7 @@ import (
 	"github.com/dop251/goja"
 	"github.com/marrow16/gogol/animator"
 	"github.com/marrow16/gogol/gui/shortcuts"
+	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/logic/meta"
 	"github.com/marrow16/gogol/patterns"
@@ -581,8 +582,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		return nil, nil
 	},
 	"step": func(c *Core, args []goja.Value) (any, error) {
-		c.step()
-		return nil, nil
+		return c.step(), nil
 	},
 	"stepCount": func(c *Core, args []goja.Value) (any, error) {
 		return c.gridHolder.grid.StepCount.Load(), nil
@@ -764,6 +764,10 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
+	"clearCollectedRules": func(c *Core, args []goja.Value) (any, error) {
+		c.settings.CollectedRules = make(map[int]bool)
+		return nil, nil
+	},
 	"patterns": func(c *Core, args []goja.Value) (any, error) {
 		items := make([]patterns.Pattern, 0)
 		if len(args) > 0 {
@@ -780,6 +784,75 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 			}
 		}
 		return items, nil
+	},
+	"patternFromGrid": func(c *Core, args []goja.Value) (any, error) {
+		c.stop()
+		var result patterns.Pattern
+		var err error
+		if len(args) >= 4 {
+			col := int(args[0].ToInteger())
+			row := int(args[1].ToInteger())
+			wd := int(args[2].ToInteger())
+			ht := int(args[3].ToInteger())
+			result = patterns.NewPatternFromGridPortion(c.gridHolder.grid, row, col, ht, wd)
+		} else {
+			result, err = patterns.NewPatternFromGrid(c.gridHolder.grid)
+		}
+		return result, err
+	},
+	"savePatternImage": func(c *Core, args []goja.Value) (any, error) {
+		var err error
+		if len(args) > 0 {
+			p := args[0].Export()
+			if pattern, ok := p.(patterns.Pattern); ok {
+				var filename string
+				var metadata [][2]string
+				if len(args) > 1 {
+					filename = args[1].ToString().String()
+					if len(args) > 2 {
+						val := args[2].Export()
+						if metadataArg, ok := val.(map[string]any); ok {
+							for k, v := range metadataArg {
+								metadata = append(metadata, [2]string{
+									k, fmt.Sprintf("%v", v),
+								})
+							}
+						}
+					}
+				} else {
+					filename = c.nowFilename("Pattern", ".png")
+				}
+				var f *os.File
+				if f, err = saveFile(filename, false); err == nil {
+					defer func() {
+						_ = f.Close()
+					}()
+					img := imaging.PatternImagePaletted(pattern, imaging.Config{
+						CellSize:    c.settings.CellSize,
+						Borders:     c.settings.CellBorders,
+						AliveColor:  c.settings.CellAliveColor,
+						DeadColor:   c.settings.CellDeadColor,
+						BorderColor: c.settings.CellBorderColor,
+					})
+					err = imaging.PngEncode(f, img, metadata)
+				}
+			} else {
+				err = errors.New("first arg must be a pattern")
+			}
+		}
+		return nil, err
+	},
+	"addCapturedPattern": func(c *Core, args []goja.Value) (any, error) {
+		var err error
+		if len(args) >= 1 {
+			p := args[0].Export()
+			if pattern, ok := p.(patterns.Pattern); ok {
+				core.statusBar.menuPopup.capturedPatternsPopout.addCapturedPattern(pattern, false)
+			} else {
+				err = errors.New("arg must be a pattern")
+			}
+		}
+		return nil, err
 	},
 	"newPattern": func(c *Core, args []goja.Value) (any, error) {
 		switch len(args) {
@@ -897,6 +970,11 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		return nil, nil
 	},
 }
+var jsConstructors = map[string]string{
+	"newMetaRule": "MetaRule",
+	"newPattern":  "Pattern",
+	"newRule":     "Rule",
+}
 
 func (c *Core) registerJavascriptFunctions(rt *goja.Runtime, ah shortcuts.ActionHolder) {
 	for name, fn := range jsFunctions {
@@ -916,6 +994,24 @@ func (c *Core) registerJavascriptFunctions(rt *goja.Runtime, ah shortcuts.Action
 			}
 			return goja.Undefined()
 		})
+		if cName, ok := jsConstructors[name]; ok {
+			_ = rt.Set(cName, func(call goja.ConstructorCall) *goja.Object {
+				if !c.shortcutRunning {
+					rt.Interrupt(nil)
+				}
+				v, err := fn(c, call.Arguments)
+				if err != nil {
+					c.shortcutErrorLogger.Error(err, &ah, jsCallInfo(rt, name)...)
+					if rt.Get("exceptions").ToBoolean() {
+						panic(rt.ToValue(err.Error()))
+					}
+				}
+				if v != nil {
+					return rt.ToValue(v).ToObject(rt)
+				}
+				return nil
+			})
+		}
 	}
 }
 

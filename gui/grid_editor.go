@@ -377,7 +377,7 @@ func (e *editor) handleSpecialKeys(kev key.Event) {
 		e.endMarking(false)
 		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
 			e.addPatternUndo(pattern, 0, 0, patterns.Rotate0)
-			pattern = pattern.RotatedUp()
+			pattern = pattern.ShiftedUp()
 			pattern.Draw(e.g.grid, 0, 0, patterns.Rotate0)
 		}
 	case "D":
@@ -385,7 +385,7 @@ func (e *editor) handleSpecialKeys(kev key.Event) {
 		e.endMarking(false)
 		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
 			e.addPatternUndo(pattern, 0, 0, patterns.Rotate0)
-			pattern = pattern.RotatedDown()
+			pattern = pattern.ShiftedDown()
 			pattern.Draw(e.g.grid, 0, 0, patterns.Rotate0)
 		}
 	case ",":
@@ -393,7 +393,7 @@ func (e *editor) handleSpecialKeys(kev key.Event) {
 		e.endMarking(false)
 		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
 			e.addPatternUndo(pattern, 0, 0, patterns.Rotate0)
-			pattern = pattern.RotatedLeft()
+			pattern = pattern.ShiftedLeft()
 			pattern.Draw(e.g.grid, 0, 0, patterns.Rotate0)
 		}
 	case ".":
@@ -401,7 +401,7 @@ func (e *editor) handleSpecialKeys(kev key.Event) {
 		e.endMarking(false)
 		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
 			e.addPatternUndo(pattern, 0, 0, patterns.Rotate0)
-			pattern = pattern.RotatedRight()
+			pattern = pattern.ShiftedRight()
 			pattern.Draw(e.g.grid, 0, 0, patterns.Rotate0)
 		}
 	}

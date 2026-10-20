@@ -1,6 +1,7 @@
 package patterns
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -28,6 +29,12 @@ func (p Pattern) String() string {
 		return p.Name
 	}
 	return p.Filename
+}
+
+func (p Pattern) Rle() string {
+	var buf bytes.Buffer
+	_ = PatternRleEncode(p, &buf)
+	return buf.String()
 }
 
 func (p Pattern) Trimmed() Pattern {
@@ -79,6 +86,15 @@ func (p Pattern) Trimmed() Pattern {
 }
 
 func (p Pattern) Rotated(rotation Rotation) Pattern {
+	if rotation >= 90 {
+		rotation = rotation / 90
+	}
+	if rotation < 0 {
+		rotation = -rotation
+	}
+	if rotation > Rotate270 {
+		rotation = rotation % 4
+	}
 	switch rotation {
 	case Rotate0:
 		return p
@@ -128,7 +144,7 @@ func (p Pattern) Rotated(rotation Rotation) Pattern {
 			Rule:   p.Rule,
 		}
 	default:
-		panic("invalid rotation")
+		return p
 	}
 }
 
@@ -330,7 +346,7 @@ func (p Pattern) DrawTo(rot Rotation, fn func(row, col int, alive bool)) {
 	}
 }
 
-func (p Pattern) RotatedUp() Pattern {
+func (p Pattern) ShiftedUp() Pattern {
 	result := Pattern{
 		Width:  p.Width,
 		Height: p.Height,
@@ -347,7 +363,7 @@ func (p Pattern) RotatedUp() Pattern {
 	return result
 }
 
-func (p Pattern) RotatedDown() Pattern {
+func (p Pattern) ShiftedDown() Pattern {
 	result := Pattern{
 		Width:  p.Width,
 		Height: p.Height,
@@ -365,7 +381,7 @@ func (p Pattern) RotatedDown() Pattern {
 	return result
 }
 
-func (p Pattern) RotatedLeft() Pattern {
+func (p Pattern) ShiftedLeft() Pattern {
 	result := Pattern{
 		Width:  p.Width,
 		Height: p.Height,
@@ -385,7 +401,7 @@ func (p Pattern) RotatedLeft() Pattern {
 	return result
 }
 
-func (p Pattern) RotatedRight() Pattern {
+func (p Pattern) ShiftedRight() Pattern {
 	result := Pattern{
 		Width:  p.Width,
 		Height: p.Height,

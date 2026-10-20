@@ -430,6 +430,10 @@ var contentShortCutsJsRef = content{
 			},
 		},
 		rows: []tableRow{
+			{{codeCopyable(`addCapturedPattern(Pattern)`)}, {
+				"Adds the pattern to ", CapturedPatterns.link("captured patterns"), ".",
+				"\nReturns: none (", code(`undefined`), ")",
+			}},
 			{{codeCopyable(`addCollectedRule([string|int|Rule])`)}, {"Adds a rule to the currently ", CollectedRules.link("collected rules"), ".",
 				" If no arg is supplied, the current rule is added.",
 				"\nReturns: none (", code(`undefined`), ")"}},
@@ -449,6 +453,8 @@ var contentShortCutsJsRef = content{
 			{{codeCopyable(`cellDeadColor([string])`)}, {"Gets, and optionally sets, the current cell dead color.", "\nReturns: ", code(`string`), " - current cell dead color (", code(`#rrggbb`), ")"}},
 			{{codeCopyable(`cellSize([int])`)}, {"Gets, and optionally sets, the grid cell size (pixels).", "\nReturns: ", code(`int`), " - cell size (1-100)"}},
 			{{codeCopyable(`clear()`)}, {"Clears the current grid.", "\nReturns: none (", code(`undefined`), ")"}},
+			{{codeCopyable(`clearCollectedRules()`)}, {"Clears ", CollectedRules.link("collected rules"), ".",
+				"\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`clearVariables([string...])`)}, {"Clears shortcut variables. If no args are supplied, all shortcut variables are cleared - otherwise only the specified variable names are cleared.", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`collectedRules()`)}, {"Gets the currently ", CollectedRules.link("collected rules"), ".",
 				"\nReturns: ", code(`array[Rule]`), " - list of collected rules",
@@ -477,18 +483,18 @@ var contentShortCutsJsRef = content{
 				"\nReturns: none (", code(`undefined`), ")",
 			}},
 			{{codeCopyable(`maxAdjacents(int)`)}, {"Alters the current grid so that no cell can have more than the specified number (0-8) alive neighbours", "\nReturns: none (", code(`undefined`), ")"}},
-			{{codeCopyable(`newMetaRule(string)`)}, {
+			{{codeCopyable(`newMetaRule(string)`), italic("\nor\n"), codeCopyable(`new MetaRule(string)`)}, {
 				"Creates a new ", MetaRulesRef.link("meta rule"), ".",
-				"\nIf the arg matches an existing meta rule name , that meta is returned - otherwise the meta rule is interpreted from the provided string (see ", MetaRulesRef.link("reference"), ")",
+				"\nIf the arg matches an existing meta rule name, that meta is returned - otherwise the meta rule is interpreted from the provided string (see ", MetaRulesRef.link("reference"), ")",
 				"\nReturns: ", code(`MetaRule`),
 				metaRuleObject,
 			}},
-			{{codeCopyable(`newPattern(rle:string)`)}, {
+			{{codeCopyable(`newPattern(rle:string)`), italic("\nor\n"), codeCopyable(`new Pattern(rle:string)`)}, {
 				"Creates a new pattern from the supplied rle string.",
 				"\nReturns: ", code(`Pattern`), italic(" (or "), code(`undefined`), italic(" in case of pattern create error)"),
 				patternObject,
 			}},
-			{{codeCopyable(`newPattern(w:int,h:int,cells:array)`)}, {
+			{{codeCopyable(`newPattern(w:int,h:int,cells:array)`), italic("\nor\n"), codeCopyable(`new Pattern(w:int,h:int,cells:array)`)}, {
 				"Creates a new pattern from the supplied args - where:",
 				hanging{indent: 10, prefix: content{code("w")}, content: content{" - is the pattern width"}},
 				hanging{indent: 10, prefix: content{code("h")}, content: content{" - is the pattern height"}},
@@ -501,12 +507,18 @@ var contentShortCutsJsRef = content{
 				"Returns: ", code(`Pattern`), italic(" (or "), code(`undefined`), italic(" in case of pattern create error)"),
 				patternObject,
 			}},
-			{{codeCopyable(`newRule(string|int)`)}, {
+			{{codeCopyable(`newRule(string|int)`), italic("\nor\n"), codeCopyable(`new Rule(string|int)`)}, {
 				"Creates a new Rule from the supplied arg:",
 				hanging{indent: 10, prefix: content{code("string")}, content: content{" - rule name or specified ", italic("rle"), ", e.g. ", code(`"B2/S23"`)}},
 				hanging{indent: 10, prefix: content{code("int")}, content: content{"- rule permutation (0-262143)"}},
 				"Returns: ", code(`Rule`),
 				ruleObject,
+			}},
+			{{codeCopyable(`patternFromGrid([x,y,w,h:int])`)}, {"Creates a pattern from a portion of the grid",
+				" - as defined by args ", boldItalic("x"), ", ", boldItalic("y"), ", ", boldItalic("w"), " & ", boldItalic("h"), ".",
+				" If no args are supplied, the entire grid is used.",
+				"\nReturns: ", code(`Pattern`),
+				patternObject,
 			}},
 			{{codeCopyable(`patterns()`)}, {"Retrieves all patterns in the current pattern library.",
 				"\nReturns: ", code(`array[Pattern]`),
@@ -546,10 +558,16 @@ var contentShortCutsJsRef = content{
 				hanging{indent: 10, prefix: content{code("object")}, content: content{" - is the definition of the recipe ", italic("(see "), GridRecipesReference.linkItalic("reference"), italic(")")}},
 				"Returns: ", code(`bool`), " - whether the recipe was successfully run (check )", code(`[user]/Documents/GoGoL/errors.log`), " if unsuccessful).",
 			}},
+			{{codeCopyable(`savePatternImage(Pattern[,string[,object]])`)}, {
+				"Saves the pattern as an image (.png).",
+				"\nThe second, string, arg is the filename - if omitted, a default filename is used.",
+				" The third, optional, arg is an object for the image metadata.",
+				"\nReturns: none (", code(`undefined`), ")",
+			}},
 			{{codeCopyable(`sleep([int])`)}, {"Sleeps for a given ", italic("ms"), " (millisecond) period. If the arg is omitted, sleeps for 1 second.", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`snapshot()`)}, {"Snapshots the current grid", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`status([msg:string])`)}, {"Sets a status ", italic(`msg`), " in the ", StatusBar.link("statusbar"), ". If the ", italic(`msg`), " arg is omitted, the status message is cleared.", "\nReturns: none (", code(`undefined`), ")"}},
-			{{codeCopyable(`step()`)}, {"Performs a single simulation step on the current grid.", "\nReturns: none (", code(`undefined`), ")"}},
+			{{codeCopyable(`step()`)}, {"Performs a single simulation step on the current grid.", "\nReturns: ", code(`int`), " - the number of cells that changed state"}},
 			{{codeCopyable(`stepCount()`)}, {"Gets the current step count.", "\nReturns: ", code(`int`)}},
 			{{codeCopyable(`stepAhead([int])`)}, {"Performs step ahead. If no arg is supplied, the current step ahead size setting is used.", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`stepAheadSize([int])`)}, {"Gets, and optionally sets, the current step ahead size (does not perform step ahead).", "\nReturns: ", code(`int`), " - current step ahead size (>0)"}},
@@ -604,7 +622,7 @@ var ruleObject = expandable{indent: 10, rightMargin: 10, border: true, title: "R
 }}
 
 var patternObject = expandable{indent: 10, rightMargin: 10, border: true, title: "Pattern object", content: content{
-	"provides the following properties:",
+	"provides the following (read-only) properties:",
 	hanging{indent: 10, prefix: content{code(".Cells:array[bool]")}},
 	hanging{indent: 10, prefix: content{code(".Comments:array[string]")}},
 	hanging{indent: 10, prefix: content{code(".Filename:string")}},
@@ -613,6 +631,15 @@ var patternObject = expandable{indent: 10, rightMargin: 10, border: true, title:
 	hanging{indent: 10, prefix: content{code(".Origination:string")}},
 	hanging{indent: 10, prefix: content{code(".Rule:Rule")}},
 	hanging{indent: 10, prefix: content{code(".Width:int")}},
+	"and the following methods:",
+	hanging{indent: 10, prefix: content{code(".Reflected():Pattern")}},
+	hanging{indent: 10, prefix: content{code(".Rle():string")}},
+	hanging{indent: 10, prefix: content{code(".Rotated(r:int):Pattern")}},
+	hanging{indent: 10, prefix: content{code(".ShiftedDown():Pattern")}},
+	hanging{indent: 10, prefix: content{code(".ShiftedLeft():Pattern")}},
+	hanging{indent: 10, prefix: content{code(".ShiftedRight():Pattern")}},
+	hanging{indent: 10, prefix: content{code(".ShiftedUp():Pattern")}},
+	hanging{indent: 10, prefix: content{code(".Trimmed():Pattern")}},
 }}
 
 var metaRuleObject = expandable{indent: 10, rightMargin: 10, border: true, title: "MetaRule object", content: content{
