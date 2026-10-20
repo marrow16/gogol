@@ -176,6 +176,8 @@ func (f *fileFinder) layoutEntry(gtx layout.Context, _ int, entry *dirEntry) lay
 						img = icons.FileIMG
 					case ".json":
 						img = icons.FileJSON
+					case ".log", ".js":
+						img = icons.FileTXT
 					}
 				}
 				if img != nil {
@@ -769,6 +771,8 @@ func (e *dirEntry) buildPreview(allowExts map[string]struct{}) {
 			preview, extra, err = e.buildPreviewJson()
 		case ".png", ".jpg", ".jpeg", ".gif":
 			preview, extra, img, err = e.buildPreviewImg()
+		case ".log", ".js":
+			preview, err = e.buildPreviewText()
 		default:
 			preview, err = e.buildPreviewCommon()
 		}
@@ -1080,6 +1084,48 @@ func (e *dirEntry) buildPreviewJson() (layout.Widget, [][2]string, error) {
 			})
 		}),
 	), nil, nil
+}
+
+func (e *dirEntry) buildPreviewText() (layout.Widget, error) {
+	f, err := os.Open(e.path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	p, err := e.buildPreviewCommon()
+	if err != nil {
+		return nil, err
+	}
+	data, _ := io.ReadAll(f)
+	txt := strings.ReplaceAll(string(data), "\t", "  ")
+	if e.previewScrollV == nil {
+		e.previewScrollV = &widget.List{}
+		e.previewScrollV.List.Axis = layout.Vertical
+		e.previewScrollH = &widget.List{}
+		e.previewScrollH.List.Axis = layout.Horizontal
+	}
+	return flexVertical(0,
+		rigid(p),
+		rigid(func(gtx layout.Context) layout.Dimensions {
+			borders(gtx, layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: gtx.Dp(8)}}, borderColor, false, false, true, false)
+			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(16)}}
+		}),
+		flexed(func(gtx layout.Context) layout.Dimensions {
+			dims := layout.Dimensions{Size: gtx.Constraints.Max}
+			borders(gtx, dims, borderColor, true, true, true, true)
+			return material.List(theme, e.previewScrollV).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+				return material.List(theme, e.previewScrollH).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+					gtx.Constraints.Min = image.Point{}
+					gtx.Constraints.Max = image.Point{X: 1 << 30, Y: 1 << 30}
+					lbl := material.Label(theme, (theme.TextSize*4)/5, txt)
+					lbl.MaxLines = 0
+					return lbl.Layout(gtx)
+				})
+			})
+		}),
+	), nil
 }
 
 func (e *dirEntry) buildPreviewCommon() (layout.Widget, error) {

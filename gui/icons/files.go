@@ -82,6 +82,9 @@ var fileIMG []byte
 //go:embed fileJSON.png
 var fileJSON []byte
 
+//go:embed fileTXT.png
+var fileTXT []byte
+
 var (
 	Backward     = mustImage(backward)
 	Burger       = mustImage(burger)
@@ -109,6 +112,7 @@ var (
 	FileRLE  = mustImage(fileRLE)
 	FileIMG  = mustImage(fileIMG)
 	FileJSON = mustImage(fileJSON)
+	FileTXT  = mustImage(fileTXT)
 )
 
 func mustImage(data []byte) image.Image {

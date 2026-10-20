@@ -247,6 +247,7 @@ func (p *capturedPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 				}
 			}
 			p.chooser.ResetItems(p.core.settings.CapturedPatterns)
+			p.chooser.SetText("")
 		}
 	}
 	if p.btnClear.Clicked(gtx) {

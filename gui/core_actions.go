@@ -165,7 +165,7 @@ func (c *Core) stopRunning() {
 	window.Invalidate()
 }
 
-func (c *Core) step() {
+func (c *Core) step() int {
 	c.mutex.Lock()
 	c.clearMode()
 	defer c.mutex.Unlock()
@@ -173,6 +173,7 @@ func (c *Core) step() {
 	_, changes := c.gridHolder.grid.StepWithInstrumentation(c.instrumentation)
 	c.changes.Store(int64(changes))
 	window.Invalidate()
+	return changes
 }
 
 func (c *Core) stepAhead() {

@@ -237,9 +237,14 @@ func TestPattern_Rotated(t *testing.T) {
 		false, false, true,
 		false, true, false}, pr.Cells)
 
-	require.Panics(t, func() {
-		p.Rotated(-1)
-	})
+	pr = p.Rotated(90)
+	require.Equal(t, 4, pr.Height)
+	require.Equal(t, 3, pr.Width)
+	require.Equal(t, []bool{
+		false, true, false,
+		true, false, false,
+		true, true, true,
+		false, false, true}, pr.Cells)
 }
 
 func TestPattern_Hash(t *testing.T) {
@@ -305,7 +310,7 @@ func TestPattern_RotatedUp(t *testing.T) {
 		true, false, true,
 		false, true, true})
 	require.NoError(t, err)
-	pr := p.RotatedUp()
+	pr := p.ShiftedUp()
 	require.Equal(t, 3, pr.Height)
 	require.Equal(t, 3, pr.Width)
 	require.Equal(t, []bool{
@@ -314,7 +319,7 @@ func TestPattern_RotatedUp(t *testing.T) {
 		false, false, true}, pr.Cells)
 
 	p = Pattern{Width: 1, Height: 1, Cells: []bool{true}}
-	pr = p.RotatedUp()
+	pr = p.ShiftedUp()
 	require.True(t, pr.Cells[0])
 }
 
@@ -324,7 +329,7 @@ func TestPattern_RotatedDown(t *testing.T) {
 		true, false, true,
 		false, true, true})
 	require.NoError(t, err)
-	pr := p.RotatedDown()
+	pr := p.ShiftedDown()
 	require.Equal(t, 3, pr.Height)
 	require.Equal(t, 3, pr.Width)
 	require.Equal(t, []bool{
@@ -333,7 +338,7 @@ func TestPattern_RotatedDown(t *testing.T) {
 		true, false, true}, pr.Cells)
 
 	p = Pattern{Width: 1, Height: 1, Cells: []bool{true}}
-	pr = p.RotatedDown()
+	pr = p.ShiftedDown()
 	require.True(t, pr.Cells[0])
 }
 
@@ -343,7 +348,7 @@ func TestPattern_RotatedLeft(t *testing.T) {
 		true, false, true,
 		false, true, true})
 	require.NoError(t, err)
-	pr := p.RotatedLeft()
+	pr := p.ShiftedLeft()
 	require.Equal(t, 3, pr.Height)
 	require.Equal(t, 3, pr.Width)
 	require.Equal(t, []bool{
@@ -352,7 +357,7 @@ func TestPattern_RotatedLeft(t *testing.T) {
 		true, true, false}, pr.Cells)
 
 	p = Pattern{Width: 1, Height: 1, Cells: []bool{true}}
-	pr = p.RotatedLeft()
+	pr = p.ShiftedLeft()
 	require.True(t, pr.Cells[0])
 }
 
@@ -362,7 +367,7 @@ func TestPattern_RotatedRight(t *testing.T) {
 		true, false, true,
 		false, true, true})
 	require.NoError(t, err)
-	pr := p.RotatedRight()
+	pr := p.ShiftedRight()
 	require.Equal(t, 3, pr.Height)
 	require.Equal(t, 3, pr.Width)
 	require.Equal(t, []bool{
@@ -371,7 +376,7 @@ func TestPattern_RotatedRight(t *testing.T) {
 		true, false, true}, pr.Cells)
 
 	p = Pattern{Width: 1, Height: 1, Cells: []bool{true}}
-	pr = p.RotatedRight()
+	pr = p.ShiftedRight()
 	require.True(t, pr.Cells[0])
 }
 
