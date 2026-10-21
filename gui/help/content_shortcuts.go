@@ -565,6 +565,11 @@ var contentShortCutsJsRef = content{
 				"\nReturns: ", code(`Rule`), " - currently active rule",
 				ruleObject,
 			}},
+			{{codeCopyable(`ruleCollected([string|int|Rule])`)}, {
+				"Gets whether the supplied rule is a currently collected rule. If no arg is supplied, the current rule is used.",
+				"\nReturns: ", code(`bool`), " - whether the rule is a collected rule",
+				ruleObject,
+			}},
 			{{codeCopyable(`run()`)}, {"Runs simulation on the current grid.", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`runRecipe([string|object])`)}, {
 				"Runs a ", GridRecipes.link("grid recipe"), " on the grid. Where the recipe arg is:",
