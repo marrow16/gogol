@@ -477,9 +477,15 @@ var contentShortCutsJsRef = content{
 				"\nEach arg is a color in the format ", code(`"#rrggbb"`), ". The args must contain at least two valid colors - anything else resets heat map colors to defaults.",
 				"\nReturns: ", code(`array[string]`), " - current heat map colors (empty array indicates default colors)",
 			}},
-			{{codeCopyable(`heatMapSave(string[,object])`)}, {
+			{{codeCopyable(`heatMapReveal([string])`)}, {
+				"Reveals the current heat map in the UI.",
+				italic("\nNote: If the current heat map type is "), code(`All`), italic(", use the optional string arg to denote which to reveal ("), code(`Activity`), "|", code(`Age`), "|", code(`Births`), "|", code(`Freshness`), "|", code(`Longevity`), "|", code(`Occupancy`), "|", code(`Phase Parity`), italic(")."),
+				"\nReturns: none (", code(`undefined`), ")",
+			}},
+			{{codeCopyable(`heatMapSave(string[,object[,string]])`)}, {
 				"Saves the current heat map as a ", code(".png"), italic(" (no images are saved when heat mapping is off)"), ".",
 				"\nThe first string arg is the filename. The second, optional,  arg is metadata for the png file.",
+				italic("\nNote: If the current heat map type is "), code(`All`), italic(", use the third optional string arg to denote which to save ("), code(`Activity`), "|", code(`Age`), "|", code(`Births`), "|", code(`Freshness`), "|", code(`Longevity`), "|", code(`Occupancy`), "|", code(`Phase Parity`), italic(")."),
 				"\nReturns: none (", code(`undefined`), ")",
 			}},
 			{{codeCopyable(`maxAdjacents(int)`)}, {"Alters the current grid so that no cell can have more than the specified number (0-8) alive neighbours", "\nReturns: none (", code(`undefined`), ")"}},
@@ -525,6 +531,14 @@ var contentShortCutsJsRef = content{
 				patternObject,
 			}},
 			{{codeCopyable(`population()`)}, {"Gets the current grid population.", "\nReturns: ", code(`int`)}},
+			{{codeCopyable(`prompt(string[,string...])`)}, {
+				"Prompts the user for input. The prompt is displayed in the ", StatusBar.link("statusbar"), " and the function is blocking until input is acquired.",
+				"\nThe first string arg is the label for the prompt.",
+				" Successive string args are allowed responses (case insensitive):",
+				hanging{indent: 8, prefix: "• ", content: "if allowed responses are specified, the function returns as soon as the user types one of them (e.g. key input)."},
+				hanging{indent: 8, prefix: "• ", content: content{"if no allowed responses are supplied, the user can input any length and the function returns when the user presses ", keys{keyEnter}, "."}},
+				"Returns: ", code(`string`), " - the user input",
+			}},
 			{{codeCopyable(`randomAdditions([int])`)}, {"Applies random additions (alive cells) to the current grid. The optional arg is the randomization (0-100) - if omitted, the current randomization setting is used.", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`randomChanges([int])`)}, {"Applies random changes (noise) to the current grid. The optional arg is the randomization (0-100) - if omitted, the current randomization setting is used.", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`randomCull([int])`)}, {"Applies random cull to the current grid. The optional arg is the randomization (0-100) - if omitted, the current randomization setting is used.", "\nReturns: none (", code(`undefined`), ")"}},
@@ -539,11 +553,11 @@ var contentShortCutsJsRef = content{
 			{{codeCopyable(`repeatDetect([bool])`)}, {
 				"Gets, and optionally sets, whether repeat detect instrument is on.", "\nReturns: ", code(`object`), " when repeat detect is enabled (or ", code(`undefined`), " when not enabled)",
 				expandable{indent: 10, rightMargin: 10, border: true, title: "object properties", content: content{
-					hanging{indent: 10, prefix: content{code(".Examined:int")}, content: " the number of steps examined"},
-					hanging{indent: 10, prefix: content{code(".FirstStep:int")}, content: " the first step of the repeat"},
-					hanging{indent: 10, prefix: content{code(".Found:bool")}, content: " whether a repeat was detected"},
-					hanging{indent: 10, prefix: content{code(".Period:int")}, content: " the repeat period"},
-					hanging{indent: 10, prefix: content{code(".RepeatStep:int")}, content: " the step at which repeated"},
+					hanging{indent: 10, gap: 8, prefix: content{code(".Examined:int")}, content: "the number of steps examined"},
+					hanging{indent: 10, gap: 8, prefix: content{code(".FirstStep:int")}, content: "the first step of the repeat"},
+					hanging{indent: 10, gap: 8, prefix: content{code(".Found:bool")}, content: "whether a repeat was detected"},
+					hanging{indent: 10, gap: 8, prefix: content{code(".Period:int")}, content: "the repeat period"},
+					hanging{indent: 10, gap: 8, prefix: content{code(".RepeatStep:int")}, content: "the step at which repeated"},
 				}},
 			}},
 			{{codeCopyable(`replaySnapshot()`)}, {"Replays a snapshot. Resets the grid to the last snapshot (without removing the snapshot from the stack)\n", italic("Note: If there is no current snapshot - the grid is randomized and a snapshot added"), "\nReturns: none (", code(`undefined`), ")"}},

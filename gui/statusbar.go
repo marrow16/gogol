@@ -272,6 +272,9 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			switch {
 			case sb.core.isShortcutsRunning():
+				if sb.core.shortcutPrompt != nil {
+					return sb.layoutShortcutPrompt(gtx)
+				}
 				st := sb.core.getShortcutsStatus()
 				sb.stepDims = sb.label(gtx, "Running Shortcut"+st, text.Start)
 			case sb.core.mode != noMode:
@@ -340,6 +343,16 @@ func (sb *statusBar) buttons() []layout.FlexChild {
 		result = append(result, sb.buttonsRecord...)
 	}
 	return append(result, sb.buttonsRight...)
+}
+
+func (sb *statusBar) layoutShortcutPrompt(gtx layout.Context) layout.Dimensions {
+	return layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		size := gtx.Constraints.Max
+		sb.drawInsetBorder(gtx, image.Rectangle{Max: image.Point{X: size.X, Y: size.Y}})
+		gtx.Constraints.Min.Y = size.Y
+		gtx.Constraints.Max.Y = size.Y
+		return layout.Inset{Left: 6, Right: 6, Top: 3}.Layout(gtx, sb.core.shortcutPrompt.layout)
+	})
 }
 
 func (sb *statusBar) label(gtx layout.Context, s string, align text.Alignment) layout.Dimensions {
