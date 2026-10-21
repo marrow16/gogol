@@ -111,6 +111,7 @@ type Core struct {
 
 	shortcutMutex        sync.RWMutex
 	shortcutRunning      bool
+	shortcutPrompt       *shortcutPrompt
 	shortcutCurrent      string
 	shortcutCollectFiles bool
 	shortcutFiles        []string
