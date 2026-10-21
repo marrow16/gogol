@@ -347,7 +347,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 				filename = args[0].ToString().String()
 				var metadataArg map[string]any
 				for a := 1; a < len(args) && a < 3; a++ {
-					val := args[1].Export()
+					val := args[a].Export()
 					switch v := val.(type) {
 					case map[string]any:
 						metadataArg = v
@@ -362,6 +362,9 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 						k, fmt.Sprintf("%v", v),
 					})
 				}
+				slices.SortFunc(metadata, func(a, b [2]string) int {
+					return strings.Compare(a[0], b[0])
+				})
 			} else {
 				filename = c.nowFilename("Heat Map "+hmt.String(), ".png")
 			}
@@ -697,6 +700,9 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 							k, fmt.Sprintf("%v", v),
 						})
 					}
+					slices.SortFunc(metadata, func(a, b [2]string) int {
+						return strings.Compare(a[0], b[0])
+					})
 				}
 			}
 		} else {
@@ -790,6 +796,27 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
+	"ruleCollected": func(c *Core, args []goja.Value) (any, error) {
+		var err error
+		result := false
+		if len(args) > 0 {
+			val := args[0].Export()
+			switch v := val.(type) {
+			case logic.Rule:
+				result = c.settings.CollectedRules[v.Permutation()]
+			case string:
+				var rule logic.Rule
+				if rule, err = logic.NewRuleRle("", v); err == nil {
+					result = c.settings.CollectedRules[rule.Permutation()]
+				}
+			case int64:
+				result = c.settings.CollectedRules[int(v)]
+			}
+		} else {
+			result = c.settings.CollectedRules[c.gridHolder.grid.Rule().Permutation()]
+		}
+		return result, err
+	},
 	"clearCollectedRules": func(c *Core, args []goja.Value) (any, error) {
 		c.settings.CollectedRules = make(map[int]bool)
 		return nil, nil
@@ -843,6 +870,9 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 									k, fmt.Sprintf("%v", v),
 								})
 							}
+							slices.SortFunc(metadata, func(a, b [2]string) int {
+								return strings.Compare(a[0], b[0])
+							})
 						}
 					}
 				} else {
@@ -1017,6 +1047,7 @@ func (c *Core) registerJavascriptFunctions(rt *goja.Runtime, ah shortcuts.Action
 			}
 		}
 		c.shortcutPrompt = newShortcutPrompt(c, prompt, replies...)
+		window.Invalidate()
 		reply, ok := c.shortcutPrompt.wait()
 		if !ok {
 			rt.Interrupt(nil)
