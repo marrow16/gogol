@@ -17,7 +17,9 @@ import (
 	"github.com/marrow16/gogol/patterns"
 	"github.com/marrow16/gogol/recipes"
 	"image/color"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -36,7 +38,14 @@ func (c *Core) shortcutJavascript(ah shortcuts.ActionHolder) {
 	}
 	if err != nil {
 		if _, ok := errors.AsType[*goja.InterruptedError](err); !ok {
+			if ge, ok := errors.AsType[*goja.Exception](err); ok {
+				if ge.Value() != nil {
+					err = fmt.Errorf("uncaught exception: %s", ge.Value().ToString().String())
+				}
+			}
 			c.shortcutErrorLogger.Error(err, &ah)
+		} else {
+			c.shortcutErrorLogger.Warn("javascript interrupted", &ah)
 		}
 	}
 }
@@ -45,19 +54,18 @@ func (c *Core) createJavascriptRuntime(ah shortcuts.ActionHolder) *goja.Runtime 
 	rt := goja.New()
 	_ = rt.Set("exceptions", false)
 	c.registerJavascriptFunctions(rt, ah)
-	c.createJavascriptConsole(rt, ah)
 	return rt
 }
 
-var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
-	"borders": func(c *Core, args []goja.Value) (any, error) {
+var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, error){
+	"borders": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 0 {
 			val := args[0].ToBoolean()
 			c.setCellBorders(val)
 		}
 		return c.settings.CellBorders, nil
 	},
-	"boundaryMode": func(c *Core, args []goja.Value) (any, error) {
+	"boundaryMode": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToString().String()
@@ -69,7 +77,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.gridHolder.grid.BoundaryMode().String(), err
 	},
-	"cellAliveColor": func(c *Core, args []goja.Value) (any, error) {
+	"cellAliveColor": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToString().String()
@@ -84,7 +92,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		clr := c.settings.CellAliveColor
 		return fmt.Sprintf("#%02X%02X%02X", clr.R, clr.G, clr.B), err
 	},
-	"cellDeadColor": func(c *Core, args []goja.Value) (any, error) {
+	"cellDeadColor": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToString().String()
@@ -99,7 +107,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		clr := c.settings.CellDeadColor
 		return fmt.Sprintf("#%02X%02X%02X", clr.R, clr.G, clr.B), err
 	},
-	"cellBorderColor": func(c *Core, args []goja.Value) (any, error) {
+	"cellBorderColor": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToString().String()
@@ -114,7 +122,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		clr := c.settings.CellBorderColor
 		return fmt.Sprintf("#%02X%02X%02X", clr.R, clr.G, clr.B), err
 	},
-	"cellSize": func(c *Core, args []goja.Value) (any, error) {
+	"cellSize": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToInteger()
@@ -126,7 +134,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.settings.CellSize, err
 	},
-	"gridWidth": func(c *Core, args []goja.Value) (any, error) {
+	"gridWidth": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToInteger()
@@ -138,7 +146,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.settings.Width, err
 	},
-	"gridHeight": func(c *Core, args []goja.Value) (any, error) {
+	"gridHeight": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToInteger()
@@ -150,7 +158,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.settings.Height, err
 	},
-	"gridSize": func(c *Core, args []goja.Value) (any, error) {
+	"gridSize": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 1 {
 			w := args[0].ToInteger()
@@ -167,7 +175,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return strconv.Itoa(c.settings.Width) + "X" + strconv.Itoa(c.settings.Height), err
 	},
-	"randomization": func(c *Core, args []goja.Value) (any, error) {
+	"randomization": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToInteger()
@@ -179,7 +187,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.settings.Randomization, err
 	},
-	"stepAheadSize": func(c *Core, args []goja.Value) (any, error) {
+	"stepAheadSize": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToInteger()
@@ -191,7 +199,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.settings.StepAheadBy, err
 	},
-	"stepBackSize": func(c *Core, args []goja.Value) (any, error) {
+	"stepBackSize": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToInteger()
@@ -203,7 +211,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.settings.SkipBackBy, err
 	},
-	"stepDelay": func(c *Core, args []goja.Value) (any, error) {
+	"stepDelay": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToInteger()
@@ -215,7 +223,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.settings.StepDelay, err
 	},
-	"wrapMode": func(c *Core, args []goja.Value) (any, error) {
+	"wrapMode": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToString().String()
@@ -227,7 +235,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.gridHolder.grid.WrapMode().String(), err
 	},
-	"zoom": func(c *Core, args []goja.Value) (any, error) {
+	"zoom": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToInteger()
@@ -240,7 +248,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		zf := int(c.gridHolder.zoom * 100.0)
 		return zf, err
 	},
-	"rule": func(c *Core, args []goja.Value) (any, error) {
+	"rule": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			arg := args[0].Export()
@@ -264,7 +272,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.gridHolder.grid.Rule(), err
 	},
-	"newRule": func(c *Core, args []goja.Value) (any, error) {
+	"newRule": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		var rule logic.Rule
 		if len(args) > 0 {
@@ -284,16 +292,16 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return rule, err
 	},
-	"record": func(c *Core, args []goja.Value) (any, error) {
+	"record": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 0 {
 			c.setInstrumentationRecord(args[0].ToBoolean())
 		}
 		return c.instrumentRecord != nil, nil
 	},
-	"recordInstrument": func(c *Core, args []goja.Value) (any, error) {
+	"recordInstrument": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		return c.instrumentRecord, nil
 	},
-	"animationFormat": func(c *Core, args []goja.Value) (any, error) {
+	"animationFormat": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 0 {
 			val := args[0].ToString().String()
 			if strings.ToLower(val) == "mp4" && animator.Mp4Available() {
@@ -304,7 +312,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.settings.AnimationFormat, nil
 	},
-	"animationSave": func(c *Core, args []goja.Value) (any, error) {
+	"animationSave": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		c.stop()
 		recorder := c.instrumentRecord
@@ -327,7 +335,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"heatMap": func(c *Core, args []goja.Value) (any, error) {
+	"heatMap": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 0 {
 			val := args[0].ToString().String()
 			hmt := logic.HeatMapperTypeFrom(val)
@@ -338,7 +346,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return c.instrumentHeatMap.Type().String(), nil
 	},
-	"heatMapSave": func(c *Core, args []goja.Value) (any, error) {
+	"heatMapSave": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if c.instrumentHeatMap != nil {
 			var filename string
 			hmt := c.instrumentHeatMap.Type()
@@ -375,7 +383,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, nil
 	},
-	"heatMapColors": func(c *Core, args []goja.Value) (any, error) {
+	"heatMapColors": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) >= 2 {
 			clrs := make([]color.NRGBA, len(args))
@@ -400,7 +408,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return result, err
 	},
-	"heatMapReveal": func(c *Core, args []goja.Value) (any, error) {
+	"heatMapReveal": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		c.stop()
 		if c.instrumentHeatMap != nil {
 			hm := c.instrumentHeatMap
@@ -422,7 +430,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, nil
 	},
-	"repeatDetect": func(c *Core, args []goja.Value) (any, error) {
+	"repeatDetect": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 0 {
 			c.setInstrumentationRepeat(args[0].ToBoolean())
 		}
@@ -445,10 +453,10 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 			Found:      c.instrumentRepeat.Found,
 		}, nil
 	},
-	"variables": func(c *Core, args []goja.Value) (any, error) {
+	"variables": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		return c.settings.ShortcutVariables.Clone(), nil
 	},
-	"variable": func(c *Core, args []goja.Value) (any, error) {
+	"variable": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		switch len(args) {
 		case 1:
 			name := args[0].ToString().String()
@@ -474,7 +482,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, nil
 	},
-	"clearVariables": func(c *Core, args []goja.Value) (any, error) {
+	"clearVariables": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 0 {
 			for _, arg := range args {
 				name := arg.ToString().String()
@@ -485,7 +493,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, nil
 	},
-	"sleep": func(c *Core, args []goja.Value) (any, error) {
+	"sleep": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		ms := 1 * time.Second
 		if len(args) > 0 {
 			val := args[0].ToInteger()
@@ -494,11 +502,11 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		time.Sleep(ms)
 		return nil, nil
 	},
-	"clear": func(c *Core, args []goja.Value) (any, error) {
+	"clear": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		c.clear()
 		return nil, nil
 	},
-	"maxAdjacents": func(c *Core, args []goja.Value) (any, error) {
+	"maxAdjacents": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].ToInteger()
@@ -510,7 +518,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"randomize": func(c *Core, args []goja.Value) (any, error) {
+	"randomize": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		n := c.settings.Randomization
 		if len(args) > 0 {
@@ -526,7 +534,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"randomizePopulation": func(c *Core, args []goja.Value) (any, error) {
+	"randomizePopulation": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		n := c.settings.Randomization
 		if len(args) > 0 {
@@ -542,7 +550,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"randomAdditions": func(c *Core, args []goja.Value) (any, error) {
+	"randomAdditions": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		n := c.settings.Randomization
 		if len(args) > 0 {
@@ -558,7 +566,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"randomChanges": func(c *Core, args []goja.Value) (any, error) {
+	"randomChanges": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		n := c.settings.Randomization
 		if len(args) > 0 {
@@ -574,7 +582,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"randomCull": func(c *Core, args []goja.Value) (any, error) {
+	"randomCull": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		n := c.settings.Randomization
 		if len(args) > 0 {
@@ -590,33 +598,33 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"snapshot": func(c *Core, args []goja.Value) (any, error) {
+	"snapshot": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		c.snapshot()
 		return nil, nil
 	},
-	"undoToSnapshot": func(c *Core, args []goja.Value) (any, error) {
+	"undoToSnapshot": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		c.undoToSnapshot()
 		return nil, nil
 	},
-	"replaySnapshot": func(c *Core, args []goja.Value) (any, error) {
+	"replaySnapshot": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		c.replaySnapshot()
 		return nil, nil
 	},
-	"run": func(c *Core, args []goja.Value) (any, error) {
+	"run": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		c.start()
 		return nil, nil
 	},
-	"stop": func(c *Core, args []goja.Value) (any, error) {
+	"stop": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		c.stop()
 		return nil, nil
 	},
-	"step": func(c *Core, args []goja.Value) (any, error) {
+	"step": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		return c.step(), nil
 	},
-	"stepCount": func(c *Core, args []goja.Value) (any, error) {
+	"stepCount": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		return c.gridHolder.grid.StepCount.Load(), nil
 	},
-	"stepAhead": func(c *Core, args []goja.Value) (any, error) {
+	"stepAhead": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		n := c.settings.StepAheadBy
 		if len(args) > 0 {
@@ -632,7 +640,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"stepBack": func(c *Core, args []goja.Value) (any, error) {
+	"stepBack": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		n := c.settings.SkipBackBy
 		if len(args) > 0 {
@@ -648,14 +656,14 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"runRecipe": func(c *Core, args []goja.Value) (any, error) {
+	"runRecipe": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			arg := args[0].Export()
 			switch v := arg.(type) {
 			case string:
 				var filename string
-				if filename, err = resolveSavePath(v); err == nil {
+				if filename, err = resolvePath(v); err == nil {
 					err = c.runRecipeFile(filename)
 				}
 			case map[string]any:
@@ -675,7 +683,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return err == nil, err
 	},
-	"status": func(c *Core, args []goja.Value) (any, error) {
+	"status": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 0 {
 			val := args[0].ToString().String()
 			c.setShortcutsStatus(val, nil, true)
@@ -684,10 +692,10 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, nil
 	},
-	"population": func(c *Core, args []goja.Value) (any, error) {
+	"population": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		return c.population(), nil
 	},
-	"exportImage": func(c *Core, args []goja.Value) (any, error) {
+	"exportImage": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var filename string
 		var metadata [][2]string
 		if len(args) > 0 {
@@ -710,7 +718,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, c.exportImageName(filename, metadata)
 	},
-	"export": func(c *Core, args []goja.Value) (any, error) {
+	"export": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var filename string
 		if len(args) > 0 {
 			filename = args[0].ToString().String()
@@ -719,7 +727,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, c.exportName(filename)
 	},
-	"newMetaRule": func(c *Core, args []goja.Value) (any, error) {
+	"newMetaRule": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		var mr meta.Evaluator
 		if len(args) > 0 {
@@ -731,7 +739,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return mr, err
 	},
-	"collectedRules": func(c *Core, args []goja.Value) (any, error) {
+	"collectedRules": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		rules := make([]logic.Rule, 0, len(c.settings.CollectedRules))
 		for p := range c.settings.CollectedRules {
 			if rule, err := logic.NewRuleFromPermutation(p); err == nil {
@@ -748,7 +756,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		})
 		return rules, nil
 	},
-	"addCollectedRule": func(c *Core, args []goja.Value) (any, error) {
+	"addCollectedRule": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].Export()
@@ -772,7 +780,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"removeCollectedRule": func(c *Core, args []goja.Value) (any, error) {
+	"removeCollectedRule": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			val := args[0].Export()
@@ -796,7 +804,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"ruleCollected": func(c *Core, args []goja.Value) (any, error) {
+	"ruleCollected": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		result := false
 		if len(args) > 0 {
@@ -817,11 +825,11 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return result, err
 	},
-	"clearCollectedRules": func(c *Core, args []goja.Value) (any, error) {
+	"clearCollectedRules": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		c.settings.CollectedRules = make(map[int]bool)
 		return nil, nil
 	},
-	"patterns": func(c *Core, args []goja.Value) (any, error) {
+	"patterns": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		items := make([]patterns.Pattern, 0)
 		if len(args) > 0 {
 			name := strings.ToLower(args[0].ToString().String())
@@ -838,7 +846,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return items, nil
 	},
-	"patternFromGrid": func(c *Core, args []goja.Value) (any, error) {
+	"patternFromGrid": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		c.stop()
 		var result patterns.Pattern
 		var err error
@@ -853,7 +861,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return result, err
 	},
-	"savePatternImage": func(c *Core, args []goja.Value) (any, error) {
+	"savePatternImage": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) > 0 {
 			p := args[0].Export()
@@ -898,7 +906,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"addCapturedPattern": func(c *Core, args []goja.Value) (any, error) {
+	"addCapturedPattern": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		if len(args) >= 1 {
 			p := args[0].Export()
@@ -910,7 +918,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, err
 	},
-	"newPattern": func(c *Core, args []goja.Value) (any, error) {
+	"newPattern": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		switch len(args) {
 		case 1:
 			//rle
@@ -977,7 +985,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 			return nil, errors.New("expected 1 or 3 arguments")
 		}
 	},
-	"drawPattern": func(c *Core, args []goja.Value) (any, error) {
+	"drawPattern": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 2 {
 			x := int(args[0].ToInteger())
 			y := int(args[1].ToInteger())
@@ -1010,7 +1018,7 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, nil
 	},
-	"cell": func(c *Core, args []goja.Value) (any, error) {
+	"cell": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 1 {
 			x := int(args[0].ToInteger())
 			y := int(args[1].ToInteger())
@@ -1025,25 +1033,13 @@ var jsFunctions = map[string]func(c *Core, args []goja.Value) (any, error){
 		}
 		return nil, nil
 	},
-}
-var jsConstructors = map[string]string{
-	"newMetaRule": "MetaRule",
-	"newPattern":  "Pattern",
-	"newRule":     "Rule",
-}
-
-func (c *Core) registerJavascriptFunctions(rt *goja.Runtime, ah shortcuts.ActionHolder) {
-	_ = rt.Set("prompt", func(call goja.FunctionCall) goja.Value {
-		if !c.shortcutRunning {
-			rt.Interrupt(nil)
-			return nil
-		}
+	"prompt": func(c *Core, rt *goja.Runtime, args []goja.Value) (any, error) {
 		prompt := ""
 		replies := make([]string, 0)
-		if len(call.Arguments) > 0 {
-			prompt = call.Argument(0).String()
-			for i := 1; i < len(call.Arguments); i++ {
-				replies = append(replies, call.Argument(i).String())
+		if len(args) > 0 {
+			prompt = args[0].ToString().String()
+			for i := 1; i < len(args); i++ {
+				replies = append(replies, args[i].ToString().String())
 			}
 		}
 		c.shortcutPrompt = newShortcutPrompt(c, prompt, replies...)
@@ -1051,58 +1047,15 @@ func (c *Core) registerJavascriptFunctions(rt *goja.Runtime, ah shortcuts.Action
 		reply, ok := c.shortcutPrompt.wait()
 		if !ok {
 			rt.Interrupt(nil)
-			return nil
+			return nil, nil
 		}
-		return rt.ToValue(reply)
-	})
-	for name, fn := range jsFunctions {
-		_ = rt.Set(name, func(call goja.FunctionCall) goja.Value {
-			if !c.shortcutRunning {
-				rt.Interrupt(nil)
-			}
-			v, err := fn(c, call.Arguments)
-			if err != nil {
-				c.shortcutErrorLogger.Error(err, &ah, jsCallInfo(rt, name)...)
-				if rt.Get("exceptions").ToBoolean() {
-					panic(rt.ToValue(err.Error()))
-				}
-			}
-			if v != nil {
-				return rt.ToValue(v)
-			}
-			return goja.Undefined()
-		})
-		if cName, ok := jsConstructors[name]; ok {
-			_ = rt.Set(cName, func(call goja.ConstructorCall) *goja.Object {
-				if !c.shortcutRunning {
-					rt.Interrupt(nil)
-				}
-				v, err := fn(c, call.Arguments)
-				if err != nil {
-					c.shortcutErrorLogger.Error(err, &ah, jsCallInfo(rt, name)...)
-					if rt.Get("exceptions").ToBoolean() {
-						panic(rt.ToValue(err.Error()))
-					}
-				}
-				if v != nil {
-					return rt.ToValue(v).ToObject(rt)
-				}
-				return nil
-			})
-		}
-	}
-}
-
-func (c *Core) createJavascriptConsole(rt *goja.Runtime, ah shortcuts.ActionHolder) {
-	console := rt.NewObject()
-	_ = console.Set("log", func(call goja.FunctionCall) goja.Value {
-		if !c.shortcutRunning {
-			rt.Interrupt(nil)
-		}
-		args := jsCallArgs(call)
+		return reply, nil
+	},
+	// console...
+	"console.log": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		switch {
 		case len(args) == 1:
-			msg := fmt.Sprintf("%v\n", args[0])
+			msg := fmt.Sprintf("%v\n", args[0].Export())
 			_, _ = c.shortcutLogger.Write([]byte(msg))
 		case len(args) > 1:
 			var sb strings.Builder
@@ -1110,18 +1063,14 @@ func (c *Core) createJavascriptConsole(rt *goja.Runtime, ah shortcuts.ActionHold
 				if sb.Len() > 0 {
 					sb.WriteString(" ")
 				}
-				sb.WriteString(fmt.Sprintf("%v", arg))
+				sb.WriteString(fmt.Sprintf("%v", arg.Export()))
 			}
 			sb.WriteString("\n")
 			_, _ = c.shortcutLogger.Write([]byte(sb.String()))
 		}
-		return goja.Undefined()
-	})
-	_ = console.Set("error", func(call goja.FunctionCall) goja.Value {
-		if !c.shortcutRunning {
-			rt.Interrupt(nil)
-		}
-		args := jsCallArgs(call)
+		return nil, nil
+	},
+	"console.error": func(c *Core, rt *goja.Runtime, args []goja.Value) (any, error) {
 		var err error
 		switch {
 		case len(args) == 1:
@@ -1136,34 +1085,211 @@ func (c *Core) createJavascriptConsole(rt *goja.Runtime, ah shortcuts.ActionHold
 			}
 			err = errors.New(sb.String())
 		}
-		c.shortcutErrorLogger.Error(err, &ah, jsCallInfo(rt, "console.error")...)
-		return goja.Undefined()
-	})
-	_ = console.Set("warn", func(call goja.FunctionCall) goja.Value {
-		if !c.shortcutRunning {
-			rt.Interrupt(nil)
-		}
-		args := jsCallArgs(call)
+		c.shortcutErrorLogger.Error(err, nil, jsCallInfo(rt, "console.error")...)
+		return nil, nil
+	},
+	"console.warn": func(c *Core, rt *goja.Runtime, args []goja.Value) (any, error) {
 		var msg string
 		switch {
 		case len(args) == 1:
-
-			msg = fmt.Sprintf("%v", args[0])
+			msg = fmt.Sprintf("%v", args[0].Export())
 		case len(args) > 1:
 			var sb strings.Builder
 			for _, arg := range args {
 				if sb.Len() > 0 {
 					sb.WriteString(" ")
 				}
-
-				sb.WriteString(fmt.Sprintf("%v", arg))
+				sb.WriteString(fmt.Sprintf("%v", arg.Export()))
 			}
 			msg = sb.String()
 		}
-		c.shortcutErrorLogger.Warn(msg, &ah, jsCallInfo(rt, "console.warn")...)
+		c.shortcutErrorLogger.Warn(msg, nil, jsCallInfo(rt, "console.warn")...)
+		return nil, nil
+	},
+	// files...
+	"files.read": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
+		var err error
+		if len(args) > 0 {
+			path := args[0].ToString().String()
+			if path, err = resolvePath(path); err == nil {
+				var data []byte
+				if data, err = os.ReadFile(path); err == nil {
+					return string(data), nil
+				}
+			}
+		}
+		return nil, err
+	},
+	"files.write": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
+		var err error
+		if len(args) > 0 {
+			path := args[0].ToString().String()
+			var data []byte
+			if len(args) > 1 {
+				data = []byte(args[1].ToString().String())
+			}
+			if path, err = resolveSavePath(path); err == nil {
+				if err = os.WriteFile(path, data, 0644); err == nil {
+					return true, nil
+				}
+			}
+		}
+		return nil, err
+	},
+	"files.append": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
+		var err error
+		if len(args) > 1 {
+			path := args[0].ToString().String()
+			data := []byte(args[1].ToString().String())
+			if path, err = resolveSavePath(path); err == nil {
+				var f *os.File
+				if f, err = os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+					defer func() {
+						_ = f.Close()
+					}()
+					if _, err = f.Write(data); err == nil {
+						return true, nil
+					}
+				}
+			}
+		}
+		return nil, err
+	},
+	"files.walk": func(c *Core, rt *goja.Runtime, args []goja.Value) (any, error) {
+		var err error
+		if len(args) > 1 {
+			root := args[0].ToString().String()
+			if root, err = resolvePath(root); err == nil {
+				fnArg := args[1]
+				if fn, ok := goja.AssertFunction(fnArg); ok {
+					showDirs := true
+					if len(args) > 2 {
+						showDirs = args[2].ToBoolean()
+					}
+					// check that the root exists and is a dir (which filepath.WalkDir() does not do)...
+					var fi os.FileInfo
+					if fi, err = os.Stat(root); err == nil && fi.IsDir() {
+						firstDir := true
+						err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+							isDir := d.IsDir()
+							switch {
+							case !c.shortcutRunning:
+								rt.Interrupt(nil)
+								return filepath.SkipAll
+							case isDir && firstDir:
+								firstDir = false
+								return nil
+							case isDir && !showDirs:
+								return filepath.SkipDir
+							}
+							info := map[string]any{
+								"path":  filepath.Dir(path),
+								"name":  d.Name(),
+								"isDir": isDir,
+							}
+							retVal, cErr := fn(goja.Undefined(), rt.ToValue(info))
+							if retVal.ToBoolean() {
+								if isDir {
+									return filepath.SkipDir
+								}
+								return filepath.SkipAll
+							}
+							return cErr
+						})
+					} else if err == nil {
+						err = fmt.Errorf("path %q is not a directory", root)
+					}
+				} else {
+					err = errors.New("expected function argument")
+				}
+			}
+		}
+		return nil, err
+	},
+	"files.info": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
+		var err error
+		if len(args) > 0 {
+			path := args[0].ToString().String()
+			if path, err = resolvePath(path); err == nil {
+				var fi os.FileInfo
+				if fi, err = os.Stat(path); err == nil {
+					return map[string]any{
+						"name":    fi.Name(),
+						"path":    filepath.Dir(path),
+						"size":    fi.Size(),
+						"isDir":   fi.IsDir(),
+						"modTime": fi.ModTime().Format(time.RFC3339),
+					}, nil
+				} else if os.IsNotExist(err) {
+					err = nil
+				}
+			}
+		}
+		return nil, err
+	},
+}
+var jsConstructors = map[string]string{
+	"newMetaRule": "MetaRule",
+	"newPattern":  "Pattern",
+	"newRule":     "Rule",
+}
+
+func (c *Core) registerJavascriptFunctions(rt *goja.Runtime, ah shortcuts.ActionHolder) {
+	objs := make(map[string]*goja.Object)
+	for name, fn := range jsFunctions {
+		if objName, mName, ok := strings.Cut(name, "."); ok {
+			obj, ok := objs[objName]
+			if !ok {
+				obj = rt.NewObject()
+				objs[objName] = obj
+			}
+			_ = obj.Set(mName, c.wrapJavascriptFunc(name, fn, rt, ah))
+		} else {
+			_ = rt.Set(name, c.wrapJavascriptFunc(name, fn, rt, ah))
+		}
+		if cName, ok := jsConstructors[name]; ok {
+			_ = rt.Set(cName, func(call goja.ConstructorCall) *goja.Object {
+				if !c.shortcutRunning {
+					rt.Interrupt(nil)
+					return nil
+				}
+				v, err := fn(c, rt, call.Arguments)
+				if err != nil {
+					c.shortcutErrorLogger.Error(err, &ah, jsCallInfo(rt, name)...)
+					if rt.Get("exceptions").ToBoolean() {
+						panic(rt.ToValue(err.Error()))
+					}
+				}
+				if v != nil {
+					return rt.ToValue(v).ToObject(rt)
+				}
+				return nil
+			})
+		}
+	}
+	for k, v := range objs {
+		_ = rt.Set(k, v)
+	}
+}
+
+func (c *Core) wrapJavascriptFunc(name string, fn func(*Core, *goja.Runtime, []goja.Value) (any, error), rt *goja.Runtime, ah shortcuts.ActionHolder) func(goja.FunctionCall) goja.Value {
+	return func(call goja.FunctionCall) goja.Value {
+		if !c.shortcutRunning {
+			rt.Interrupt(nil)
+			return nil
+		}
+		v, err := fn(c, rt, call.Arguments)
+		if err != nil {
+			c.shortcutErrorLogger.Error(err, &ah, jsCallInfo(rt, name)...)
+			if rt.Get("exceptions").ToBoolean() {
+				panic(rt.ToValue(err.Error()))
+			}
+		}
+		if v != nil {
+			return rt.ToValue(v)
+		}
 		return goja.Undefined()
-	})
-	_ = rt.Set("console", console)
+	}
 }
 
 func jsCallInfo(rt *goja.Runtime, fn string) []any {
@@ -1174,15 +1300,6 @@ func jsCallInfo(rt *goja.Runtime, fn string) []any {
 		return []any{"function", fn, "line", pos.Line, "column", pos.Column}
 	}
 	return nil
-}
-
-func jsCallArgs(call goja.FunctionCall) []any {
-	ca := call.Arguments
-	result := make([]any, len(ca))
-	for i, arg := range ca {
-		result[i] = arg.Export()
-	}
-	return result
 }
 
 type shortcutPrompt struct {
