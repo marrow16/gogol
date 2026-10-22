@@ -1116,7 +1116,7 @@ func (e *dirEntry) buildPreviewText() (layout.Widget, error) {
 			dims := layout.Dimensions{Size: gtx.Constraints.Max}
 			borders(gtx, dims, borderColor, true, true, true, true)
 			return material.List(theme, e.previewScrollV).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
-				return material.List(theme, e.previewScrollH).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+				return e.previewScrollH.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 					gtx.Constraints.Min = image.Point{}
 					gtx.Constraints.Max = image.Point{X: 1 << 30, Y: 1 << 30}
 					lbl := material.Label(theme, (theme.TextSize*4)/5, txt)

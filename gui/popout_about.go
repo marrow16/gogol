@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	gogolGuiVersion = "1.5.71"
+	gogolGuiVersion = "1.5.72"
 	gogolRepo       = "https://github.com/marrow16/gogol"
 )
 

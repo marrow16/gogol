@@ -568,7 +568,6 @@ var contentShortCutsJsRef = content{
 			{{codeCopyable(`ruleCollected([string|int|Rule])`)}, {
 				"Gets whether the supplied rule is a currently collected rule. If no arg is supplied, the current rule is used.",
 				"\nReturns: ", code(`bool`), " - whether the rule is a collected rule",
-				ruleObject,
 			}},
 			{{codeCopyable(`run()`)}, {"Runs simulation on the current grid.", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`runRecipe([string|object])`)}, {
@@ -608,26 +607,91 @@ var contentShortCutsJsRef = content{
 	}},
 	hanging{indent: 10, prefix: "• ", content: content{"Most arg values are coerced - for example: ", code(`sleep("10");`), " is equivalent to ", code(`sleep(10);`)}},
 	hanging{indent: 10, prefix: "• ", content: content{"Shortcuts executing javascript can still be interrupted by press key ", keys{"Esc"}, " - but the interruption only occurs at the next function call."}},
-
-	"\nA limited ", code(`console`), " object is also made available:",
-	table{
-		borders: true,
-		padding: 4,
-		columns: []tableColumn{
-			{
-				width:  40,
-				header: "Method",
+	expandable{padding: 4, border: true, spaceBefore: 8, title: content{bold("console")}, content: content{
+		"A limited ", code(`console`), " object is also made available - providing the following methods:",
+		table{
+			borders:    true,
+			padding:    4,
+			spaceAfter: 4,
+			columns: []tableColumn{
+				{
+					width:  50,
+					header: "Method",
+				},
+				{
+					header: "Description",
+				},
 			},
-			{
-				header: "Description",
+			rows: []tableRow{
+				{{codeCopyable(`console.log(...vals:any)`)}, {"Logs the ", italic(`vals`), " to ", code(`[user]/Documents/GoGoL/output.log`), "\nReturns: none (", code(`undefined`), ")"}},
+				{{codeCopyable(`console.error(...vals:any)`)}, {"Logs the ", italic(`vals`), " as an error to ", code(`[user]/Documents/GoGoL/errors.log`), "\nReturns: none (", code(`undefined`), ")"}},
+				{{codeCopyable(`console.warn(...vals:any)`)}, {"Logs the ", italic(`vals`), " as a warning to ", code(`[user]/Documents/GoGoL/errors.log`), "\nReturns: none (", code(`undefined`), ")"}},
 			},
 		},
-		rows: []tableRow{
-			{{codeCopyable(`console.log(...vals:any)`)}, {"Logs the ", italic(`vals`), " to ", code(`[user]/Documents/GoGoL/output.log`), "\nReturns: none (", code(`undefined`), ")"}},
-			{{codeCopyable(`console.error(...vals:any)`)}, {"Logs the ", italic(`vals`), " as an error to ", code(`[user]/Documents/GoGoL/errors.log`), "\nReturns: none (", code(`undefined`), ")"}},
-			{{codeCopyable(`console.warn(...vals:any)`)}, {"Logs the ", italic(`vals`), " as a warning to ", code(`[user]/Documents/GoGoL/errors.log`), "\nReturns: none (", code(`undefined`), ")"}},
+	}},
+	expandable{padding: 4, border: true, spaceBefore: 8, title: content{bold("files")}, content: content{
+		"The ", code(`files`), " object provides rudimentary file system access:",
+		table{
+			borders:    true,
+			padding:    4,
+			spaceAfter: 4,
+			columns: []tableColumn{
+				{
+					width:  50,
+					header: "Method",
+				},
+				{
+					header: "Description",
+				},
+			},
+			rows: []tableRow{
+				{{codeCopyable(`files.append(path:string, data:string)`)}, {
+					"Appends the string ", boldItalic("data"), " to the file specified by ", boldItalic("path"), ".",
+					"\nIf the file does not exist, it is created. All directories to the path are created.",
+					"\nReturns: ", code(`bool`), " - success (or ", code(`undefined`), " for error)",
+				}},
+				{{codeCopyable(`files.info(path:string)`)}, {
+					"Obtains info about a file/directory specified by ", boldItalic("path"), ".",
+					"\nReturns: ", code(`object`), "(or ", code(`undefined`), " if path does not exist)",
+					expandable{indent: 10, rightMargin: 10, border: true, title: "object properties", content: content{
+						hanging{indent: 10, gap: 8, prefix: content{code(".name:string")}, content: "the base file/directory name"},
+						hanging{indent: 10, gap: 8, prefix: content{code(".path:string")}, content: "the parent path"},
+						hanging{indent: 10, gap: 8, prefix: content{code(".size:int")}, content: "the file size"},
+						hanging{indent: 10, gap: 8, prefix: content{code(".isDir:bool")}, content: "whether a directory"},
+						hanging{indent: 10, gap: 8, prefix: content{code(".modTime:string")}, content: "datetime the file/directory was last modified"},
+					}},
+				}},
+				{{codeCopyable(`files.read(path:string)`)}, {
+					"Reads the contents of the file specified by ", boldItalic("path"), " as a string.",
+					"\nReturns: ", code(`string`), " - file contents (or ", code(`undefined`), " if path does not exist or error)",
+				}},
+				{{codeCopyable(`files.walk(path:string, cb:func [,bool])`)}, {
+					"Walks the directory specified by ", boldItalic("path"), ".",
+					"\nThe ", boldItalic("cb"), " arg is a callback function that receives an ", code(`object`), " arg as the directory entry information.",
+					expandable{spaceAfter: 4, indent: 10, rightMargin: 10, border: true, title: "object properties", content: content{
+						hanging{indent: 10, gap: 8, prefix: content{code(".name:string")}, content: "the base file/directory name"},
+						hanging{indent: 10, gap: 8, prefix: content{code(".path:string")}, content: "the parent path"},
+						hanging{indent: 10, gap: 8, prefix: content{code(".isDir:bool")}, content: "whether the entry is a directory"},
+					}},
+					"The callback function can optionally return a ", code(`bool`), " where ", code(`true`), " indicates:",
+					hanging{indent: 10, prefix: "• ", content: "on a directory entry - that directory is not to be walked down."},
+					hanging{spaceAfter: 8, indent: 10, prefix: "• ", content: "on a file entry - the entire walk is ceased."},
+					"The third, optional, ", code(`bool`), " arg specifies whether directory entries should reported (default is ", code(`true`), ").",
+					" Specifying ", code(`false`), " means directory entries are not reported and not walked down.",
+					"\nReturns: none (", code(`undefined`), ")",
+				}},
+				{{codeCopyable(`files.write(path:string, data:string)`)}, {
+					"Writes the string ", boldItalic("data"), " to the file specified by ", boldItalic("path"), ".",
+					"\nIf the file does not exist, it is created. All directories to the path are created.",
+					"\nIf the file currently exists, it is truncated prior to write.",
+					"\nReturns: ", code(`bool`), " - success (or ", code(`undefined`), " for error)",
+				}},
+			},
 		},
-	},
+		"Notes:",
+		hanging{indent: 20, prefix: "• ", content: content{"all ", code(`path:string`), " args are either an absolute path - or taken as a relative path from ", code(`[user]/Documents/GoGoL/`)}},
+		hanging{indent: 20, prefix: "• ", content: content{boldItalic("CAUTION"), italic(" access to the filesystem is unrestricted - write files with care!")}},
+	}},
 }
 
 var ruleObject = expandable{indent: 10, rightMargin: 10, border: true, title: "Rule object", content: content{

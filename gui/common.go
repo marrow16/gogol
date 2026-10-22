@@ -46,6 +46,21 @@ func saveFile(path string, allowOverwrite bool) (result *os.File, err error) {
 	return result, err
 }
 
+func resolvePath(path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return path, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", errors.New("Invalid user home directory")
+	}
+	dir := filepath.Join(home, "Documents", "GoGoL")
+	if err = os.MkdirAll(dir, 0o755); err != nil {
+		return "", errors.New("Invalid user home directory")
+	}
+	return filepath.Join(dir, path), nil
+}
+
 func resolveSavePath(path string) (string, error) {
 	if filepath.IsAbs(path) {
 		return path, nil
