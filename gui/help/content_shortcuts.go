@@ -557,6 +557,12 @@ var contentShortCutsJsRef = content{
 				hanging{indent: 8, prefix: "• ", content: content{"if no allowed responses are supplied, the user can input any length and the function returns when the user presses ", keys{keyEnter}, "."}},
 				"Returns: ", code(`string`), " - the user input",
 			}},
+			{{codeCopyable(`promptMenu(string[,string...])`)}, {
+				"Prompts the user to select from a menu. The prompt is displayed in the ", StatusBar.link("statusbar"), " and the function is blocking until the user selects a menu option.",
+				"\nThe first string arg is the label for the prompt.",
+				" Successive string args are the menu options (you must supply at least one option).",
+				"\nReturns: ", code(`int`), " - the menu option selected",
+			}},
 			{{codeCopyable(`randomAdditions([int])`)}, {"Applies random additions (alive cells) to the current grid. The optional arg is the randomization (0-100) - if omitted, the current randomization setting is used.", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`randomChanges([int])`)}, {"Applies random changes (noise) to the current grid. The optional arg is the randomization (0-100) - if omitted, the current randomization setting is used.", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`randomCull([int])`)}, {"Applies random cull to the current grid. The optional arg is the randomization (0-100) - if omitted, the current randomization setting is used.", "\nReturns: none (", code(`undefined`), ")"}},
