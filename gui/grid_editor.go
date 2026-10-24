@@ -351,24 +351,27 @@ func (e *editor) handleSpecialKeys(kev key.Event) {
 			pattern.Draw(e.g.grid, e.row, e.col, e.patternRotation)
 		}
 	case "F":
-		//fill
-		if pattern := e.markedPattern(); pattern != nil {
-			e.endMarking(false)
-			sr := min(e.row, e.markStartRow)
-			sc := min(e.col, e.markStartCol)
-			e.addPatternUndo(*pattern, sr, sc, patterns.Rotate0)
-			np := patterns.Pattern{
-				Width:  pattern.Width,
-				Height: pattern.Height,
-				Cells:  slices.Clone(pattern.Cells),
+		// fill/clear
+		e.markingFillClear(kev.Modifiers&key.ModShift == 0)
+		/*
+			if pattern := e.markedPattern(); pattern != nil {
+				e.endMarking(false)
+				sr := min(e.row, e.markStartRow)
+				sc := min(e.col, e.markStartCol)
+				e.addPatternUndo(*pattern, sr, sc, patterns.Rotate0)
+				np := patterns.Pattern{
+					Width:  pattern.Width,
+					Height: pattern.Height,
+					Cells:  slices.Clone(pattern.Cells),
+				}
+				fill := kev.Modifiers&key.ModShift == 0
+				for i := 0; i < len(np.Cells); i++ {
+					np.Cells[i] = fill
+				}
+				e.clearMarking()
+				np.Draw(e.g.grid, sr, sc, patterns.Rotate0)
 			}
-			fill := kev.Modifiers&key.ModShift == 0
-			for i := 0; i < len(np.Cells); i++ {
-				np.Cells[i] = fill
-			}
-			e.clearMarking()
-			np.Draw(e.g.grid, sr, sc, patterns.Rotate0)
-		}
+		*/
 	case "Z":
 		e.endMarking(false)
 		e.doUndo()
@@ -407,6 +410,25 @@ func (e *editor) handleSpecialKeys(kev key.Event) {
 	}
 }
 
+func (e *editor) markingFillClear(fill bool) {
+	if pattern := e.markedPattern(); pattern != nil {
+		e.endMarking(false)
+		sr := min(e.row, e.markStartRow)
+		sc := min(e.col, e.markStartCol)
+		e.addPatternUndo(*pattern, sr, sc, patterns.Rotate0)
+		np := patterns.Pattern{
+			Width:  pattern.Width,
+			Height: pattern.Height,
+			Cells:  slices.Clone(pattern.Cells),
+		}
+		for i := 0; i < len(np.Cells); i++ {
+			np.Cells[i] = fill
+		}
+		e.clearMarking()
+		np.Draw(e.g.grid, sr, sc, patterns.Rotate0)
+	}
+}
+
 func (e *editor) doUndo() {
 	if len(e.undos) > 0 {
 		u := e.undos[len(e.undos)-1]
@@ -439,7 +461,7 @@ func (e *editor) groupedKeyUndos(u undo) undo {
 	return u
 }
 
-func (e *editor) setPosition(row, col int) {
+func (e *editor) setPosition(row, col int, clearMarking bool) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 	if row >= 0 && row < e.g.grid.Height() && col >= 0 && col < e.g.grid.Width() && row != e.row && col != e.col {
@@ -447,7 +469,7 @@ func (e *editor) setPosition(row, col int) {
 		e.wasUnder = append(e.wasUnder, [2]int{e.row, e.col})
 		e.row, e.col = row, col
 		e.dirty = true
-		if e.marking {
+		if e.marking && clearMarking {
 			e.markingDirty = true
 			e.marking = false
 		}

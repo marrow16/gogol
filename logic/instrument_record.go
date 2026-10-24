@@ -48,7 +48,29 @@ func (r *RecordInstrument) InitialGrid() [][]bool {
 	return result
 }
 
-func (r *RecordInstrument) StepChangeLocations() iter.Seq[[][2]int] {
+func (r *RecordInstrument) ChangeLocations(offset, count int) [][][2]int {
+	offset = max(0, offset)
+	if count < 0 {
+		count = len(r.frames) - offset
+	}
+	result := make([][][2]int, 0)
+	if offset < len(r.frames) {
+		for i := offset; i < len(r.frames) && i < offset+count; i++ {
+			f := r.frames[i]
+			locations := make([][2]int, len(f.locations))
+			for i, idx := range f.locations {
+				locations[i] = [2]int{
+					idx / r.grid.width,
+					idx % r.grid.width,
+				}
+			}
+			result = append(result, locations)
+		}
+	}
+	return result
+}
+
+func (r *RecordInstrument) IterateChangeLocations() iter.Seq[[][2]int] {
 	return func(yield func([][2]int) bool) {
 		for _, f := range r.frames {
 			locations := make([][2]int, len(f.locations))

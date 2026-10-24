@@ -345,7 +345,7 @@ func (p *instrumentationPopout) saveAnimation() {
 	recorder := p.core.instrumentRecord
 	go func() {
 		ani := animator.NewAnimator(p.core.settings.CellSize, p.core.settings.CellAliveColor, p.core.settings.CellDeadColor, p.core.settings.CellBorderColor, p.core.settings.CellBorders, p.core.settings.AnimationFormat)
-		err := ani.Animate(filename, recorder)
+		err := ani.Animate(filename, recorder, 0, 0)
 		p.animationSaving = false
 		p.animationResult = &animationResult{
 			filename: filename,

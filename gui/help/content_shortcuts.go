@@ -440,7 +440,11 @@ var contentShortCutsJsRef = content{
 			{{codeCopyable(`animationFormat([string])`)}, {"Gets, and optionally sets, the current animation format.",
 				italic("\nNote: "), code(`mp4`), italic(" option is only available when "), code("ffmpeg"), italic(" is installed."), " [see ", url("https://ffmpeg.org/"), "]",
 				"\nReturns: ", code(`string`), " - current animation format (", code(`gif`), "|", code(`mp4`), ")"}},
-			{{codeCopyable(`animationSave([string])`)}, {"Saves the current recording as an animation ", italic("(only works when recording is on)"), ". The arg is the filename - if omitted, a filename is generated.", "\nReturns: none (", code(`undefined`), ")"}},
+			{{codeCopyable(`animationSave([string[,int[,int]]])`)}, {
+				"Saves the current recording as an animation ", italic("(only works when recording is on)"), ". The first arg is the filename - if omitted, a filename is generated.",
+				"\nThe second, optional, arg is the number of start frames to skip. The third, optional, arg is the maximum number of frames to save.",
+				"\nReturns: none (", code(`undefined`), ")",
+			}},
 			{{codeCopyable(`borders([bool])`)}, {"Gets, and optionally sets, whether cell borders are displayed.", "\nReturns: ", code(`bool`)}},
 			{{codeCopyable(`boundaryMode([string])`)}, {"Gets, and optionally sets, the current grid boundary mode.", "\nReturns: ", code(`string`), " - current boundary mode (", code(`alive`), "|", code(`dead`), ")"}},
 			{{codeCopyable(`cell(x:int,y:int[,bool])`)}, {
@@ -475,7 +479,21 @@ var contentShortCutsJsRef = content{
 			{{codeCopyable(`heatMapColors([string...])`)}, {
 				"Sets the colors used for heat map images.",
 				"\nEach arg is a color in the format ", code(`"#rrggbb"`), ". The args must contain at least two valid colors - anything else resets heat map colors to defaults.",
+				"\nWhen drawing heat map images, the heat map colors are used as gradient points.",
 				"\nReturns: ", code(`array[string]`), " - current heat map colors (empty array indicates default colors)",
+				expandable{indent: 10, rightMargin: 10, padding: 4, border: true, title: "Default colors", content: content{
+					"The default colors are:",
+					codeBlock{code: `[
+	"#0f18b4", // deep blue
+	"#1e5aff", // blue
+	"#3cc8ff", // cyan
+	"#f5f5eb", // near white
+	"#ffdc50", // yellow
+	"#ff8c14", // orange
+	"#dc280a", // red
+	"#6e0000", // dark red
+]`},
+				}},
 			}},
 			{{codeCopyable(`heatMapReveal([string])`)}, {
 				"Reveals the current heat map in the UI.",
@@ -546,7 +564,10 @@ var contentShortCutsJsRef = content{
 			{{codeCopyable(`randomize([int])`)}, {"Randomizes the current grid. The optional arg is the randomization (0-100) - if omitted, the current randomization setting is used.", "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`randomizePopulation([int])`)}, {"Randomize the population of the current grid. The optional arg is the randomization (0-100) - if omitted, the current randomization setting is used.\n", italic("Note: This differs from "), code(`randomize()`), italic(" because that randomizes each cell in isolation - therefore it is not at all guaranteed that the final grid will have the specified % density. This function ensures that the overall grid density matches the specified randomization setting."), "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`record([bool])`)}, {"Gets, and optionally sets, whether the record instrument is on.", "\nReturns: ", code(`bool`)}},
-			//{{codeCopyable(`recordInstrument()`)}, {}},
+			{{codeCopyable(`recordInstrument()`)}, {
+				"Returns the ", code(`RecordInstrument`), " (or ", code(`undefined`), " if not enabled)",
+				recordInstrumentObject,
+			}},
 			{{codeCopyable(`removeCollectedRule([string|int|Rule])`)}, {"Removes a rule from the currently ", CollectedRules.link("collected rules"), ".",
 				" If no arg is supplied, the current rule is removed.",
 				"\nReturns: none (", code(`undefined`), ")"}},
@@ -559,6 +580,10 @@ var contentShortCutsJsRef = content{
 					hanging{indent: 10, gap: 8, prefix: content{code(".Period:int")}, content: "the repeat period"},
 					hanging{indent: 10, gap: 8, prefix: content{code(".RepeatStep:int")}, content: "the step at which repeated"},
 				}},
+			}},
+			{{codeCopyable(`repeatInstrument()`)}, {
+				"Returns the ", code(`RepeatInstrument`), " (or ", code(`undefined`), " if not enabled)",
+				repeatInstrumentObject,
 			}},
 			{{codeCopyable(`replaySnapshot()`)}, {"Replays a snapshot. Resets the grid to the last snapshot (without removing the snapshot from the stack)\n", italic("Note: If there is no current snapshot - the grid is randomized and a snapshot added"), "\nReturns: none (", code(`undefined`), ")"}},
 			{{codeCopyable(`rule([string|int|Rule])`)}, {"Gets, and optionally sets, the currently active rule.",
@@ -696,41 +721,62 @@ var contentShortCutsJsRef = content{
 
 var ruleObject = expandable{indent: 10, rightMargin: 10, border: true, title: "Rule object", content: content{
 	"provides the following methods:",
-	hanging{indent: 10, prefix: content{code(".BornWith():string")}},
-	hanging{indent: 10, prefix: content{code(".IsCustom():bool")}},
-	hanging{indent: 10, prefix: content{code(".Name():string")}},
-	hanging{indent: 10, prefix: content{code(".Permutation():int")}},
-	hanging{indent: 10, prefix: content{code(".Rle():string")}},
-	hanging{indent: 10, prefix: content{code(".SurvivesWith():string")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".BornWith():string")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".IsCustom():bool")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Name():string")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Permutation():int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Rle():string")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".SurvivesWith():string")}},
 }}
 
 var patternObject = expandable{indent: 10, rightMargin: 10, border: true, title: "Pattern object", content: content{
 	"provides the following (read-only) properties:",
-	hanging{indent: 10, prefix: content{code(".Cells:array[bool]")}},
-	hanging{indent: 10, prefix: content{code(".Comments:array[string]")}},
-	hanging{indent: 10, prefix: content{code(".Filename:string")}},
-	hanging{indent: 10, prefix: content{code(".Height:int")}},
-	hanging{indent: 10, prefix: content{code(".Name:string")}},
-	hanging{indent: 10, prefix: content{code(".Origination:string")}},
-	hanging{indent: 10, prefix: content{code(".Rule:Rule")}},
-	hanging{indent: 10, prefix: content{code(".Width:int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Cells:array[bool]")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Comments:array[string]")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Filename:string")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Height:int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Name:string")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Origination:string")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Rule:Rule")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Width:int")}},
 	"and the following methods:",
-	hanging{indent: 10, prefix: content{code(".Reflected():Pattern")}},
-	hanging{indent: 10, prefix: content{code(".Rle():string")}},
-	hanging{indent: 10, prefix: content{code(".Rotated(r:int):Pattern")}},
-	hanging{indent: 10, prefix: content{code(".ShiftedDown():Pattern")}},
-	hanging{indent: 10, prefix: content{code(".ShiftedLeft():Pattern")}},
-	hanging{indent: 10, prefix: content{code(".ShiftedRight():Pattern")}},
-	hanging{indent: 10, prefix: content{code(".ShiftedUp():Pattern")}},
-	hanging{indent: 10, prefix: content{code(".Trimmed():Pattern")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Reflected():Pattern")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Rle():string")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Rotated(r:int):Pattern")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".ShiftedDown():Pattern")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".ShiftedLeft():Pattern")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".ShiftedRight():Pattern")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".ShiftedUp():Pattern")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Trimmed():Pattern")}},
 }}
 
 var metaRuleObject = expandable{indent: 10, rightMargin: 10, border: true, title: "MetaRule object", content: content{
 	"provides the following methods:",
-	hanging{indent: 10, prefix: content{code(".List():array[Rule]")}},
-	hanging{indent: 10, prefix: content{code(".Matches(perm:int):bool")}},
-	hanging{indent: 10, prefix: content{code(".MatchesRule(Rule):bool")}},
-	hanging{indent: 10, prefix: content{code(".Next(perm:int):int")}},
-	hanging{indent: 10, prefix: content{code(".Previous(perm:int):int")}},
-	hanging{indent: 10, prefix: content{code(".String():string")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".List():array[Rule]")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Matches(perm:int):bool")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".MatchesRule(Rule):bool")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Next(perm:int):int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Previous(perm:int):int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".String():string")}},
+}}
+
+var recordInstrumentObject = expandable{indent: 10, rightMargin: 10, border: true, title: "RecordInstrument object", content: content{
+	"provides the following methods:",
+	hanging{indent: 10, prefix: content{codeCopyable(".ChangeLocations(offset:int,count:int):[][][2]int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".FramesCount():int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".InitialGrid():[][]bool")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Reset()")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Undo()")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Undos(n:int)")}},
+}}
+
+var repeatInstrumentObject = expandable{indent: 10, rightMargin: 10, border: true, title: "RepeatInstrument object", content: content{
+	"provides the following methods:",
+	hanging{indent: 10, prefix: content{codeCopyable(".Examined():int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".FirstStep():int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Found():bool")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Period():int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".RepeatStep():int")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Reset()")}},
+	hanging{indent: 10, prefix: content{codeCopyable(".Step():int")}},
 }}

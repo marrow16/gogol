@@ -13,4 +13,6 @@ var (
 	selectedFocusedColor = color.NRGBA{R: 102, G: 128, B: 230, A: 160}
 	linkColor            = color.NRGBA{R: 102, G: 128, B: 230, A: 255}
 	errorColor           = color.NRGBA{R: 200, G: 0, B: 0, A: 255}
+	white                = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	button               = color.NRGBA{R: 102, G: 128, B: 230, A: 255}
 )

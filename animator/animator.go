@@ -44,9 +44,11 @@ type Animator struct {
 	animationFormat string // "gif" or "mp4" - defaults to "gif"
 }
 
-func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument) (err error) {
+func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument, skipStart int, maxFrames int) (err error) {
+	skipStart = max(skipStart, 0)
+	maxFrames = max(maxFrames, 0)
 	if a.animationFormat != "mp4" {
-		return a.animateGif(filename, recorder)
+		return a.animateGif(filename, recorder, skipStart, maxFrames)
 	}
 	if !Mp4Available() {
 		return errors.New("mp4 (ffmpeg) not available")
@@ -89,8 +91,14 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument) (e
 		return errors.New("Failed to start ffmpeg")
 	}
 	// draw the initial frame (staring grid)
-	if err = png.Encode(ffmpegStdin, img); err != nil {
-		return errors.New("Failed to write start frame")
+	count := 0
+	frame := 0
+	if skipStart == 0 {
+		count++
+		frame++
+		if err = png.Encode(ffmpegStdin, img); err != nil {
+			return errors.New("Failed to write start frame")
+		}
 	}
 	// iterate over the step changes from recorder...
 	offset := 0
@@ -99,7 +107,10 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument) (e
 	}
 	cellWidth := a.cellSize - offset
 	stride := img.Stride
-	for changes := range recorder.StepChangeLocations() {
+	for changes := range recorder.IterateChangeLocations() {
+		if maxFrames > 0 && count >= maxFrames {
+			break
+		}
 		pix := img.Pix
 		for _, change := range changes {
 			row, col := change[0], change[1]
@@ -127,9 +138,13 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument) (e
 				line += stride
 			}
 		}
-		if err = png.Encode(ffmpegStdin, img); err != nil {
-			return errors.New("Failed to encode frame")
+		if frame >= skipStart {
+			if err = png.Encode(ffmpegStdin, img); err != nil {
+				return errors.New("Failed to encode frame")
+			}
+			count++
 		}
+		frame++
 	}
 	if err = ffmpegStdin.Close(); err != nil {
 		return errors.New("Failed to close ffmpeg pipe")
@@ -141,7 +156,7 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument) (e
 	return nil
 }
 
-func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument) error {
+func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument, skipStart int, maxFrames int) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -157,7 +172,6 @@ func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument)
 		DeadColor:   a.dead,
 		BorderColor: a.border,
 	})
-
 	anim := &gifEncoder{
 		w:         f,
 		width:     img.Bounds().Dx(),
@@ -167,6 +181,14 @@ func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument)
 		delay:     7,
 	}
 	anim.writeHeader()
+	count := 0
+	frame := 0
+	if skipStart == 0 {
+		// write initial grid as first frame...
+		anim.writeImageBlock(img)
+		count++
+		frame++
+	}
 	// iterate over the step changes from recorder...
 	offset := 0
 	if a.borders && a.cellSize > 2 {
@@ -174,7 +196,10 @@ func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument)
 	}
 	stride := img.Stride
 	cellWidth := a.cellSize - offset
-	for changes := range recorder.StepChangeLocations() {
+	for changes := range recorder.IterateChangeLocations() {
+		if anim.err != nil || (maxFrames > 0 && count >= maxFrames) {
+			break
+		}
 		pix := img.Pix
 		for _, change := range changes {
 			row, col := change[0], change[1]
@@ -196,7 +221,11 @@ func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument)
 				line += stride
 			}
 		}
-		anim.writeImageBlock(img)
+		if frame >= skipStart {
+			anim.writeImageBlock(img)
+			count++
+		}
+		frame++
 	}
 	return anim.end()
 }
