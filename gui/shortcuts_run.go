@@ -87,6 +87,7 @@ func (c *Core) runShortcut(name string) bool {
 		return false
 	}
 	c.statusBar.showHidePopup(popupNone)
+	c.mode = noMode
 	c.startShortcuts(name)
 	shortcut, errs := shortcuts.ParseShortcut(name, lines)
 	window.Invalidate()

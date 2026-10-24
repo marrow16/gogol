@@ -242,8 +242,8 @@ func (sb *statusBar) showHidePopup(p popup) {
 }
 
 func (sb *statusBar) showPopups(gtx layout.Context) {
-	switch sb.showingPopup {
-	case popupRule:
+	switch {
+	case sb.showingPopup == popupRule:
 		x := sb.stepDims.Size.X + gtx.Dp(unit.Dp(6)) + 3
 		pgtx := gtx
 		pgtx.Constraints = layout.Constraints{Max: image.Point{X: sb.ruleDims.Size.X - gtx.Dp(unit.Dp(12)) - 3, Y: sb.top}}
@@ -253,7 +253,7 @@ func (sb *statusBar) showPopups(gtx layout.Context) {
 		stack := op.Offset(image.Point{X: x, Y: sb.top - dims.Size.Y}).Push(gtx.Ops)
 		call.Add(gtx.Ops)
 		stack.Pop()
-	case popupMenu:
+	case sb.showingPopup == popupMenu:
 		pgtx := gtx
 		pgtx.Constraints = layout.Constraints{Max: image.Point{X: sb.right, Y: sb.top}}
 		macro := op.Record(gtx.Ops)
@@ -261,6 +261,15 @@ func (sb *statusBar) showPopups(gtx layout.Context) {
 		x := sb.right - dims.Size.X
 		call := macro.Stop()
 		stack := op.Offset(image.Point{X: x, Y: sb.top - dims.Size.Y}).Push(gtx.Ops)
+		call.Add(gtx.Ops)
+		stack.Pop()
+	case sb.core.shortcutRunning && sb.core.shortcutPromptMenu != nil:
+		pgtx := gtx
+		pgtx.Constraints = layout.Constraints{Max: image.Point{X: sb.stepDims.Size.X - 16, Y: sb.top}}
+		macro := op.Record(gtx.Ops)
+		dims := sb.core.shortcutPromptMenu.Layout(pgtx)
+		call := macro.Stop()
+		stack := op.Offset(image.Point{X: 12, Y: sb.top - dims.Size.Y}).Push(gtx.Ops)
 		call.Add(gtx.Ops)
 		stack.Pop()
 	}
@@ -306,9 +315,12 @@ func (sb *statusBar) leftArea(gtx layout.Context) layout.FlexChild {
 		case sb.core.isShortcutsRunning():
 			if sb.core.shortcutPrompt != nil {
 				return sb.inset(gtx, sb.core.shortcutPrompt.Layout)
+			} else if sb.core.shortcutPromptMenu != nil {
+				sb.stepDims = sb.insetLabel(gtx, sb.core.shortcutPromptMenu.prompt, text.Start)
+			} else {
+				st := sb.core.getShortcutsStatus()
+				sb.stepDims = sb.insetLabel(gtx, "Running Shortcut"+st, text.Start)
 			}
-			st := sb.core.getShortcutsStatus()
-			sb.stepDims = sb.insetLabel(gtx, "Running Shortcut"+st, text.Start)
 		case sb.core.mode == editMode:
 			return sb.inset(gtx, flexHorizontal(8,
 				rigid(sb.btnModeCancel.Layout),
