@@ -148,13 +148,14 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 				}
 				if g.editor.active && evt.Buttons == pointer.ButtonPrimary {
 					if r, c, ok := g.mouseToGrid(evt.Position); ok {
-						g.editor.setPosition(r, c)
+						g.editor.setPosition(r, c, true)
 					}
 				}
 			case pointer.Drag:
 				if g.editor.active {
 					if r, c, ok := g.mouseToGrid(evt.Position); ok {
 						g.editor.markArea(r, c)
+						g.editor.setPosition(r, c, false)
 					}
 				}
 			case pointer.Release, pointer.Cancel:
@@ -291,9 +292,10 @@ func (g *gridHolder) imageOp() paint.ImageOp {
 			col:     o.col,
 		}
 		// draw overlay...
+		maxR, maxC := g.grid.Height(), g.grid.Width()
 		aliveColor, deadColor := placementColors(g.core.settings.CellAliveColor, g.core.settings.CellDeadColor)
 		o.pattern.DrawTo(o.rotation, func(row, col int, alive bool) {
-			if !o.interlaced || (o.interlaced && alive) {
+			if !o.interlaced || (o.interlaced && alive) && row+o.row < maxR && col+o.col < maxC {
 				g.renderCellWithColors(row+o.row, col+o.col, alive, aliveColor, deadColor)
 			}
 		})

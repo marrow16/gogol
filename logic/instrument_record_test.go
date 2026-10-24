@@ -30,10 +30,21 @@ func TestRecordInstrument_Step(t *testing.T) {
 	}
 	assert.Equal(t, 30, i.FramesCount())
 
+	changes := i.ChangeLocations(0, -1)
+	assert.Equal(t, 30, len(changes))
+	changes = i.ChangeLocations(20, -1)
+	assert.Equal(t, 10, len(changes))
+	changes = i.ChangeLocations(20, 20)
+	assert.Equal(t, 10, len(changes))
+	changes = i.ChangeLocations(100, -1)
+	assert.Equal(t, 0, len(changes))
+	changes = i.ChangeLocations(100, 100)
+	assert.Equal(t, 0, len(changes))
+
 	i.Undos(29)
 	assert.Equal(t, 1, i.FramesCount())
 	locs := 0
-	for cl := range i.StepChangeLocations() {
+	for cl := range i.IterateChangeLocations() {
 		locs++
 		assert.Equal(t, [][2]int{{0, 1}, {0, 2}, {1, 0}, {1, 3}}, cl)
 		break
@@ -74,7 +85,7 @@ func TestRecordInstrument_StepAhead(t *testing.T) {
 	i.Undos(29)
 	assert.Equal(t, 1, i.FramesCount())
 	locs := 0
-	for cl := range i.StepChangeLocations() {
+	for cl := range i.IterateChangeLocations() {
 		locs++
 		assert.Equal(t, [][2]int{{0, 1}, {0, 2}, {1, 0}, {1, 3}}, cl)
 		break

@@ -245,7 +245,11 @@ func (p *patternsPopout) buildPatternsFilter() *patternFilter {
 }
 
 func (p *patternsPopout) currentPattern() (patt *patterns.Pattern, interlaced bool) {
-	return p.chooser.CurrentItem(), p.chkInterlaced.Checked()
+	curr := p.chooser.Text()
+	if ptn, found := patterns.Library.Get(curr); found {
+		return &ptn, p.chkInterlaced.Checked()
+	}
+	return nil, false
 }
 
 func (p *patternsPopout) layout(gtx layout.Context) layout.Dimensions {

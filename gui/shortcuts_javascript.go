@@ -299,7 +299,10 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 		return c.instrumentRecord != nil, nil
 	},
 	"recordInstrument": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
-		return c.instrumentRecord, nil
+		if c.instrumentRecord != nil {
+			return &RecordInstrumentWrapper{core: c}, nil
+		}
+		return nil, nil
 	},
 	"animationFormat": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 0 {
@@ -316,10 +319,18 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 		var err error
 		c.stop()
 		recorder := c.instrumentRecord
+		skipStart := 0
+		maxFrames := 0
 		if recorder != nil && recorder.FramesCount() > 1 {
 			var filename string
 			if len(args) > 0 {
 				filename, err = resolveSavePath(args[0].ToString().String())
+				if len(args) > 1 {
+					skipStart = int(args[1].ToInteger())
+					if len(args) > 2 {
+						maxFrames = int(args[2].ToInteger())
+					}
+				}
 			} else if c.settings.AnimationFormat != "mp4" {
 				filename, err = resolveSavePath(c.nowFilename("Grid", ".gif"))
 			} else {
@@ -327,7 +338,7 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 			}
 			if err == nil {
 				ani := animator.NewAnimator(c.settings.CellSize, c.settings.CellAliveColor, c.settings.CellDeadColor, c.settings.CellBorderColor, c.settings.CellBorders, c.settings.AnimationFormat)
-				err = ani.Animate(filename, recorder)
+				err = ani.Animate(filename, recorder, skipStart, maxFrames)
 				if err != nil {
 					err = fmt.Errorf("animation save failed: %w", err)
 				}
@@ -427,6 +438,12 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 			}
 			c.gridHolder.buildHeatMap(hm)
 			c.mode = heatMapMode
+		}
+		return nil, nil
+	},
+	"repeatInstrument": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
+		if c.instrumentRepeat != nil {
+			return RepeatInstrumentWrapper{core: c}, nil
 		}
 		return nil, nil
 	},
@@ -1346,7 +1363,7 @@ func (p *shortcutPrompt) wait() (string, bool) {
 	}
 }
 
-func (p *shortcutPrompt) layout(gtx layout.Context) layout.Dimensions {
+func (p *shortcutPrompt) Layout(gtx layout.Context) layout.Dimensions {
 	if !gtx.Focused(&p.input) {
 		gtx.Execute(key.FocusCmd{Tag: &p.input})
 	}
@@ -1387,4 +1404,99 @@ func (p *shortcutPrompt) layout(gtx layout.Context) layout.Dimensions {
 			return p.style.Layout(gtx)
 		}),
 	)(gtx)
+}
+
+type RecordInstrumentWrapper struct {
+	core *Core
+}
+
+func (r *RecordInstrumentWrapper) FramesCount() int {
+	if r.core.instrumentRecord != nil {
+		return r.core.instrumentRecord.FramesCount()
+	}
+	return -1
+}
+
+func (r *RecordInstrumentWrapper) InitialGrid() [][]bool {
+	if r.core.instrumentRecord != nil {
+		return r.core.instrumentRecord.InitialGrid()
+	}
+	return nil
+}
+
+func (r *RecordInstrumentWrapper) ChangeLocations(offset int, count int) [][][2]int {
+	if r.core.instrumentRecord != nil {
+		return r.core.instrumentRecord.ChangeLocations(offset, count)
+	}
+	return nil
+}
+
+func (r *RecordInstrumentWrapper) Undo() {
+	if r.core.instrumentRecord != nil {
+		r.core.instrumentRecord.Undo()
+		r.core.gridHolder.grid.Draw()
+		window.Invalidate()
+	}
+}
+
+func (r *RecordInstrumentWrapper) Undos(n int) {
+	if r.core.instrumentRecord != nil {
+		r.core.instrumentRecord.Undos(n)
+		r.core.gridHolder.grid.Draw()
+		window.Invalidate()
+	}
+}
+
+func (r *RecordInstrumentWrapper) Reset() {
+	r.core.setInstrumentationRecord(true)
+}
+
+type RepeatInstrumentWrapper struct {
+	core *Core
+}
+
+func (r *RepeatInstrumentWrapper) Examined() uint64 {
+	if r.core.instrumentRepeat != nil {
+		return r.core.instrumentRepeat.Steps
+	}
+	return 0
+}
+
+func (r *RepeatInstrumentWrapper) Step() uint64 {
+	if r.core.instrumentRepeat != nil {
+		return r.core.instrumentRepeat.Step
+	}
+	return 0
+}
+
+func (r *RepeatInstrumentWrapper) FirstStep() uint64 {
+	if r.core.instrumentRepeat != nil {
+		return r.core.instrumentRepeat.FirstStep
+	}
+	return 0
+}
+
+func (r *RepeatInstrumentWrapper) RepeatStep() uint64 {
+	if r.core.instrumentRepeat != nil {
+		return r.core.instrumentRepeat.RepeatStep
+	}
+	return 0
+}
+
+func (r *RepeatInstrumentWrapper) Period() uint64 {
+	if r.core.instrumentRepeat != nil {
+		return r.core.instrumentRepeat.Period
+	}
+	return 0
+}
+
+func (r *RepeatInstrumentWrapper) Found() bool {
+	if r.core.instrumentRepeat != nil {
+		return r.core.instrumentRepeat.Found
+	}
+	return false
+}
+
+func (r *RepeatInstrumentWrapper) Reset() {
+	r.core.setInstrumentationRepeat(true)
 }

@@ -10,7 +10,10 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/marrow16/gogol/gui/controls"
 	"github.com/marrow16/gogol/gui/icons"
+	"github.com/marrow16/gogol/logic"
+	"github.com/marrow16/gogol/patterns"
 	"image"
 	"image/color"
 	"strconv"
@@ -19,8 +22,15 @@ import (
 
 func newStatusBar(c *Core) *statusBar {
 	sb := &statusBar{
-		core:   c,
-		height: 30,
+		core:          c,
+		height:        30,
+		btnRotate:     controls.NewFlatButton(theme, "Rotate "+patterns.Rotate0.String()).Margin(layout.Inset{Top: 2, Bottom: 1}),
+		btnInterlace:  controls.NewFlatButton(theme, "Overlay").Margin(layout.Inset{Top: 2, Bottom: 1}),
+		btnModeCancel: controls.NewIconButton(icons.Close, -2),
+		btnCapture:    controls.NewFlatButton(theme, "Capture").Margin(layout.Inset{Top: 2, Bottom: 1}).Colors(white, &button),
+		btnFill:       controls.NewFlatButton(theme, "Fill").Margin(layout.Inset{Top: 2, Bottom: 1}),
+		btnClear:      controls.NewFlatButton(theme, "Clear").Margin(layout.Inset{Top: 2, Bottom: 1}),
+		btnPlace:      controls.NewFlatButton(theme, "Place").Margin(layout.Inset{Top: 2, Bottom: 1}).Colors(white, &button),
 	}
 	sb.buttonsStepping = []layout.FlexChild{
 		layout.Rigid(newStatusBarButton(sb.play, icons.Play).alt(
@@ -77,13 +87,20 @@ type statusBar struct {
 	showingPopup    popup
 	top             int
 	right           int
-	ruleClickable   widget.Clickable
+	middleClickable widget.Clickable
 	ruleDims        layout.Dimensions
 	stepDims        layout.Dimensions
 	buttonsStepping []layout.FlexChild
 	buttonsRight    []layout.FlexChild
 	buttonsRecord   []layout.FlexChild
 	buttonsExtra    []layout.FlexChild
+	btnRotate       *controls.FlatButton
+	btnInterlace    *controls.FlatButton
+	btnModeCancel   *controls.IconButton
+	btnCapture      *controls.FlatButton
+	btnClear        *controls.FlatButton
+	btnFill         *controls.FlatButton
+	btnPlace        *controls.FlatButton
 }
 
 func (sb *statusBar) play() {
@@ -269,102 +286,243 @@ func (sb *statusBar) layout(gtx layout.Context, windowRect clip.Rect) layout.Dim
 		Axis:      layout.Horizontal,
 		Alignment: layout.Middle,
 	}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			switch {
-			case sb.core.isShortcutsRunning():
-				if sb.core.shortcutPrompt != nil {
-					return sb.layoutShortcutPrompt(gtx)
-				}
-				st := sb.core.getShortcutsStatus()
-				sb.stepDims = sb.label(gtx, "Running Shortcut"+st, text.Start)
-			case sb.core.mode != noMode:
-				sb.stepDims = sb.label(gtx, sb.core.modeDisplay(), text.Start)
-			case sb.core.status != "":
-				sb.stepDims = sb.label(gtx, sb.core.status, text.Start)
-			default:
-				var repeat string
-				if sb.core.instrumentRepeat != nil && sb.core.instrumentRepeat.Found {
-					repeat = " [Repeat found]"
-				}
-				perc := (float64(sb.core.changes.Load()) / float64(sb.core.gridHolder.grid.Width()*sb.core.gridHolder.grid.Height())) * 100.0
-				if hz := sb.core.hertz.Load(); hz > 0 {
-					if hz > 1000 {
-						khz := float64(hz) / 1000.0
-						sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"% "+strconv.FormatFloat(khz, 'f', 2, 64)+"kHz)"+repeat, text.Start)
-					} else {
-						sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"% "+strconv.FormatUint(hz, 10)+"Hz)"+repeat, text.Start)
-					}
-				} else {
-					sb.stepDims = sb.label(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"%)"+repeat, text.Start)
-				}
-			}
-			return sb.stepDims
-		}),
-		layout.Flexed(2, func(gtx layout.Context) layout.Dimensions {
-			for sb.ruleClickable.Clicked(gtx) {
-				sb.showHidePopup(popupRule)
-			}
-			return sb.ruleClickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				sb.ruleDims = sb.label(gtx, "Rule: "+sb.core.gridHolder.grid.Rule().Name(), text.Middle)
-				return sb.ruleDims
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{
-					Axis:      layout.Horizontal,
-					Alignment: layout.End,
-					Gap:       3,
-				}.Layout(gtx, sb.buttons()...)
-			})
-		}),
+		sb.leftArea(gtx),
+		sb.middleArea(gtx),
+		sb.rightArea(),
 	)
 	return layout.Dimensions{Size: size}
 }
 
-func (sb *statusBar) buttons() []layout.FlexChild {
-	result := make([]layout.FlexChild, 0, 14)
-	for i, f := range sb.buttonsExtra {
-		btn := string(rune('A' + i))
-		if btn == "G" {
-			btn = "+"
+func (sb *statusBar) leftArea(gtx layout.Context) layout.FlexChild {
+	wt := float32(1.0)
+	if sb.core.mode != noMode {
+		wt = 0.5
+		if sb.btnModeCancel.Clicked(gtx) {
+			sb.core.clearMode()
 		}
-		if btn == "H" {
-			btn = "-"
-		}
-		if scn, ok := sb.core.settings.ExtraButtons[btn]; ok {
-			if _, ok = sb.core.settings.Shortcuts[scn]; ok {
-				result = append(result, f)
+	}
+	return flexed(func(gtx layout.Context) layout.Dimensions {
+		switch {
+		case sb.core.isShortcutsRunning():
+			if sb.core.shortcutPrompt != nil {
+				return sb.inset(gtx, sb.core.shortcutPrompt.Layout)
+			}
+			st := sb.core.getShortcutsStatus()
+			sb.stepDims = sb.insetLabel(gtx, "Running Shortcut"+st, text.Start)
+		case sb.core.mode == editMode:
+			return sb.inset(gtx, flexHorizontal(8,
+				rigid(sb.btnModeCancel.Layout),
+				rigidLabel("Edit Mode", 0, 0, 0),
+			))
+		case sb.core.mode == placePatternMode:
+			return sb.inset(gtx, flexHorizontal(8,
+				rigid(sb.btnModeCancel.Layout),
+				rigidLabel("Place Pattern Mode", 0, 0, 0),
+			))
+		case sb.core.mode == heatMapMode:
+			return sb.inset(gtx, flexHorizontal(8,
+				rigid(sb.btnModeCancel.Layout),
+				rigidLabel("Heat Map Display", 0, 0, 0),
+			))
+		case sb.core.status != "":
+			sb.stepDims = sb.insetLabel(gtx, sb.core.status, text.Start)
+		default:
+			var repeat string
+			if sb.core.instrumentRepeat != nil && sb.core.instrumentRepeat.Found {
+				repeat = " [Repeat found]"
+			}
+			perc := (float64(sb.core.changes.Load()) / float64(sb.core.gridHolder.grid.Width()*sb.core.gridHolder.grid.Height())) * 100.0
+			if hz := sb.core.hertz.Load(); hz > 0 {
+				if hz > 1000 {
+					khz := float64(hz) / 1000.0
+					sb.stepDims = sb.insetLabel(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"% "+strconv.FormatFloat(khz, 'f', 2, 64)+"kHz)"+repeat, text.Start)
+				} else {
+					sb.stepDims = sb.insetLabel(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"% "+strconv.FormatUint(hz, 10)+"Hz)"+repeat, text.Start)
+				}
+			} else {
+				sb.stepDims = sb.insetLabel(gtx, "Step: "+commas(strconv.FormatUint(sb.core.gridHolder.grid.StepCount.Load(), 10))+" ("+strconv.FormatFloat(perc, 'f', 1, 64)+"%)"+repeat, text.Start)
 			}
 		}
-	}
-	result = append(result, sb.buttonsStepping...)
-	if sb.core.isRecording() {
-		result = append(result, sb.buttonsRecord...)
-	}
-	return append(result, sb.buttonsRight...)
+		return sb.stepDims
+	}, wt)
 }
 
-func (sb *statusBar) layoutShortcutPrompt(gtx layout.Context) layout.Dimensions {
-	return layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+func (sb *statusBar) middleArea(gtx layout.Context) layout.FlexChild {
+	switch sb.core.mode {
+	case editMode:
+		if sb.btnRotate.Clicked(gtx) {
+			rot := sb.core.gridHolder.editor.patternRotation + 1
+			if rot > patterns.Rotate270 {
+				rot = patterns.Rotate0
+			}
+			sb.core.gridHolder.editor.patternRotation = rot
+		}
+		if sb.btnInterlace.Clicked(gtx) {
+			sb.core.gridHolder.editor.patternInterlace = !sb.core.gridHolder.editor.patternInterlace
+		}
+		if sb.btnCapture.Clicked(gtx) {
+			sb.core.gridHolder.editor.endMarking(true)
+		}
+		if sb.btnClear.Clicked(gtx) {
+			sb.core.gridHolder.editor.markingFillClear(false)
+		}
+		if sb.btnFill.Clicked(gtx) {
+			sb.core.gridHolder.editor.markingFillClear(true)
+		}
+		if sb.core.gridHolder.editor.patternInterlace {
+			sb.btnInterlace.Label("Interlaced")
+		} else {
+			sb.btnInterlace.Label("Overlayed")
+		}
+		sb.btnRotate.Label("Rotate " + sb.core.gridHolder.editor.patternRotation.String())
+		return flexed(func(gtx layout.Context) layout.Dimensions {
+			return sb.inset(gtx, flexHorizontalSpaced(0, layout.SpaceBetween,
+				rigid(flexHorizontal(8,
+					rigid(label("@ X:"+strconv.Itoa(sb.core.gridHolder.editor.col)+" Y:"+strconv.Itoa(sb.core.gridHolder.editor.row))),
+					conditionalRigid(sb.core.gridHolder.editor.marking, flexHorizontal(8,
+						rigid(label("Marking W:"+strconv.Itoa(max(sb.core.gridHolder.editor.col, sb.core.gridHolder.editor.markStartCol)-min(sb.core.gridHolder.editor.col, sb.core.gridHolder.editor.markStartCol)+1)+
+							" H:"+strconv.Itoa(max(sb.core.gridHolder.editor.row, sb.core.gridHolder.editor.markStartRow)-min(sb.core.gridHolder.editor.row, sb.core.gridHolder.editor.markStartRow)+1))),
+					), nil),
+				)),
+				conditionalRigid(sb.core.gridHolder.editor.marking,
+					flexHorizontal(8,
+						rigid(sb.btnCapture.Layout),
+						rigid(sb.btnClear.Layout),
+						rigid(sb.btnFill.Layout),
+					),
+					flexHorizontal(8,
+						rigid(sb.btnRotate.Layout),
+						rigid(sb.btnInterlace.Layout),
+					)),
+			))
+		}, 2)
+	case placePatternMode:
+		if sb.btnRotate.Clicked(gtx) && sb.core.gridHolder.overlay != nil {
+			rot := sb.core.gridHolder.overlay.rotation + 1
+			if rot > patterns.Rotate270 {
+				rot = patterns.Rotate0
+			}
+			sb.core.gridHolder.overlay.rotation = rot
+			sb.core.gridHolder.overlay.moved = true
+		}
+		if sb.btnInterlace.Clicked(gtx) && sb.core.gridHolder.overlay != nil {
+			sb.core.gridHolder.overlay.interlaced = !sb.core.gridHolder.overlay.interlaced
+			sb.core.gridHolder.overlay.moved = true
+		}
+		if sb.btnPlace.Clicked(gtx) && sb.core.gridHolder.overlay != nil {
+			sb.core.placePattern(gtx)
+		}
+		lbl := ""
+		if sb.core.gridHolder.overlay != nil {
+			lbl = "@ X:" + strconv.Itoa(sb.core.gridHolder.overlay.col) + " Y:" + strconv.Itoa(sb.core.gridHolder.overlay.row)
+			if sb.core.gridHolder.overlay.interlaced {
+				sb.btnInterlace.Label("Interlaced")
+			} else {
+				sb.btnInterlace.Label("Overlayed")
+			}
+			sb.btnRotate.Label("Rotate " + sb.core.gridHolder.overlay.rotation.String())
+		}
+		return flexed(func(gtx layout.Context) layout.Dimensions {
+			return sb.inset(gtx, flexHorizontalSpaced(0, layout.SpaceBetween,
+				rigidLabel(lbl, 0, 0, 0),
+				rigid(flexHorizontal(8,
+					rigid(sb.btnPlace.Layout),
+					rigid(sb.btnRotate.Layout),
+					rigid(sb.btnInterlace.Layout),
+				)),
+			))
+		}, 2)
+	case heatMapMode:
+		if sb.middleClickable.Clicked(gtx) {
+			if sb.core.instrumentHeatMap != nil && sb.core.instrumentHeatMap.Type() == logic.AllHeatMapper {
+				sb.core.cycleShowingHeatMapType()
+				sb.core.showHeatMap()
+			}
+		}
+		return flexed(func(gtx layout.Context) layout.Dimensions {
+			return sb.middleClickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				hmt := logic.NoHeatMapper
+				if sb.core.instrumentHeatMap != nil {
+					hmt = sb.core.instrumentHeatMap.Type()
+					if hmt == logic.AllHeatMapper {
+						hmt = sb.core.showHeatMapperType
+					}
+				}
+				sb.ruleDims = sb.insetLabel(gtx, hmt.String(), text.Middle)
+				return sb.ruleDims
+			})
+		}, 2)
+	default:
+		if sb.middleClickable.Clicked(gtx) {
+			sb.showHidePopup(popupRule)
+		}
+		return flexed(func(gtx layout.Context) layout.Dimensions {
+			return sb.middleClickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				sb.ruleDims = sb.insetLabel(gtx, "Rule: "+sb.core.gridHolder.grid.Rule().Name(), text.Middle)
+				return sb.ruleDims
+			})
+		}, 2)
+	}
+}
+
+func (sb *statusBar) rightArea() layout.FlexChild {
+	buttons := make([]layout.FlexChild, 0, 14)
+	if sb.core.mode == noMode {
+		for i, f := range sb.buttonsExtra {
+			btn := string(rune('A' + i))
+			if btn == "G" {
+				btn = "+"
+			}
+			if btn == "H" {
+				btn = "-"
+			}
+			if scn, ok := sb.core.settings.ExtraButtons[btn]; ok {
+				if _, ok = sb.core.settings.Shortcuts[scn]; ok {
+					buttons = append(buttons, f)
+				}
+			}
+		}
+		buttons = append(buttons, sb.buttonsStepping...)
+		if sb.core.isRecording() {
+			buttons = append(buttons, sb.buttonsRecord...)
+		}
+	}
+	buttons = append(buttons, sb.buttonsRight...)
+	return rigid(inset(0, 0, 0, 8, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{
+			Axis:      layout.Horizontal,
+			Alignment: layout.End,
+			Gap:       3,
+		}.Layout(gtx, buttons...)
+	}))
+}
+
+func (sb *statusBar) inset(gtx layout.Context, w layout.Widget) layout.Dimensions {
+	return layout.Inset{Left: 6, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		size := gtx.Constraints.Max
 		sb.drawInsetBorder(gtx, image.Rectangle{Max: image.Point{X: size.X, Y: size.Y}})
-		gtx.Constraints.Min.Y = size.Y
-		gtx.Constraints.Max.Y = size.Y
-		return layout.Inset{Left: 6, Right: 6, Top: 3}.Layout(gtx, sb.core.shortcutPrompt.layout)
+		gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
+		return layout.Inset{Top: 3, Bottom: 2, Left: 6, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+				rigid(w),
+			)
+		})
 	})
 }
 
-func (sb *statusBar) label(gtx layout.Context, s string, align text.Alignment) layout.Dimensions {
-	return layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+func (sb *statusBar) insetLabel(gtx layout.Context, s string, align text.Alignment) layout.Dimensions {
+	return layout.Inset{Left: 6, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		size := gtx.Constraints.Max
 		sb.drawInsetBorder(gtx, image.Rectangle{Max: image.Point{X: size.X, Y: size.Y}})
 		lbl := material.Label(theme, theme.TextSize, s)
 		lbl.Alignment = align
 		lbl.MaxLines = 1
-		gtx.Constraints.Min.Y = size.Y
-		gtx.Constraints.Max.Y = size.Y
-		return layout.Inset{Left: 6, Right: 6, Top: 3}.Layout(gtx, lbl.Layout)
+		gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
+		return layout.Inset{Top: 3, Bottom: 3, Left: 6, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+				rigid(lbl.Layout),
+			)
+		})
 	})
 }
 

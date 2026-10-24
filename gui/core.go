@@ -6,7 +6,6 @@ import (
 	"github.com/marrow16/gogol/gui/help"
 	"github.com/marrow16/gogol/gui/settings"
 	"image/color"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -169,28 +168,6 @@ func (c *Core) settingsChanged() {
 	for _, fn := range c.settingsListeners {
 		fn()
 	}
-}
-
-func (c *Core) modeDisplay() string {
-	if c.mode != noMode {
-		s := c.mode.String()
-		switch c.mode {
-		case editMode:
-			if c.gridHolder.editor.patternRotation != patterns.Rotate0 {
-				s = strconv.Itoa(c.gridHolder.editor.row) + "x" + strconv.Itoa(c.gridHolder.editor.col) + " " + c.gridHolder.editor.patternRotation.String() + " " + s
-			} else {
-				s = strconv.Itoa(c.gridHolder.editor.row) + "x" + strconv.Itoa(c.gridHolder.editor.col) + " " + s
-			}
-		case heatMapMode:
-			if c.heatMapperType == logic.AllHeatMapper {
-				s = s + " - " + c.showHeatMapperType.String() + " (Esc exit)"
-			} else {
-				s = s + " - " + c.heatMapperType.String() + " (Esc exit)"
-			}
-		}
-		return s
-	}
-	return ""
 }
 
 func (c *Core) showingHeatMapType() logic.HeatMapperType {

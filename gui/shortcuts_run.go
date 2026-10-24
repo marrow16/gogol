@@ -416,7 +416,7 @@ func (c *Core) executeShortcut(callStack []string, actions []shortcuts.ActionHol
 				}
 				if err == nil {
 					ani := animator.NewAnimator(c.settings.CellSize, c.settings.CellAliveColor, c.settings.CellDeadColor, c.settings.CellBorderColor, c.settings.CellBorders, c.settings.AnimationFormat)
-					_ = ani.Animate(filename, recorder)
+					_ = ani.Animate(filename, recorder, 0, 0)
 				}
 			}
 		case shortcuts.CollectFiles:

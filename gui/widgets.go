@@ -249,6 +249,12 @@ func flexHorizontal(gap int, children ...layout.FlexChild) layout.Widget {
 	}
 }
 
+func flexHorizontalSpaced(gap int, spacing layout.Spacing, children ...layout.FlexChild) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal, Gap: gap, Spacing: spacing}.Layout(gtx, children...)
+	}
+}
+
 func popoutLayout(gtx layout.Context, w layout.Widget) layout.Dimensions {
 	return layout.Inset{Left: 8, Right: 8, Top: 8, Bottom: 8}.Layout(gtx, w)
 }
