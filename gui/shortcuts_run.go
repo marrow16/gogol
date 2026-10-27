@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func (c *Core) startShortcuts(name string) {
+func (c *Core) startShortcuts() {
 	c.shortcutMutex.Lock()
 	defer c.shortcutMutex.Unlock()
 	c.shortcutStatus = ""
@@ -88,7 +88,7 @@ func (c *Core) runShortcut(name string) bool {
 	}
 	c.statusBar.showHidePopup(popupNone)
 	c.mode = noMode
-	c.startShortcuts(name)
+	c.startShortcuts()
 	shortcut, errs := shortcuts.ParseShortcut(name, lines)
 	window.Invalidate()
 	for _, err := range errs {

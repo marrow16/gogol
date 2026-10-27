@@ -220,6 +220,7 @@ func (l *List[T]) layoutList(gtx layout.Context) layout.Dimensions {
 			if btn.Clicked(gtx) {
 				l.selectedIndex = index
 				gtx.Execute(key.FocusCmd{Tag: &l.tag})
+				gtx.Execute(op.InvalidateCmd{})
 				if l.selectItemFn != nil {
 					l.selectItemFn(l.Items[index], false)
 				}

@@ -12,12 +12,14 @@ func NewCheckBox(theme *material.Theme, label string, initial bool) *Checkbox {
 	s.TextSize = theme.TextSize
 	s.Size = 18
 	return &Checkbox{
+		Label: label,
 		value: v,
 		style: s,
 	}
 }
 
 type Checkbox struct {
+	Label string
 	value *widget.Bool
 	style material.CheckBoxStyle
 }

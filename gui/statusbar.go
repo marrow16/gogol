@@ -272,6 +272,15 @@ func (sb *statusBar) showPopups(gtx layout.Context) {
 		stack := op.Offset(image.Point{X: 12, Y: sb.top - dims.Size.Y}).Push(gtx.Ops)
 		call.Add(gtx.Ops)
 		stack.Pop()
+	case sb.core.shortcutRunning && sb.core.shortcutPromptDialog != nil:
+		pgtx := gtx
+		pgtx.Constraints = layout.Constraints{Min: image.Point{X: sb.stepDims.Size.X - 16}, Max: image.Point{X: sb.stepDims.Size.X + sb.ruleDims.Size.X, Y: sb.top}}
+		macro := op.Record(gtx.Ops)
+		dims := sb.core.shortcutPromptDialog.Layout(pgtx)
+		call := macro.Stop()
+		stack := op.Offset(image.Point{X: 12, Y: sb.top - dims.Size.Y}).Push(gtx.Ops)
+		call.Add(gtx.Ops)
+		stack.Pop()
 	}
 }
 
@@ -317,6 +326,8 @@ func (sb *statusBar) leftArea(gtx layout.Context) layout.FlexChild {
 				return sb.inset(gtx, sb.core.shortcutPrompt.Layout)
 			} else if sb.core.shortcutPromptMenu != nil {
 				sb.stepDims = sb.insetLabel(gtx, sb.core.shortcutPromptMenu.prompt, text.Start)
+			} else if sb.core.shortcutPromptDialog != nil {
+				sb.stepDims = sb.insetLabel(gtx, sb.core.shortcutPromptDialog.prompt, text.Start)
 			} else {
 				st := sb.core.getShortcutsStatus()
 				sb.stepDims = sb.insetLabel(gtx, "Running Shortcut"+st, text.Start)
