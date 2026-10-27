@@ -41,6 +41,11 @@ func (n *NumberInput[T]) SetValue(v T) *NumberInput[T] {
 	return n
 }
 
+func (n *NumberInput[T]) SetText(v string) *NumberInput[T] {
+	n.input.SetText(v)
+	return n
+}
+
 func (n *NumberInput[T]) SetFocused(gtx layout.Context) {
 	n.input.SetFocused(gtx)
 }

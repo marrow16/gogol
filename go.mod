@@ -6,6 +6,7 @@ require (
 	gioui.org v0.10.2
 	gioui.org/x v0.10.2
 	github.com/dop251/goja v0.0.0-20261014135309-2cb8274eed06
+	github.com/dop251/goja_nodejs v0.0.0-20211022123610-8dd9abb0616d
 	github.com/go-andiamo/splitter v1.2.5
 	github.com/stretchr/testify v1.12.1
 )

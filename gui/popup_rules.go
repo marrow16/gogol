@@ -270,24 +270,26 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 					}
 					gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 					r := p.sortedRules[index]
-					return layout.Flex{Axis: layout.Horizontal, Gap: 32}.Layout(gtx,
-						layout.Flexed(1.5, func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Label(theme, theme.TextSize, r.Name())
-							lbl.Alignment = text.Start
-							lbl.MaxLines = 1
-							return lbl.Layout(gtx)
-						}),
-						layout.Flexed(2.5, func(gtx layout.Context) layout.Dimensions {
-							s := strconv.Itoa(r.Permutation())
-							if len(s) < 6 {
-								s = strings.Repeat("\u2007", 6-len(s)) + s
-							}
-							lbl := material.Label(theme, theme.TextSize, r.Rle()+"  "+s)
-							lbl.Alignment = text.End
-							lbl.MaxLines = 1
-							return lbl.Layout(gtx)
-						}),
-					)
+					return inset(0, 0, 3, 3,
+						flexHorizontal(32,
+							flexed(func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Label(theme, theme.TextSize, r.Name())
+								lbl.Alignment = text.Start
+								lbl.MaxLines = 1
+								return lbl.Layout(gtx)
+							}, 1.5),
+							flexed(func(gtx layout.Context) layout.Dimensions {
+								s := strconv.Itoa(r.Permutation())
+								if len(s) < 6 {
+									s = strings.Repeat("\u2007", 6-len(s)) + s
+								}
+								lbl := material.Label(theme, theme.TextSize, r.Rle()+"  "+s)
+								lbl.Alignment = text.End
+								lbl.MaxLines = 1
+								return lbl.Layout(gtx)
+							}, 2.5),
+						),
+					)(gtx)
 				})
 			},
 		)

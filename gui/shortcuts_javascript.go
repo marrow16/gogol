@@ -4,14 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gioui.org/io/key"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/dop251/goja"
+	"github.com/dop251/goja_nodejs/require"
 	"github.com/marrow16/gogol/animator"
 	"github.com/marrow16/gogol/gui/shortcuts"
 	"github.com/marrow16/gogol/imaging"
@@ -19,7 +13,6 @@ import (
 	"github.com/marrow16/gogol/logic/meta"
 	"github.com/marrow16/gogol/patterns"
 	"github.com/marrow16/gogol/recipes"
-	"image"
 	"image/color"
 	"io/fs"
 	"os"
@@ -35,13 +28,27 @@ func (c *Core) shortcutJavascript(ah shortcuts.ActionHolder) {
 	var filename string
 	c.shortcutPrompt = nil
 	c.shortcutPromptMenu = nil
+	c.shortcutPromptDialog = nil
 	if filename, err = resolveSavePath(c.shortcutVarString(ah)); err == nil {
 		var src []byte
 		if src, err = os.ReadFile(filename); err == nil {
 			rt := c.createJavascriptRuntime(ah)
+			requireLoader := func(path string) ([]byte, error) {
+				if !filepath.IsAbs(path) {
+					path = filepath.Join(filepath.Dir(filename), path)
+				}
+				data, err := os.ReadFile(path)
+				if err != nil {
+					return nil, require.ModuleFileDoesNotExistError
+				}
+				return data, nil
+			}
+			registry := require.NewRegistry(require.WithLoader(requireLoader))
+			registry.Enable(rt)
 			_, err = rt.RunString(string(src))
 			c.shortcutPrompt = nil
 			c.shortcutPromptMenu = nil
+			c.shortcutPromptDialog = nil
 		}
 	}
 	if err != nil {
@@ -1080,23 +1087,56 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 		if len(args) > 1 {
 			prompt := args[0].ToString().String()
 			options := make([]string, 0)
-			for i := 1; i < len(args); i++ {
+			selected := 0
+			arg2 := args[1].Export()
+			argStart := 1
+			if n, ok := arg2.(int64); ok {
+				selected = int(n)
+				argStart = 2
+			}
+			for i := argStart; i < len(args); i++ {
 				if opt := args[i].ToString().String(); len(opt) > 0 {
 					options = append(options, opt)
 				}
 			}
 			if len(options) > 0 {
-				c.shortcutPromptMenu = newShortcutPromptMenu(c, prompt, options...)
-				window.Invalidate()
-				reply, ok := c.shortcutPromptMenu.wait()
-				if !ok {
-					rt.Interrupt(nil)
-					return nil, nil
+				c.shortcutPromptMenu = newShortcutPromptMenu(c, prompt, selected, options...)
+				if c.shortcutPromptMenu != nil {
+					window.Invalidate()
+					reply, ok := c.shortcutPromptMenu.wait()
+					if !ok {
+						rt.Interrupt(nil)
+						return nil, nil
+					}
+					return reply, nil
 				}
-				return reply, nil
 			}
 		}
 		return -1, nil
+	},
+	"promptDialog": func(c *Core, rt *goja.Runtime, args []goja.Value) (any, error) {
+		var err error
+		if len(args) > 1 {
+			prompt := args[0].ToString().String()
+			d := args[1].Export()
+			if def, ok := d.([]any); ok {
+				c.shortcutPromptDialog = newShortcutPromptDialog(c, rt, prompt, def)
+				if c.shortcutPromptDialog != nil {
+					window.Invalidate()
+					reply, ok := c.shortcutPromptDialog.wait()
+					if !ok {
+						rt.Interrupt(nil)
+						return nil, nil
+					}
+					return reply, nil
+				} else {
+					err = errors.New("no valid control in dialog")
+				}
+			} else {
+				err = errors.New("expected dialog definition as array")
+			}
+		}
+		return nil, err
 	},
 	// console...
 	"console.log": func(c *Core, _ *goja.Runtime, args []goja.Value) (any, error) {
@@ -1347,186 +1387,6 @@ func jsCallInfo(rt *goja.Runtime, fn string) []any {
 		return []any{"function", fn, "line", pos.Line, "column", pos.Column}
 	}
 	return nil
-}
-
-type shortcutPrompt struct {
-	core    *Core
-	reply   chan string
-	prompt  string
-	replies []string
-	input   widget.Editor
-	style   material.EditorStyle
-}
-
-func newShortcutPrompt(c *Core, prompt string, replies ...string) *shortcutPrompt {
-	if len(prompt) == 0 {
-		prompt = "Prompt"
-	}
-	maxLen := 0
-	for _, reply := range replies {
-		if len(reply) > maxLen {
-			maxLen = len(reply)
-		}
-	}
-	result := &shortcutPrompt{
-		core:    c,
-		reply:   make(chan string),
-		prompt:  strings.TrimSuffix(prompt, ":") + ":",
-		replies: replies,
-		input: widget.Editor{
-			MaxLen:     maxLen,
-			SingleLine: true,
-			Submit:     true,
-		},
-	}
-	result.style = material.Editor(theme, &result.input, "")
-	return result
-}
-
-func (p *shortcutPrompt) wait() (string, bool) {
-	for {
-		select {
-		case reply, ok := <-p.reply:
-			p.core.shortcutPrompt = nil
-			return reply, ok
-		}
-	}
-}
-
-func (p *shortcutPrompt) Layout(gtx layout.Context) layout.Dimensions {
-	if !gtx.Focused(&p.input) {
-		gtx.Execute(key.FocusCmd{Tag: &p.input})
-	}
-	for {
-		ev, ok := gtx.Event(key.Filter{Focus: &p.input, Name: key.NameEscape})
-		if !ok {
-			break
-		}
-		if kev, ok := ev.(*key.Event); ok && kev.State == key.Press && kev.Name == key.NameEscape {
-			p.core.shortcutRunning = false
-			close(p.reply)
-		}
-	}
-	for {
-		ev, ok := p.input.Update(gtx)
-		if !ok {
-			break
-		}
-		switch ev.(type) {
-		case widget.ChangeEvent:
-			s := strings.ToLower(p.input.Text())
-			for _, reply := range p.replies {
-				if s == strings.ToLower(reply) {
-					p.reply <- p.input.Text()
-				}
-			}
-		case widget.SubmitEvent:
-			if len(p.replies) == 0 {
-				p.reply <- p.input.Text()
-			}
-		}
-	}
-	pw := gtx.Constraints.Max.X - (measureText(gtx, p.prompt).Size.X - 4)
-	return flexHorizontal(8,
-		rigid(label(p.prompt)),
-		rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Max.X, gtx.Constraints.Min.X = pw, pw
-			return p.style.Layout(gtx)
-		}),
-	)(gtx)
-}
-
-func newShortcutPromptMenu(c *Core, prompt string, options ...string) *shortcutPromptMenu {
-	if len(prompt) == 0 {
-		prompt = "Prompt"
-	}
-	result := &shortcutPromptMenu{
-		core:         c,
-		reply:        make(chan int),
-		prompt:       prompt,
-		options:      options,
-		list:         widget.List{Axis: layout.Vertical},
-		optionClicks: make([]widget.Clickable, len(options)),
-	}
-	result.listStyle = material.List(theme, &result.list)
-	result.listStyle.AnchorStrategy = material.Overlay
-	return result
-}
-
-type shortcutPromptMenu struct {
-	core         *Core
-	reply        chan int
-	prompt       string
-	options      []string
-	selected     int
-	list         widget.List
-	listStyle    material.ListStyle
-	optionClicks []widget.Clickable
-}
-
-func (p *shortcutPromptMenu) wait() (int, bool) {
-	for {
-		select {
-		case reply, ok := <-p.reply:
-			p.core.shortcutPromptMenu = nil
-			return reply, ok
-		}
-	}
-}
-
-func (p *shortcutPromptMenu) Layout(gtx layout.Context) layout.Dimensions {
-	for {
-		ev, ok := gtx.Event(
-			key.Filter{Name: key.NameReturn},
-			key.Filter{Name: key.NameEnter},
-			key.Filter{Name: key.NameSpace},
-			key.Filter{Name: key.NameUpArrow},
-			key.Filter{Name: key.NameDownArrow},
-			key.Filter{Name: key.NameHome},
-			key.Filter{Name: key.NameEnd})
-		if !ok {
-			break
-		}
-		if kev, ok := ev.(key.Event); ok && kev.State == key.Press {
-			switch kev.Name {
-			case key.NameEnter, key.NameReturn, key.NameSpace:
-				p.reply <- p.selected
-			case key.NameUpArrow:
-				p.selected--
-				if p.selected < 0 {
-					p.selected = len(p.options) - 1
-				}
-			case key.NameDownArrow:
-				p.selected++
-				if p.selected >= len(p.options) {
-					p.selected = 0
-				}
-			case key.NameHome:
-				p.selected = 0
-			case key.NameEnd:
-				p.selected = len(p.options) - 1
-			}
-		}
-	}
-	macro := op.Record(gtx.Ops)
-	gtx.Constraints.Min.X = gtx.Constraints.Max.X
-	itemHt := measureText(gtx, "Xy").Size.Y
-	dims := layout.Inset{Top: 2, Left: 2, Bottom: 2, Right: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return p.listStyle.Layout(gtx, len(p.options), func(gtx layout.Context, index int) layout.Dimensions {
-			if p.optionClicks[index].Clicked(gtx) {
-				p.reply <- index
-			}
-			if index == p.selected {
-				paint.FillShape(gtx.Ops, selectedFocusedColor, clip.Rect{Max: image.Point{X: gtx.Constraints.Max.X, Y: itemHt}}.Op())
-			}
-			return p.optionClicks[index].Layout(gtx, label(p.options[index]))
-		})
-	})
-	call := macro.Stop()
-	paint.FillShape(gtx.Ops, backgroundColor, clip.Rect{Max: dims.Size}.Op())
-	borders(gtx, dims, borderColor, true, true, false, false)
-	call.Add(gtx.Ops)
-	return dims
 }
 
 type RecordInstrumentWrapper struct {

@@ -557,6 +557,13 @@ var contentShortCutsJsRef = content{
 				hanging{indent: 8, prefix: "• ", content: content{"if no allowed responses are supplied, the user can input any length and the function returns when the user presses ", keys{keyEnter}, "."}},
 				"Returns: ", code(`string`), " - the user input",
 			}},
+			{{codeCopyable(`promptDialog(string,array)`)}, {
+				"Prompts the user to complete a dialog. The dialog is displayed from the ", StatusBar.link("statusbar"), " and the function is blocking until the user completes the dialog (by pressing either the ", bold("Ok"), " or ", bold("Cancel"), " buttons).",
+				"\nThe first string arg is the label shown in the statusbar for the dialog.",
+				" The second array arg is the definition for the dialog.",
+				"\nReturns: ", code(`object`), " - the dialog response values (or ", code(`undefined`), " if the user presses the ", bold("Cancel"), " button)",
+				dialogDefinition,
+			}},
 			{{codeCopyable(`promptMenu(string[,string...])`)}, {
 				"Prompts the user to select from a menu. The prompt is displayed in the ", StatusBar.link("statusbar"), " and the function is blocking until the user selects a menu option.",
 				"\nThe first string arg is the label for the prompt.",
@@ -723,6 +730,36 @@ var contentShortCutsJsRef = content{
 		hanging{indent: 20, prefix: "• ", content: content{"all ", code(`path:string`), " args are either an absolute path - or taken as a relative path from ", code(`[user]/Documents/GoGoL/`)}},
 		hanging{indent: 20, prefix: "• ", content: content{boldItalic("CAUTION"), italic(" access to the filesystem is unrestricted - write files with care!")}},
 	}},
+	expandable{padding: 4, border: true, spaceBefore: 8, title: content{bold("require")}, content: content{
+		"The ", code(`require()`), " function is supported.",
+		"\nExample:",
+		indent{indent: 10, spaceAfter: 4, content: content{
+			italic("Shortcut javascript:"),
+			codeBlock{code: `const math = require('./mathUtil.js');
+console.log("REQUIRE TEST", math.add(10, 6));`},
+		}},
+		indent{indent: 10, spaceAfter: 8, content: content{
+			italic("File: "), code(`mathUtil.js`),
+			codeBlock{code: `function add(a, b) {
+	return a + b;
+}
+
+function subtract(a, b) {
+	return a - b;
+}
+
+function multiply(a, b) {
+	return a * b;
+}
+
+module.exports = {
+	add,
+	subtract,
+	multiply
+};`},
+		}},
+		italic("Note: Relative paths used in "), code(`require()`), italic(" are taken as relative to shortcut javascript file being executed."),
+	}},
 }
 
 var ruleObject = expandable{indent: 10, rightMargin: 10, border: true, title: "Rule object", content: content{
@@ -785,4 +822,184 @@ var repeatInstrumentObject = expandable{indent: 10, rightMargin: 10, border: tru
 	hanging{indent: 10, prefix: content{codeCopyable(".RepeatStep():int")}},
 	hanging{indent: 10, prefix: content{codeCopyable(".Reset()")}},
 	hanging{indent: 10, prefix: content{codeCopyable(".Step():int")}},
+}}
+
+var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, border: true, title: "Dialog definition array", content: content{
+	"The dialog definition ia an array - where each element is either a ", code(`string`), " or an ", code(`object`), ".",
+	"\nString elements are just displayed as a label in the dialog - object elements define the control to be shown:",
+	indent{indent: 8, content: content{
+		h4("• Input (string)"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "string",
+	"name": "str", // used as key in response object
+	"label": "Rule:", // optional
+	"filter": "SB/012345678", // optional - characters allowed
+	"maxLen": 18, // optional - max length for input
+	"initial": "S2/B23" // optional - initial value
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Input (integer)"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "integer",
+	"name": "age", // used as key in response object
+	"label": "Age:", // optional
+	"min": 0, // minimum value
+	"max": 100, // maximum value
+	"maxLen": 3, // optional - max length for input
+	"initial": 18 // optional - initial value
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Check boxes"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "check",
+	"name": "opt-c", // used as key in response object
+	"label": "Select any:", // optional
+	"options": ["Foo", "Bar", "Baz"],
+	"horizontal": true, // optional - defaults to false
+	"initial": 7 // optional - initial options checked
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Radio buttons"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "radio",
+	"name": "opt-r", // used as key in response object
+	"label": "Select one:", // optional
+	"options": ["Foo", "Bar", "Baz"],
+	"horizontal": true, // optional - defaults to false
+	"initial": 0 // optional - initial option selected
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• List"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "list",
+	"name": "opt-l", // used as key in response object
+	"label": "Select:", // optional
+	"options": ["Foo", "Bar", "Baz"],
+	"initial": 0 // optional - initial option selected
+	"maxLen": 3 // optional - max number of items to display
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Text"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "text",
+	"name": "opt-t", // used as key in response object
+	"label": "Some Text:", // optional
+	"initial": "initial value" // optional - initial value
+	"maxLines": 3 // optional - max number of lines to display
+	"maxWidth": 20 // optional - max width (in ems) for input display
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• File"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "file",
+	"name": "file", // used as key in response object
+	"label": "File:", // optional
+	"maxLen": 18, // optional - max display width for input
+	"extensions": [".rle"], // optional - allowed file extensions 
+	"initial": "glider.rle" // optional - initial value
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Label"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "label",
+	"name": "lbl-1", // optional - not shown in response but allows addressing
+	"label": "My label",
+	"small": true, // optional - defaults to false
+	"italic": true, // optional - defaults to false
+	"bold": true, // optional - defaults to false
+	"color": "#ff0000" // optional
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Button"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "button",
+	"label": "My Button",
+	"onClick": function(data:object,dlg:object) // optional
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Buttons"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "buttons",
+	"name": "btns-1", // optional - not shown in response but allows addressing
+	"label": "Button Group:", // optional
+	"options": ["Foo", "Bar", "Baz"], // the actual buttons
+	"onClick": function(data:object,dlg:object) // optional
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Group"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "group",
+	"name": "lbl-1", // optional - not shown in response but allows addressing
+	"label": "Group", // optional
+	"items": [...], // array of dialog items
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Re-label Ok button"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "ok",
+	"label": "Okay", // optional
+	"onClick": function(data:object,dlg:object) // optional
+}`},
+		italic("Note: If the "), code(`onClick`), italic(" property is provided - the func can return a boolean, where "), code(`true`), italic(" indicates the dialog should "), boldItalic("not"), italic(" be closed."),
+		italic(" This can be useful for validating the dialog data prior to closing."),
+	}},
+	indent{indent: 8, content: content{
+		h4("• Re-label Cancel button"),
+		"Example:",
+		codeBlock{code: `{
+		"type": "cancel",
+		"label": "Nope", // optional
+		"onClick": function(data:object,dlg:object) // optional
+}`},
+	}},
+	indent{indent: 8, spaceAfter: 4, content: content{
+		h4("• Initialise"),
+		"Example:",
+		codeBlock{code: `{
+		"type": "init",
+		"hide": ["ctrl-1"], // optional - initially hidden controls
+		"func": function(data:object,dlg:object) // optional
+}`},
+	}},
+	separator{},
+	indent{indent: 8, spaceBefore: 4, content: content{
+		h3("Callbacks"),
+		"For dialog items that support ", code(`onClick`), " (or ", code(`init.func`), ")",
+		" the function is a callback with the following signature:",
+		codeBlock{indent: 8, code: `function(data:object,dlg:object)`},
+		"where args are:",
+		hanging{indent: 8, gap: 8, prefix: content{code(`data:object`)}, content: content{"is the current dialog data - keys are the control names and values are that control's current value."}},
+		hanging{indent: 8, gap: 8, prefix: content{code(`dlg:object`)}, content: content{
+			"is the dialog itself - supporting the following methods: ",
+			hanging{gap: 8, prefix: content{codeCopyable(`.Cancel()`)}, content: content{}},
+			hanging{gap: 8, prefix: content{codeCopyable(`.Hide(names:string...)`)}, content: content{}},
+			hanging{gap: 8, prefix: content{codeCopyable(`.IsHidden(name:string):bool`)}, content: content{}},
+			hanging{gap: 8, prefix: content{codeCopyable(`.Ok()`)}, content: content{}},
+			hanging{gap: 8, prefix: content{codeCopyable(`.Set(name:string, value:any)`)}, content: content{}},
+			hanging{gap: 8, prefix: content{codeCopyable(`.Show(names:string...)`)}, content: content{}},
+		}},
+	}},
 }}

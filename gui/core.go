@@ -112,6 +112,7 @@ type Core struct {
 	shortcutRunning      bool
 	shortcutPrompt       *shortcutPrompt
 	shortcutPromptMenu   *shortcutPromptMenu
+	shortcutPromptDialog *shortcutPromptDialog
 	shortcutCurrent      string
 	shortcutCollectFiles bool
 	shortcutFiles        []string
