@@ -176,7 +176,7 @@ func (f *fileFinder) layoutEntry(gtx layout.Context, _ int, entry *dirEntry) lay
 						img = icons.FileIMG
 					case ".json":
 						img = icons.FileJSON
-					case ".log", ".js":
+					case ".log", ".js", ".txt":
 						img = icons.FileTXT
 					}
 				}
@@ -771,7 +771,7 @@ func (e *dirEntry) buildPreview(allowExts map[string]struct{}) {
 			preview, extra, err = e.buildPreviewJson()
 		case ".png", ".jpg", ".jpeg", ".gif":
 			preview, extra, img, err = e.buildPreviewImg()
-		case ".log", ".js":
+		case ".log", ".js", ".txt":
 			preview, err = e.buildPreviewText()
 		default:
 			preview, err = e.buildPreviewCommon()
@@ -1079,6 +1079,9 @@ func (e *dirEntry) buildPreviewJson() (layout.Widget, [][2]string, error) {
 					gtx.Constraints.Max = image.Point{X: 1 << 30, Y: 1 << 30}
 					lbl := material.Label(theme, (theme.TextSize*4)/5, jtxt)
 					lbl.MaxLines = 0
+					if e.parent.core.monoFont != nil {
+						lbl.Font = *e.parent.core.monoFont
+					}
 					return lbl.Layout(gtx)
 				})
 			})
@@ -1121,6 +1124,9 @@ func (e *dirEntry) buildPreviewText() (layout.Widget, error) {
 					gtx.Constraints.Max = image.Point{X: 1 << 30, Y: 1 << 30}
 					lbl := material.Label(theme, (theme.TextSize*4)/5, txt)
 					lbl.MaxLines = 0
+					if e.parent.core.monoFont != nil {
+						lbl.Font = *e.parent.core.monoFont
+					}
 					return lbl.Layout(gtx)
 				})
 			})

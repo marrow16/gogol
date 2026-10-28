@@ -1086,21 +1086,33 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 	"promptMenu": func(c *Core, rt *goja.Runtime, args []goja.Value) (any, error) {
 		if len(args) > 1 {
 			prompt := args[0].ToString().String()
+			var callback func(goja.FunctionCall) goja.Value
 			options := make([]string, 0)
 			selected := 0
-			arg2 := args[1].Export()
-			argStart := 1
-			if n, ok := arg2.(int64); ok {
-				selected = int(n)
-				argStart = 2
+			optsStart := 1
+			secondArg := args[1].Export()
+			switch at := secondArg.(type) {
+			case int:
+				selected = at
+				optsStart++
+			case int64:
+				selected = int(at)
+				optsStart++
 			}
-			for i := argStart; i < len(args); i++ {
-				if opt := args[i].ToString().String(); len(opt) > 0 {
-					options = append(options, opt)
+			if optsStart < len(args) {
+				thirdArg := args[optsStart].Export()
+				if cb, ok := thirdArg.(func(goja.FunctionCall) goja.Value); ok {
+					callback = cb
+					optsStart++
+				}
+				for i := optsStart; i < len(args); i++ {
+					if opt := args[i].ToString().String(); len(opt) > 0 {
+						options = append(options, opt)
+					}
 				}
 			}
 			if len(options) > 0 {
-				c.shortcutPromptMenu = newShortcutPromptMenu(c, prompt, selected, options...)
+				c.shortcutPromptMenu = newShortcutPromptMenu(c, rt, prompt, selected, callback, options...)
 				if c.shortcutPromptMenu != nil {
 					window.Invalidate()
 					reply, ok := c.shortcutPromptMenu.wait()

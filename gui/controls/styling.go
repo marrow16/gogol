@@ -1,6 +1,7 @@
 package controls
 
 import (
+	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -29,6 +30,7 @@ type Styling struct {
 	ForegroundColor        color.NRGBA
 	SelectedColor          color.NRGBA
 	SelectedFocusedColor   color.NRGBA
+	MonoFont               *font.Font
 }
 
 func (t Styling) bordering(focused bool) (color.NRGBA, unit.Dp) {

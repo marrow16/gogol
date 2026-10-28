@@ -30,6 +30,13 @@ func NewEditor(theme *material.Theme, fn func(text string, gtx layout.Context)) 
 	return result
 }
 
+func (i *Editor) Mono() *Editor {
+	if Style.MonoFont != nil {
+		i.style.Font = *Style.MonoFont
+	}
+	return i
+}
+
 func (i *Editor) SetText(text string) {
 	if text != i.editor.Text() {
 		i.editor.SetText(strings.ReplaceAll(text, "\t", "    "))

@@ -37,7 +37,7 @@ func newShortcutsPopout(p *menuPopup, c *Core) *shortcutsPopout {
 			return name
 		},
 	)
-	result.editor = controls.NewEditor(theme, result.editorChange)
+	result.editor = controls.NewEditor(theme, result.editorChange).Mono()
 	c.settings.ShortcutVariables.NotifyChanges(result.variableChanges)
 	result.sortVariables(c.settings.ShortcutVariables.Clone())
 	return result

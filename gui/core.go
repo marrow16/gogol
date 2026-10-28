@@ -2,6 +2,9 @@ package gui
 
 import (
 	"fmt"
+	"gioui.org/font"
+	"gioui.org/font/gofont"
+	"gioui.org/text"
 	"github.com/marrow16/gogol/gui/controls"
 	"github.com/marrow16/gogol/gui/help"
 	"github.com/marrow16/gogol/gui/settings"
@@ -30,8 +33,18 @@ var (
 )
 
 func NewCore(s *settings.Settings) (*Core, error) {
+	fonts := gofont.Collection()
 	theme = material.NewTheme()
+	theme.Shaper = text.NewShaper(text.WithCollection(fonts))
 	// sync controls styling...
+	var monoFont *font.Font
+	for _, f := range fonts {
+		if f.Font.Typeface == "Go Mono" && f.Font.Weight == font.Normal && f.Font.Style == font.Regular {
+			monoFont = &f.Font
+			controls.Style.MonoFont = monoFont
+			break
+		}
+	}
 	controls.Style.BorderColor = borderColor
 	controls.Style.BorderFocusedColor = borderFocusedColor
 	controls.Style.BackgroundColor = backgroundColor
@@ -40,6 +53,7 @@ func NewCore(s *settings.Settings) (*Core, error) {
 	controls.Style.SelectedFocusedColor = selectedFocusedColor
 	core = &Core{
 		settings: s,
+		monoFont: monoFont,
 	}
 	var err error
 	core.gridHolder, err = newGridHolder(core)
@@ -81,6 +95,7 @@ func (m mode) String() string {
 
 type Core struct {
 	settings    *settings.Settings
+	monoFont    *font.Font
 	windowRect  clip.Rect
 	gridHolder  *gridHolder
 	statusBar   *statusBar
