@@ -78,6 +78,10 @@ func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any
 									if ocf, ok := v.(func(goja.FunctionCall) goja.Value); ok {
 										initFunc = ocf
 									}
+								case "onChange":
+									if ocf, ok := v.(func(goja.FunctionCall) goja.Value); ok {
+										result.onChangeCallback = ocf
+									}
 								case "hide":
 									switch vt := v.(type) {
 									case string:
@@ -93,7 +97,7 @@ func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any
 							}
 						}
 					default:
-						if item, addLabel := buildPromptDialogRow(rt, typeStr, lbl, it); item != nil {
+						if item, addLabel := buildPromptDialogRow(result, rt, typeStr, lbl, it); item != nil {
 							ctrls++
 							result.items = append(result.items, item)
 							if addLabel {
@@ -122,18 +126,19 @@ func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any
 }
 
 type shortcutPromptDialog struct {
-	core          *Core
-	rt            *goja.Runtime
-	reply         chan map[string]any
-	prompt        string
-	btnOk         *controls.Button
-	onOkClick     func(goja.FunctionCall) goja.Value
-	btnCancel     *controls.Button
-	onCancelClick func(goja.FunctionCall) goja.Value
-	items         []dialogItem
-	labels        []string
-	hidden        map[string]bool
-	setValues     map[string]any
+	core             *Core
+	rt               *goja.Runtime
+	onChangeCallback func(goja.FunctionCall) goja.Value
+	reply            chan map[string]any
+	prompt           string
+	btnOk            *controls.Button
+	onOkClick        func(goja.FunctionCall) goja.Value
+	btnCancel        *controls.Button
+	onCancelClick    func(goja.FunctionCall) goja.Value
+	items            []dialogItem
+	labels           []string
+	hidden           map[string]bool
+	setValues        map[string]any
 }
 
 func (p *shortcutPromptDialog) wait() (map[string]any, bool) {
@@ -176,6 +181,22 @@ func (w *PromptDialogWrapper) Hide(names ...string) {
 
 func (w *PromptDialogWrapper) IsHidden(name string) bool {
 	return w.dlg.hidden[name]
+}
+
+func (w *PromptDialogWrapper) Get(name string) any {
+	var result any
+	got := false
+	for _, i := range w.dlg.items {
+		if v, ok := i.get(name); ok {
+			got = true
+			result = v
+			break
+		}
+	}
+	if !got {
+		result = w.dlg.setValues[name]
+	}
+	return result
 }
 
 func (w *PromptDialogWrapper) Set(name string, value any) {
@@ -272,7 +293,7 @@ func (p *shortcutPromptDialog) isHidden(item dialogItem) bool {
 	return false
 }
 
-func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[string]any) (result dialogItem, addLabel bool) {
+func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t string, lbl string, item map[string]any) (result dialogItem, addLabel bool) {
 	itemString := func(name string) string {
 		if v, ok := item[name]; ok {
 			if s, ok := v.(string); ok {
@@ -341,24 +362,34 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 	addLabel = true
 	switch strings.ToLower(t) {
 	case "str", "string":
-		input := controls.NewInput(theme, itemString("filter"), maxL, func(_ string) {
+		name := itemString("name")
+		input := controls.NewInput(theme, itemString("filter"), maxL, func(s string) {
+			if parent.onChangeCallback != nil {
+				parent.jsCall(parent.onChangeCallback, map[string]any{"value": s, "name": name})
+			}
 			window.Invalidate()
 		}).MaximumWidth(maxL)
 		input.SetText(itemString("initial"))
 		result = &dialogItemString{
+			parent: parent,
 			whenFn: buildWhenFunc(),
-			name:   itemString("name"),
+			name:   name,
 			label:  lbl,
 			input:  input,
 		}
 	case "int", "integer":
-		input := controls.NewNumberInput[int](theme, maxL, itemInt("min", 0), itemInt("max", 0), 0, func(_ int) {
+		name := itemString("name")
+		input := controls.NewNumberInput[int](theme, maxL, itemInt("min", 0), itemInt("max", 0), 0, func(i int) {
+			if parent.onChangeCallback != nil {
+				parent.jsCall(parent.onChangeCallback, map[string]any{"value": i, "name": name})
+			}
 			window.Invalidate()
 		})
 		input.SetValue(itemInt("initial", 0))
 		result = &dialogItemInt{
+			parent: parent,
 			whenFn: buildWhenFunc(),
-			name:   itemString("name"),
+			name:   name,
 			label:  lbl,
 			input:  input,
 		}
@@ -399,6 +430,7 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 				}
 				r := &dialogItemRadio{
 					whenFn:     buildWhenFunc(),
+					parent:     parent,
 					name:       itemString("name"),
 					label:      lbl,
 					enum:       &widget.Enum{Value: initial},
@@ -425,6 +457,7 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 					}
 				}
 				r := &dialogItemCheck{
+					parent:     parent,
 					whenFn:     buildWhenFunc(),
 					name:       itemString("name"),
 					label:      lbl,
@@ -440,6 +473,7 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 		}
 	case "list":
 		if rv, ok := item["options"]; ok {
+			name := itemString("name")
 			if lv, ok := rv.([]any); ok && len(lv) > 0 {
 				options := make([]string, len(lv))
 				for i, v := range lv {
@@ -453,11 +487,17 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 					}
 				}
 				result = &dialogItemList{
+					parent: parent,
 					whenFn: buildWhenFunc(),
-					name:   itemString("name"),
+					name:   name,
 					label:  lbl,
 					list: controls.NewList[string](theme, options, true).RowRenderer(func(gtx layout.Context, index int, item string) layout.Dimensions {
 						return inset(0, 0, 4, 4, label(item))(gtx)
+					}).OnItemSelect(func(item string, _ bool) {
+						if parent.onChangeCallback != nil {
+							parent.jsCall(parent.onChangeCallback, map[string]any{"value": item, "name": name})
+							window.Invalidate()
+						}
 					}),
 					maxLen:   itemInt("maxLen", 0),
 					maxWidth: itemInt("maxWidth", 0),
@@ -465,11 +505,15 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 			}
 		}
 	case "text":
+		name := itemString("name")
 		r := &dialogItemText{
 			whenFn: buildWhenFunc(),
-			name:   itemString("name"),
+			name:   name,
 			label:  lbl,
 			input: controls.NewEditor(theme, func(text string, gtx layout.Context) {
+				if parent.onChangeCallback != nil {
+					parent.jsCall(parent.onChangeCallback, map[string]any{"value": text, "name": name})
+				}
 				gtx.Execute(op.InvalidateCmd{})
 			}),
 			maxLines: itemInt("maxLines", 0),
@@ -542,7 +586,11 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 			}
 		}
 	case "file":
-		input := controls.NewInput(theme, itemString("filter"), 0, func(_ string) {
+		name := itemString("name")
+		input := controls.NewInput(theme, nil, 0, func(s string) {
+			if parent.onChangeCallback != nil {
+				parent.jsCall(parent.onChangeCallback, map[string]any{"value": s, "name": name})
+			}
 			window.Invalidate()
 		})
 		allowExts := make([]string, 0)
@@ -554,13 +602,15 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 			}
 		}
 		r := &dialogItemFile{
+			parent:    parent,
 			whenFn:    buildWhenFunc(),
-			name:      itemString("name"),
+			name:      name,
 			label:     lbl,
 			input:     input,
 			path:      controls.NewPathButton(theme),
 			allowExts: allowExts,
-			maxWidth:  min(itemInt("maxWidth", 16), 16),
+			allowDirs: itemBool("allowDirs", false),
+			maxWidth:  max(itemInt("maxWidth", 16), 16),
 		}
 		if initial := itemString("initial"); initial != "" {
 			r.input.SetText(initial)
@@ -582,7 +632,7 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 						}
 						if rawV, ok := it["type"]; ok {
 							if typeStr, ok := rawV.(string); ok {
-								if item, addLabel := buildPromptDialogRow(rt, typeStr, lbl, it); item != nil {
+								if item, addLabel := buildPromptDialogRow(parent, rt, typeStr, lbl, it); item != nil {
 									items = append(items, item)
 									if addLabel {
 										labels = append(labels, lbl)
@@ -594,11 +644,12 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 				}
 				if len(items) > 0 {
 					result = &dialogItemGroup{
-						whenFn: buildWhenFunc(),
-						name:   itemString("name"),
-						label:  gLabel,
-						items:  items,
-						labels: labels,
+						whenFn:     buildWhenFunc(),
+						name:       itemString("name"),
+						label:      gLabel,
+						items:      items,
+						labels:     labels,
+						horizontal: itemBool("horizontal", false),
 					}
 				}
 			}
@@ -610,6 +661,7 @@ func buildPromptDialogRow(rt *goja.Runtime, t string, lbl string, item map[strin
 type dialogItem interface {
 	getName() (string, bool)
 	set(name string, value any) bool
+	get(name string) (any, bool)
 	when(data map[string]any) bool
 	response(res map[string]any)
 	layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions
@@ -624,6 +676,10 @@ func (i dialogItemLabel) getName() (string, bool) {
 func (i dialogItemLabel) set(_ string, _ any) bool {
 	// do nothing
 	return false
+}
+
+func (i dialogItemLabel) get(_ string) (any, bool) {
+	return nil, false
 }
 
 func (i dialogItemLabel) when(_ map[string]any) bool {
@@ -653,6 +709,13 @@ type dialogItemLabelLine struct {
 
 func (i *dialogItemLabelLine) getName() (string, bool) {
 	return i.name, true
+}
+
+func (i *dialogItemLabelLine) get(name string) (any, bool) {
+	if name == i.name {
+		return i.label, true
+	}
+	return nil, false
 }
 
 func (i *dialogItemLabelLine) set(name string, value any) bool {
@@ -692,6 +755,7 @@ func (i *dialogItemLabelLine) layout(gtx layout.Context, _ *shortcutPromptDialog
 }
 
 type dialogItemCommon struct {
+	parent *shortcutPromptDialog
 	whenFn func(data map[string]any) bool
 }
 
@@ -713,6 +777,13 @@ type dialogItemList struct {
 
 func (i *dialogItemList) getName() (string, bool) {
 	return i.name, true
+}
+
+func (i *dialogItemList) get(name string) (any, bool) {
+	if name == i.name {
+		return i.list.Selected(), true
+	}
+	return nil, false
 }
 
 func (i *dialogItemList) set(name string, value any) bool {
@@ -809,6 +880,13 @@ func (i *dialogItemRadio) getName() (string, bool) {
 	return i.name, true
 }
 
+func (i *dialogItemRadio) get(name string) (any, bool) {
+	if name == i.name {
+		return i.enum.Value, true
+	}
+	return nil, false
+}
+
 func (i *dialogItemRadio) set(name string, value any) bool {
 	if name == i.name {
 		switch vt := value.(type) {
@@ -830,6 +908,9 @@ func (i *dialogItemRadio) response(response map[string]any) {
 
 func (i *dialogItemRadio) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, labelWidth int) layout.Dimensions {
 	if i.enum.Update(gtx) {
+		if i.parent.onChangeCallback != nil {
+			i.parent.jsCall(i.parent.onChangeCallback, map[string]any{"value": i.enum.Value, "name": i.name})
+		}
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	items := make([]layout.FlexChild, len(i.radios))
@@ -872,11 +953,32 @@ func (i *dialogItemCheck) getName() (string, bool) {
 	return i.name, true
 }
 
+func (i *dialogItemCheck) get(name string) (any, bool) {
+	if name == i.name {
+		if len(i.checks) == 1 {
+			return i.checks[0].Checked(), true
+		}
+		result := make([]string, 0, len(i.checks))
+		for _, check := range i.checks {
+			if check.Checked() {
+				result = append(result, check.Label)
+			}
+		}
+		return result, true
+	}
+	return nil, false
+}
+
 func (i *dialogItemCheck) set(name string, value any) bool {
 	if name == i.name {
 		isInt := false
 		intV := 0
 		switch vt := value.(type) {
+		case bool:
+			if len(i.checks) == 1 {
+				i.checks[0].SetChecked(vt)
+				return true
+			}
 		case string:
 			for _, check := range i.checks {
 				check.SetChecked(check.Label == vt)
@@ -922,6 +1024,10 @@ func (i *dialogItemCheck) set(name string, value any) bool {
 
 func (i *dialogItemCheck) response(response map[string]any) {
 	if len(i.name) > 0 {
+		if len(i.checks) == 1 {
+			response[i.name] = i.checks[0].Checked()
+			return
+		}
 		result := make([]string, 0, len(i.checks))
 		for _, check := range i.checks {
 			if check.Checked() {
@@ -934,11 +1040,30 @@ func (i *dialogItemCheck) response(response map[string]any) {
 
 func (i *dialogItemCheck) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, labelWidth int) layout.Dimensions {
 	items := make([]layout.FlexChild, len(i.checks))
+	changed := false
 	for n, c := range i.checks {
 		if c.Update(gtx) {
-			gtx.Execute(op.InvalidateCmd{})
+			changed = true
 		}
 		items[n] = rigid(c.Layout)
+	}
+	if changed {
+		if i.name != "" && i.parent.onChangeCallback != nil {
+			var value any
+			if len(i.checks) == 1 {
+				value = i.checks[0].Checked()
+			} else {
+				values := make([]string, 0, len(i.checks))
+				for _, check := range i.checks {
+					if check.Checked() {
+						values = append(values, check.Label)
+					}
+				}
+				value = values
+			}
+			i.parent.jsCall(i.parent.onChangeCallback, map[string]any{"value": value, "name": i.name})
+		}
+		gtx.Execute(op.InvalidateCmd{})
 	}
 	switch {
 	case len(i.label) > 0 && i.horizontal:
@@ -947,7 +1072,7 @@ func (i *dialogItemCheck) layout(gtx layout.Context, _ *shortcutPromptDialog, _ 
 		)(gtx)
 	case i.horizontal:
 		return flexHorizontal(10, items...)(gtx)
-	case len(i.label) > 0 && len(items) > 1:
+	case len(i.label) > 0:
 		return flexVertical(4,
 			rigid(flexHorizontal(10,
 				rigidLabel(i.label, text.End, font.Bold, labelWidth),
@@ -973,6 +1098,13 @@ type dialogItemString struct {
 
 func (i *dialogItemString) getName() (string, bool) {
 	return i.name, true
+}
+
+func (i *dialogItemString) get(name string) (any, bool) {
+	if name == i.name {
+		return i.input.Text(), true
+	}
+	return nil, false
 }
 
 func (i *dialogItemString) set(name string, value any) bool {
@@ -1016,6 +1148,13 @@ type dialogItemInt struct {
 
 func (i *dialogItemInt) getName() (string, bool) {
 	return i.name, true
+}
+
+func (i *dialogItemInt) get(name string) (any, bool) {
+	if name == i.name {
+		return i.input.Current(), true
+	}
+	return nil, false
 }
 
 func (i *dialogItemInt) set(name string, value any) bool {
@@ -1071,6 +1210,13 @@ type dialogItemText struct {
 
 func (i *dialogItemText) getName() (string, bool) {
 	return i.name, true
+}
+
+func (i *dialogItemText) get(name string) (any, bool) {
+	if name == i.name {
+		return i.input.Text(), true
+	}
+	return nil, false
 }
 
 func (i *dialogItemText) set(name string, value any) bool {
@@ -1142,8 +1288,12 @@ func (i *dialogItemButton) getName() (string, bool) {
 	return i.name, true
 }
 
-func (i *dialogItemButton) set(_ string, _ any) bool {
-	return false
+func (i *dialogItemButton) get(_ string) (any, bool) {
+	return nil, i.name == i.name
+}
+
+func (i *dialogItemButton) set(name string, _ any) bool {
+	return i.name == i.name
 }
 
 func (i *dialogItemButton) response(_ map[string]any) {
@@ -1179,6 +1329,10 @@ type dialogItemButtons struct {
 
 func (i *dialogItemButtons) getName() (string, bool) {
 	return i.name, true
+}
+
+func (i *dialogItemButtons) get(name string) (any, bool) {
+	return nil, name == i.name
 }
 
 func (i *dialogItemButtons) set(name string, value any) bool {
@@ -1236,14 +1390,24 @@ func (i *dialogItemButtons) layout(gtx layout.Context, dlg *shortcutPromptDialog
 
 type dialogItemGroup struct {
 	dialogItemCommon
-	name   string
-	label  string
-	items  []dialogItem
-	labels []string
+	name       string
+	label      string
+	items      []dialogItem
+	labels     []string
+	horizontal bool
 }
 
 func (i *dialogItemGroup) getName() (string, bool) {
 	return i.name, true
+}
+
+func (i *dialogItemGroup) get(name string) (any, bool) {
+	for _, item := range i.items {
+		if v, ok := item.get(name); ok {
+			return v, ok
+		}
+	}
+	return nil, false
 }
 
 func (i *dialogItemGroup) set(name string, value any) bool {
@@ -1274,6 +1438,15 @@ func (i *dialogItemGroup) layout(gtx layout.Context, dlg *shortcutPromptDialog, 
 			}))
 		}
 	}
+	if i.horizontal {
+		if len(i.label) > 0 {
+			return flexHorizontal(10,
+				rigidLabel(i.label, text.End, font.Bold, labelWidth),
+				rigid(flexHorizontal(10, rows...)),
+			)(gtx)
+		}
+		return flexHorizontal(10, rows...)(gtx)
+	}
 	if len(i.label) > 0 {
 		return flexHorizontal(10,
 			rigidLabel(i.label, text.End, font.Bold, labelWidth),
@@ -1290,12 +1463,20 @@ type dialogItemFile struct {
 	input      *controls.Input
 	path       *controls.PathButton
 	allowExts  []string
+	allowDirs  bool
 	maxWidth   int
 	setFocused bool
 }
 
 func (i *dialogItemFile) getName() (string, bool) {
 	return i.name, true
+}
+
+func (i *dialogItemFile) get(name string) (any, bool) {
+	if i.name == name {
+		return i.input.Text(), true
+	}
+	return nil, false
 }
 
 func (i *dialogItemFile) set(name string, value any) bool {
@@ -1321,7 +1502,7 @@ func (i *dialogItemFile) response(res map[string]any) {
 
 func (i *dialogItemFile) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
 	if i.path.Clicked(gtx) {
-		dlg.core.showFileFinder("Select File", i.allowExts, false, func(path string) {
+		dlg.core.showFileFinder("Select File", i.allowExts, i.allowDirs, func(path string) {
 			i.input.SetText(path)
 			i.setFocused = true
 		}, func() {

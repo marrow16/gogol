@@ -52,7 +52,7 @@ func newMetaRulesPopout(p *menuPopup, c *Core) *metaRulesPopout {
 		},
 	)
 	result.chooser.SetText(c.settings.SelectedMetaRule)
-	result.editor = controls.NewEditor(theme, result.editorChange)
+	result.editor = controls.NewEditor(theme, result.editorChange).Mono()
 	result.mode = &widget.Enum{Value: metaRuleEdit}
 	result.radioEdit = controls.NewRadioButton(theme, result.mode, metaRuleEdit, "Edit")
 	result.radioMatches = controls.NewRadioButton(theme, result.mode, metaRuleMatches, "Matching Rules")

@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"fmt"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -8,12 +9,13 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/dop251/goja"
 	"image"
 )
 
 const separatorOption = "--"
 
-func newShortcutPromptMenu(c *Core, prompt string, selected int, options ...string) *shortcutPromptMenu {
+func newShortcutPromptMenu(c *Core, rt *goja.Runtime, prompt string, selected int, callback func(goja.FunctionCall) goja.Value, options ...string) *shortcutPromptMenu {
 	if len(prompt) == 0 {
 		prompt = "Prompt"
 	}
@@ -45,6 +47,8 @@ func newShortcutPromptMenu(c *Core, prompt string, selected int, options ...stri
 		optionClicks: make([]widget.Clickable, len(actualOptions)),
 		itemIndices:  indices,
 		length:       length,
+		rt:           rt,
+		callback:     callback,
 	}
 	result.listStyle = material.List(theme, &result.list)
 	result.listStyle.AnchorStrategy = material.Overlay
@@ -78,6 +82,8 @@ type shortcutPromptMenu struct {
 	optionClicks []widget.Clickable
 	length       int
 	itemIndices  map[int]int
+	callback     func(goja.FunctionCall) goja.Value
+	rt           *goja.Runtime
 }
 
 func (p *shortcutPromptMenu) wait() (int, bool) {
@@ -104,6 +110,7 @@ func (p *shortcutPromptMenu) Layout(gtx layout.Context) layout.Dimensions {
 			break
 		}
 		if kev, ok := ev.(key.Event); ok && kev.State == key.Press {
+			wasSelected := p.selected
 			switch kev.Name {
 			case key.NameEnter, key.NameReturn, key.NameSpace:
 				p.reply <- p.selected
@@ -121,6 +128,9 @@ func (p *shortcutPromptMenu) Layout(gtx layout.Context) layout.Dimensions {
 				p.selected = 0
 			case key.NameEnd:
 				p.selected = len(p.options) - 1
+			}
+			if p.selected != wasSelected {
+				p.changed()
 			}
 		}
 	}
@@ -150,4 +160,20 @@ func (p *shortcutPromptMenu) Layout(gtx layout.Context) layout.Dimensions {
 	borders(gtx, dims, borderColor, true, true, false, true)
 	call.Add(gtx.Ops)
 	return dims
+}
+
+func (p *shortcutPromptMenu) changed() {
+	defer func() {
+		if r := recover(); r != nil {
+			if p.core.shortcutErrorLogger != nil {
+				p.core.shortcutErrorLogger.Error(fmt.Errorf("call js: %v", r), nil)
+			}
+		}
+	}()
+	if p.callback != nil {
+		p.callback(goja.FunctionCall{This: goja.Undefined(), Arguments: []goja.Value{
+			p.rt.ToValue(p.selected),
+			p.rt.ToValue(p.options[p.selected]),
+		}})
+	}
 }

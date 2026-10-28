@@ -557,7 +557,7 @@ var contentShortCutsJsRef = content{
 				hanging{indent: 8, prefix: "• ", content: content{"if no allowed responses are supplied, the user can input any length and the function returns when the user presses ", keys{keyEnter}, "."}},
 				"Returns: ", code(`string`), " - the user input",
 			}},
-			{{codeCopyable(`promptDialog(string,array)`)}, {
+			{{codeCopyable(`promptDialog(string,array[,callback])`)}, {
 				"Prompts the user to complete a dialog. The dialog is displayed from the ", StatusBar.link("statusbar"), " and the function is blocking until the user completes the dialog (by pressing either the ", bold("Ok"), " or ", bold("Cancel"), " buttons).",
 				"\nThe first string arg is the label shown in the statusbar for the dialog.",
 				" The second array arg is the definition for the dialog.",
@@ -760,6 +760,187 @@ module.exports = {
 		}},
 		italic("Note: Relative paths used in "), code(`require()`), italic(" are taken as relative to shortcut javascript file being executed."),
 	}},
+	expandable{padding: 4, border: true, rightMargin: 4, spaceBefore: 8, title: content{bold("Example - Save Animation")}, content: content{
+		"The following javascript demonstrates adding a UI dialog to save the ", Instrumentation.link("record instrument"), " animation - allowing the user to define the start frame and maximum frames (which the standard UI does not support).",
+		codeBlock{indent: 8, code: `exceptions = true;
+// this function is used by the dialog onChange...
+function onChange(res, dlg) {
+	switch (res["name"]) {
+		case "file":
+			dlg.Hide("err"); // clear any displayed error when file input is changed
+			// update the format radio buttons according to file extension...
+			const path = res["value"];
+			const ext = path.slice(path.lastIndexOf('.'));
+			const curr = dlg.Get("format");
+			if (ext === ".gif" && curr !== "Gif") {
+				dlg.Set("format", "Gif");
+			}
+			if (ext === ".mp4" && curr != "Mp4") {
+				dlg.Set("format", "Mp4");
+			}
+			break;
+		case "start":
+			// make sure start+max frames does not exceed available frames...
+			available = dlg.Get("available");
+			start = res["value"];
+			frames = dlg.Get("frames");
+			if ((start + frames) > available) {
+				dlg.Set("frames", available - start);
+			}
+			break;
+		case "frames":
+			// make sure start+max frames does not exceed available frames...
+			available = dlg.Get("available");
+			start = dlg.Get("start");
+			frames = res["value"];
+			if ((start + frames) > available) {
+				dlg.Set("frames", available - start);
+			}
+			break;
+	}
+}
+// dynamic dialog controls...
+let framesAvailable = {
+	"type": "label",
+	"label": "Frames available: 0",
+	"bold": true
+};
+let framesStart = {
+	"type": "int",
+	"name": "start",
+	"label": "Start frame:",
+	"min": 0,
+	"max": 10,
+	"maxLen": 6,
+	"initial": 0
+};
+let framesMax = {
+	"type": "int",
+	"name": "frames",
+	"label": "Max. Frames:",
+	"min": 0,
+	"max": 10,
+	"maxLen": 6,
+	"initial": 0
+};
+// dialog definition...
+const dialog = [
+	{
+		"type": "init",
+		"func": function (res, dlg) {
+			// initialize the dialog...
+			const ri = recordInstrument();
+			dlg.Set("available", ri.FramesCount());
+			dlg.Set("frames", ri.FramesCount());
+			dlg.Set("borders", borders());
+			dlg.Set("cellSize", cellSize());
+		},
+		"onChange": onChange, // callback for dialog control changes
+		"hide": ["err"]
+	},
+	{
+		"type": "ok",
+		"label": "Save",
+		"onClick": function (res, dlg) {
+			if (!res["file"]) {
+				dlg.Set("err", "Please select a filename");
+				dlg.Show("err");
+				return true;
+			}
+		}
+	},
+	framesAvailable,
+	{
+		"name": "format",
+		"type": "radio",
+		"label": "Format:",
+		"options": ["Gif", "Mp4"],
+		"horizontal": true,
+		"initial": 0,
+	},
+	framesStart,
+	framesMax,
+	{
+		"name": "file",
+		"type": "file",
+		"label": "File:",
+		"extensions": [".gif", ".mp4"],
+		"allowDirs": true,
+		"maxWidth": 30,
+	},
+	{
+		// error display label...
+		"name": "err",
+		"type": "label",
+		"label": "err",
+		"color": "#ff0000",
+	},
+	{
+		"type": "group",
+		"label": "Overrides:",
+		"horizontal": true,
+		"items": [
+			{
+				"type": "int",
+				"name": "cellSize",
+				"label": " Cell size:",
+				"min": 1,
+				"max": 16,
+				"maxLen": 3
+			},
+			{
+				"type": "check",
+				"name": "borders",
+				"options": ["Show Borders"],
+				"horizontal": true,
+			}
+		]
+	}
+];
+
+let ri = recordInstrument();
+if (ri) {
+	if (ri.FramesCount() > 0) {
+		let available = ri.FramesCount();
+		// setup dialog controls according to record instrument...
+		framesAvailable["label"] = "Frames available: "+available;
+		framesStart["max"] = available-1;
+		framesMax["max"] = available;
+		// show the dialog and wait for response...
+		const response = promptDialog("Save Animation", dialog);
+		if (response) {
+			// a response indicates the dialog wasn't cancelled
+			status("Saving...");
+			// save the overridden settings...
+			const wasFmt = animationFormat();
+			const wasCellSize = cellSize();
+			const wasBorders = borders();
+			try {
+				if (response["format"] === "Mp4") {
+					animationFormat("mp4");
+				} else {
+					animationFormat("gif");
+				}
+				borders(response["borders"]);
+				cellSize(response["cellSize"]);
+				animationSave(response["file"], response["start"], response["frames"]);
+				status("Saved");
+			} catch (e) {
+				status("Save error (see log)");
+			} finally {
+				// restore overridden settings...
+				animationFormat(wasFmt);
+				cellSize(wasCellSize);
+				borders(wasBorders);
+			}
+		}
+	} else {
+		status("No recorded steps");
+	}
+} else {
+	status("Record not enabled");
+}`},
+	}},
 }
 
 var ruleObject = expandable{indent: 10, rightMargin: 10, border: true, title: "Rule object", content: content{
@@ -907,7 +1088,7 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"type": "file",
 	"name": "file", // used as key in response object
 	"label": "File:", // optional
-	"maxLen": 18, // optional - max display width for input
+	"maxWidth": 18, // optional - max display width for input
 	"extensions": [".rle"], // optional - allowed file extensions 
 	"initial": "glider.rle" // optional - initial value
 }`},
@@ -952,6 +1133,7 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"type": "group",
 	"name": "lbl-1", // optional - not shown in response but allows addressing
 	"label": "Group", // optional
+	"horizontal": false, // optional - defaults to false
 	"items": [...], // array of dialog items
 }`},
 	}},
@@ -970,19 +1152,29 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 		h4("• Re-label Cancel button"),
 		"Example:",
 		codeBlock{code: `{
-		"type": "cancel",
-		"label": "Nope", // optional
-		"onClick": function(data:object,dlg:object) // optional
+	"type": "cancel",
+	"label": "Nope", // optional
+	"onClick": function(data:object,dlg:object) // optional
 }`},
 	}},
 	indent{indent: 8, spaceAfter: 4, content: content{
 		h4("• Initialise"),
 		"Example:",
 		codeBlock{code: `{
-		"type": "init",
-		"hide": ["ctrl-1"], // optional - initially hidden controls
-		"func": function(data:object,dlg:object) // optional
+	"type": "init",
+	"hide": ["ctrl-1"], // optional - initially hidden controls
+	"func": function(data:object,dlg:object), // optional
+	"onChange": function(data:object,dlg:object) // optional
 }`},
+		"Notes:",
+		hanging{indent: 8, gap: 8, prefix: "•", content: content{
+			"the optional ", code(`func`), " property is a callback that is called immediately before the dialog is shown.",
+		}},
+		hanging{indent: 8, gap: 8, prefix: "•", content: content{
+			"the optional ", code(`onChange`), " property is a callback that is called each time a control value is changed.",
+			" Where the ", code(`data`), " arg passed to the callback is not the full dialog values - it only contains two properties: ",
+			code(`name`), " & ", code(`value`), ".",
+		}},
 	}},
 	separator{},
 	indent{indent: 8, spaceBefore: 4, content: content{
@@ -995,6 +1187,7 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 		hanging{indent: 8, gap: 8, prefix: content{code(`dlg:object`)}, content: content{
 			"is the dialog itself - supporting the following methods: ",
 			hanging{gap: 8, prefix: content{codeCopyable(`.Cancel()`)}, content: content{}},
+			hanging{gap: 8, prefix: content{codeCopyable(`.Get(name:string):any`)}, content: content{}},
 			hanging{gap: 8, prefix: content{codeCopyable(`.Hide(names:string...)`)}, content: content{}},
 			hanging{gap: 8, prefix: content{codeCopyable(`.IsHidden(name:string):bool`)}, content: content{}},
 			hanging{gap: 8, prefix: content{codeCopyable(`.Ok()`)}, content: content{}},
