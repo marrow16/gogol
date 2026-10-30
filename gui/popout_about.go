@@ -12,14 +12,14 @@ import (
 )
 
 const (
-	gogolGuiVersion = "1.6.76"
-	gogolRepo       = "https://github.com/marrow16/gogol"
+	gogolVersion = "1.6.77"
+	gogolRepo    = "https://github.com/marrow16/gogol"
 )
 
 func newAboutPopout(p *menuPopup) *aboutPopout {
 	result := &aboutPopout{
-		parent: p,
-		v:      "Version: " + gogolGuiVersion + " (Go: " + strings.TrimPrefix(runtime.Version(), "go") + ")",
+		parent:  p,
+		version: "Version: " + gogolVersion + " (Go: " + strings.TrimPrefix(runtime.Version(), "go") + ")",
 	}
 	result.links = map[*widget.Clickable]string{
 		&result.linkRepo: gogolRepo,
@@ -31,7 +31,7 @@ type aboutPopout struct {
 	parent   *menuPopup
 	linkRepo widget.Clickable
 	links    map[*widget.Clickable]string
-	v        string
+	version  string
 }
 
 func openURL(url string) error {
@@ -57,7 +57,7 @@ func (p *aboutPopout) layout(gtx layout.Context) layout.Dimensions {
 	}
 	return popoutLayout(gtx, flexVertical(0,
 		rigidLabel("GoGoL", text.Middle, font.Bold, minX),
-		rigidLabel(p.v, text.Middle, 0, minX),
+		rigidLabel(p.version, text.Middle, 0, minX),
 		rigidSpacerVertical(m.Size.Y/2),
 		rigidLabel(`Author: Martin "Marrow" Rowlinson`, text.Middle, 0, minX),
 		rigidFixedWidth(linkLabel(&p.linkRepo, gogolRepo), minX, layout.Center),

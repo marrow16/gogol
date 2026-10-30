@@ -336,6 +336,7 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 		recorder := c.instrumentRecord
 		skipStart := 0
 		maxFrames := 0
+		var metadata map[string]string
 		if recorder != nil && recorder.FramesCount() > 1 {
 			var filename string
 			if len(args) > 0 {
@@ -344,6 +345,15 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 					skipStart = int(args[1].ToInteger())
 					if len(args) > 2 {
 						maxFrames = int(args[2].ToInteger())
+						if len(args) > 3 {
+							metadata = make(map[string]string)
+							rv := args[3].Export()
+							if mv, ok := rv.(map[string]any); ok {
+								for k, v := range mv {
+									metadata[k] = fmt.Sprintf("%v", v)
+								}
+							}
+						}
 					}
 				}
 			} else if c.settings.AnimationFormat != "mp4" {
@@ -353,7 +363,7 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 			}
 			if err == nil {
 				ani := animator.NewAnimator(c.settings.CellSize, c.settings.CellAliveColor, c.settings.CellDeadColor, c.settings.CellBorderColor, c.settings.CellBorders, c.settings.AnimationFormat)
-				err = ani.Animate(filename, recorder, skipStart, maxFrames)
+				err = ani.Animate(filename, recorder, skipStart, maxFrames, metadata)
 				if err != nil {
 					err = fmt.Errorf("animation save failed: %w", err)
 				}

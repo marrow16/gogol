@@ -49,6 +49,9 @@ var plus []byte
 //go:embed minus.png
 var minus []byte
 
+//go:embed refresh.png
+var refresh []byte
+
 //go:embed reverse.png
 var reverse []byte
 
@@ -60,6 +63,9 @@ var skipForward []byte
 
 //go:embed step.png
 var step []byte
+
+//go:embed stop.png
+var stop []byte
 
 //go:embed zoomIn.png
 var zoomIn []byte
@@ -100,11 +106,13 @@ var (
 	Play         = mustImage(play)
 	Plus         = mustImage(plus)
 	Minus        = mustImage(minus)
+	Refresh      = mustImage(refresh)
 	Reverse      = mustImage(reverse)
 	Search       = mustImage(search)
 	SkipBackward = mustImage(skipBackward)
 	SkipForward  = mustImage(skipForward)
 	Step         = mustImage(step)
+	Stop         = mustImage(stop)
 	ZoomIn       = mustImage(zoomIn)
 	ZoomOut      = mustImage(zoomOut)
 

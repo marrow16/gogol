@@ -440,9 +440,10 @@ var contentShortCutsJsRef = content{
 			{{codeCopyable(`animationFormat([string])`)}, {"Gets, and optionally sets, the current animation format.",
 				italic("\nNote: "), code(`mp4`), italic(" option is only available when "), code("ffmpeg"), italic(" is installed."), " [see ", url("https://ffmpeg.org/"), "]",
 				"\nReturns: ", code(`string`), " - current animation format (", code(`gif`), "|", code(`mp4`), ")"}},
-			{{codeCopyable(`animationSave([string[,int[,int]]])`)}, {
+			{{codeCopyable(`animationSave([string[,int[,int[,object]]]])`)}, {
 				"Saves the current recording as an animation ", italic("(only works when recording is on)"), ". The first arg is the filename - if omitted, a filename is generated.",
 				"\nThe second, optional, arg is the number of start frames to skip. The third, optional, arg is the maximum number of frames to save.",
+				"\nThe fourth, optional, arg is metadata for the animation file.",
 				"\nReturns: none (", code(`undefined`), ")",
 			}},
 			{{codeCopyable(`borders([bool])`)}, {"Gets, and optionally sets, whether cell borders are displayed.", "\nReturns: ", code(`bool`)}},
@@ -761,185 +762,8 @@ module.exports = {
 		italic("Note: Relative paths used in "), code(`require()`), italic(" are taken as relative to shortcut javascript file being executed."),
 	}},
 	expandable{padding: 4, border: true, rightMargin: 4, spaceBefore: 8, title: content{bold("Example - Save Animation")}, content: content{
-		"The following javascript demonstrates adding a UI dialog to save the ", Instrumentation.link("record instrument"), " animation - allowing the user to define the start frame and maximum frames (which the standard UI does not support).",
-		codeBlock{indent: 8, code: `exceptions = true;
-// this function is used by the dialog onChange...
-function onChange(res, dlg) {
-	switch (res["name"]) {
-		case "file":
-			dlg.Hide("err"); // clear any displayed error when file input is changed
-			// update the format radio buttons according to file extension...
-			const path = res["value"];
-			const ext = path.slice(path.lastIndexOf('.'));
-			const curr = dlg.Get("format");
-			if (ext === ".gif" && curr !== "Gif") {
-				dlg.Set("format", "Gif");
-			}
-			if (ext === ".mp4" && curr != "Mp4") {
-				dlg.Set("format", "Mp4");
-			}
-			break;
-		case "start":
-			// make sure start+max frames does not exceed available frames...
-			available = dlg.Get("available");
-			start = res["value"];
-			frames = dlg.Get("frames");
-			if ((start + frames) > available) {
-				dlg.Set("frames", available - start);
-			}
-			break;
-		case "frames":
-			// make sure start+max frames does not exceed available frames...
-			available = dlg.Get("available");
-			start = dlg.Get("start");
-			frames = res["value"];
-			if ((start + frames) > available) {
-				dlg.Set("frames", available - start);
-			}
-			break;
-	}
-}
-// dynamic dialog controls...
-let framesAvailable = {
-	"type": "label",
-	"label": "Frames available: 0",
-	"bold": true
-};
-let framesStart = {
-	"type": "int",
-	"name": "start",
-	"label": "Start frame:",
-	"min": 0,
-	"max": 10,
-	"maxLen": 6,
-	"initial": 0
-};
-let framesMax = {
-	"type": "int",
-	"name": "frames",
-	"label": "Max. Frames:",
-	"min": 0,
-	"max": 10,
-	"maxLen": 6,
-	"initial": 0
-};
-// dialog definition...
-const dialog = [
-	{
-		"type": "init",
-		"func": function (res, dlg) {
-			// initialize the dialog...
-			const ri = recordInstrument();
-			dlg.Set("available", ri.FramesCount());
-			dlg.Set("frames", ri.FramesCount());
-			dlg.Set("borders", borders());
-			dlg.Set("cellSize", cellSize());
-		},
-		"onChange": onChange, // callback for dialog control changes
-		"hide": ["err"]
-	},
-	{
-		"type": "ok",
-		"label": "Save",
-		"onClick": function (res, dlg) {
-			if (!res["file"]) {
-				dlg.Set("err", "Please select a filename");
-				dlg.Show("err");
-				return true;
-			}
-		}
-	},
-	framesAvailable,
-	{
-		"name": "format",
-		"type": "radio",
-		"label": "Format:",
-		"options": ["Gif", "Mp4"],
-		"horizontal": true,
-		"initial": 0,
-	},
-	framesStart,
-	framesMax,
-	{
-		"name": "file",
-		"type": "file",
-		"label": "File:",
-		"extensions": [".gif", ".mp4"],
-		"allowDirs": true,
-		"maxWidth": 30,
-	},
-	{
-		// error display label...
-		"name": "err",
-		"type": "label",
-		"label": "err",
-		"color": "#ff0000",
-	},
-	{
-		"type": "group",
-		"label": "Overrides:",
-		"horizontal": true,
-		"items": [
-			{
-				"type": "int",
-				"name": "cellSize",
-				"label": " Cell size:",
-				"min": 1,
-				"max": 16,
-				"maxLen": 3
-			},
-			{
-				"type": "check",
-				"name": "borders",
-				"options": ["Show Borders"],
-				"horizontal": true,
-			}
-		]
-	}
-];
-
-let ri = recordInstrument();
-if (ri) {
-	if (ri.FramesCount() > 0) {
-		let available = ri.FramesCount();
-		// setup dialog controls according to record instrument...
-		framesAvailable["label"] = "Frames available: "+available;
-		framesStart["max"] = available-1;
-		framesMax["max"] = available;
-		// show the dialog and wait for response...
-		const response = promptDialog("Save Animation", dialog);
-		if (response) {
-			// a response indicates the dialog wasn't cancelled
-			status("Saving...");
-			// save the overridden settings...
-			const wasFmt = animationFormat();
-			const wasCellSize = cellSize();
-			const wasBorders = borders();
-			try {
-				if (response["format"] === "Mp4") {
-					animationFormat("mp4");
-				} else {
-					animationFormat("gif");
-				}
-				borders(response["borders"]);
-				cellSize(response["cellSize"]);
-				animationSave(response["file"], response["start"], response["frames"]);
-				status("Saved");
-			} catch (e) {
-				status("Save error (see log)");
-			} finally {
-				// restore overridden settings...
-				animationFormat(wasFmt);
-				cellSize(wasCellSize);
-				borders(wasBorders);
-			}
-		}
-	} else {
-		status("No recorded steps");
-	}
-} else {
-	status("Record not enabled");
-}`},
+		"The following javascript demonstrates adding a UI dialog to save the ", Instrumentation.link("record instrument"), " animation - allowing the user to define the start frame, maximum frames and optional metadata (which the standard UI does not support).",
+		codeBlock{indent: 8, code: exampleAnimation_js},
 	}},
 }
 
@@ -1006,7 +830,7 @@ var repeatInstrumentObject = expandable{indent: 10, rightMargin: 10, border: tru
 }}
 
 var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, border: true, title: "Dialog definition array", content: content{
-	"The dialog definition ia an array - where each element is either a ", code(`string`), " or an ", code(`object`), ".",
+	"The dialog definition is an array - where each element is either a ", code(`string`), " or an ", code(`object`), ".",
 	"\nString elements are just displayed as a label in the dialog - object elements define the control to be shown:",
 	indent{indent: 8, content: content{
 		h4("• Input (string)"),
@@ -1196,3 +1020,215 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 		}},
 	}},
 }}
+
+const exampleAnimation_js = `// turn exceptions on...
+exceptions = true;
+// this function is used by the dialog onChange...
+function onChange(res, dlg) {
+	switch (res["name"]) {
+		case "file":
+			dlg.Hide("err"); // clear any displayed error when file input is changed
+			// update the format radio buttons according to file extension...
+			const path = res["value"];
+			const ext = path.slice(path.lastIndexOf('.'));
+			const curr = dlg.Get("format");
+			if (ext === ".gif" && curr !== "Gif") {
+				dlg.Set("format", "Gif");
+			}
+			if (ext === ".mp4" && curr != "Mp4") {
+				dlg.Set("format", "Mp4");
+			}
+			break;
+		case "start":
+			// make sure start+max frames does not exceed available frames...
+			available = dlg.Get("available");
+			start = res["value"];
+			frames = dlg.Get("frames");
+			if ((start + frames) > available) {
+				dlg.Set("frames", available - start);
+			}
+			break;
+		case "frames":
+			// make sure start+max frames does not exceed available frames...
+			available = dlg.Get("available");
+			start = dlg.Get("start");
+			frames = res["value"];
+			if ((start + frames) > available) {
+				dlg.Set("frames", available - start);
+			}
+			break;
+	}
+}
+// dynamic dialog controls...
+let framesAvailable = {
+	"type": "label",
+	"label": "Frames available: 0",
+	"bold": true
+};
+let framesStart = {
+	"type": "int",
+	"name": "start",
+	"label": "Start frame:",
+	"min": 0,
+	"max": 10,
+	"maxLen": 6,
+	"initial": 0
+};
+let framesMax = {
+	"type": "int",
+	"name": "frames",
+	"label": "Max. Frames:",
+	"min": 0,
+	"max": 10,
+	"maxLen": 6,
+	"initial": 0
+};
+// dialog definition...
+const dialog = [
+	{
+		"type": "init",
+		"func": function (res, dlg) {
+			// initialize the dialog...
+			const ri = recordInstrument();
+			dlg.Set("available", ri.FramesCount());
+			dlg.Set("frames", ri.FramesCount());
+			dlg.Set("borders", borders());
+			dlg.Set("cellSize", cellSize());
+		},
+		"onChange": onChange, // callback for dialog control changes
+		"hide": ["err"]
+	},
+	{
+		"type": "ok",
+		"label": "Save",
+		"onClick": function (res, dlg) {
+			if (!res["file"]) {
+				// no filename entered - show error...
+				dlg.Set("err", "Please select a filename");
+				dlg.Show("err");
+				return true; // returning true prevents dialog close
+			}
+		}
+	},
+	framesAvailable,
+	{
+		"name": "format",
+		"type": "radio",
+		"label": "Format:",
+		"options": ["Gif", "Mp4"],
+		"horizontal": true,
+		"initial": 0,
+	},
+	framesStart,
+	framesMax,
+	{
+		"name": "file",
+		"type": "file",
+		"label": "File:",
+		"extensions": [".gif", ".mp4"],
+		"allowDirs": true,
+		"maxWidth": 30,
+	},
+	{
+		// error display label...
+		"name": "err",
+		"type": "label",
+		"label": "err",
+		"color": "#ff0000",
+	},
+	{
+		"type": "group",
+		"label": "Overrides:",
+		"horizontal": true,
+		"items": [
+			{
+				"type": "int",
+				"name": "cellSize",
+				"label": " Cell size:",
+				"min": 1,
+				"max": 16,
+				"maxLen": 3
+			},
+			{
+				"type": "check",
+				"name": "borders",
+				"options": ["Show Borders"],
+				"horizontal": true,
+			}
+		]
+	},
+	{
+		"type": "group",
+		"label": "Metadata:",
+		"horizontal": true,
+		"items": [
+			{
+				"type": "check",
+				"name": "useMetadata",
+				"options": ["Include"],
+			}
+		]
+	},
+	{
+		"when": "useMetadata=true", // only show when useMetadata is checked
+		"type": "text",
+		"label": " ", // blank label gives indent
+		"name": "metadata",
+		"initial": "artist:me",
+		"maxLines": 4,
+		"maxWidth": 31
+	}
+];
+
+let ri = recordInstrument();
+if (ri) {
+	if (ri.FramesCount() > 0) {
+		let available = ri.FramesCount();
+		// setup dialog controls according to record instrument...
+		framesAvailable["label"] = "Frames available: "+available;
+		framesStart["max"] = available-1;
+		framesMax["max"] = available;
+		// show the dialog and wait for response...
+		const response = promptDialog("Save Animation", dialog);
+		if (response) {
+			// a response indicates the dialog wasn't cancelled
+			status("Saving...");
+			// save the overridden settings...
+			const wasFmt = animationFormat();
+			const wasCellSize = cellSize();
+			const wasBorders = borders();
+			try {
+				if (response["format"] === "Mp4") {
+					animationFormat("mp4");
+				} else {
+					animationFormat("gif");
+				}
+				borders(response["borders"]);
+				cellSize(response["cellSize"]);
+				let metadata = null;
+				if (response["useMetadata"]) {
+					const str = response["metadata"];
+					metadata = Object.fromEntries(
+						str.trim().split("\n").flatMap(line => {
+							const i = line.indexOf(":");
+							return i < 0 ? [] : [[line.slice(0, i).trim(), line.slice(i + 1).trim()]];
+						})
+					);
+				}
+				animationSave(response["file"], response["start"], response["frames"], metadata);
+				status("Saved");
+			} catch (e) {
+				status("Save error (see log)");
+			} finally {
+				// restore overridden settings...
+				animationFormat(wasFmt);
+				cellSize(wasCellSize);
+				borders(wasBorders);
+			}
+		}
+	} else {
+		status("No recorded steps");
+	}
+} else {
+	status("Record not enabled");
+}`

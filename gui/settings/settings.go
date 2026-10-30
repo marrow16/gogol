@@ -142,7 +142,6 @@ type Settings struct {
 	CollectedRules      map[int]bool
 	AnimationFormat     string
 	Fps                 int
-	FileFinderAdvanced  bool
 	ExtraButtons        map[string]string
 }
 
@@ -212,7 +211,6 @@ func (s *Settings) Save(grid *logic.Grid, zoom float32) {
 				CollectedRules:      fr,
 				AnimationFormat:     s.AnimationFormat,
 				Fps:                 s.Fps,
-				FileFinderAdvanced:  s.FileFinderAdvanced,
 				ExtraButtons:        s.ExtraButtons,
 			}
 			if pattern, err := s.PatternFromGrid(grid); err == nil {
@@ -413,7 +411,6 @@ func (s *Settings) fromPrefs(p prefs) {
 	if p.Fps >= 1 {
 		s.Fps = p.Fps
 	}
-	s.FileFinderAdvanced = p.FileFinderAdvanced
 	if p.ExtraButtons != nil {
 		s.ExtraButtons = p.ExtraButtons
 	}
@@ -502,7 +499,6 @@ type prefs struct {
 	CollectedRules      []int               `json:"collected_rules"`
 	AnimationFormat     string              `json:"animation_format"`
 	Fps                 int                 `json:"fps"`
-	FileFinderAdvanced  bool                `json:"file_finder_advanced"`
 	ExtraButtons        map[string]string   `json:"extra_buttons,omitempty"`
 }
 

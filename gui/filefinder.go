@@ -14,6 +14,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/gui/controls"
@@ -34,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 func newFileFinder(core *Core) *fileFinder {
@@ -44,10 +46,13 @@ func newFileFinder(core *Core) *fileFinder {
 		btnCancel:                controls.NewButton(theme, "Cancel"),
 		chkOnlySelectable:        controls.NewCheckBox(theme, "Only show selectable files", false),
 		previewMetadataClickable: &widget.Clickable{},
-		btnAdvDelete:             controls.NewButton(theme, "Delete"),
-		btnAdvAddPattern:         controls.NewButton(theme, "Add Pattern"),
-		btnAdvCapturePattern:     controls.NewButton(theme, "Capture Pattern"),
-		btnAdvCopyPattern:        controls.NewButton(theme, "Copy Pattern"),
+		btnRefresh:               controls.NewIconButton(icons.Refresh, (theme.TextSize*5)/4),
+		btnDelete:                controls.NewButton(theme, "Delete"),
+		btnAddPattern:            controls.NewButton(theme, "Add Pattern"),
+		btnCapturePattern:        controls.NewButton(theme, "Capture Pattern"),
+		btnCopyPattern:           controls.NewButton(theme, "Copy Pattern"),
+		btnShowPreview:           controls.NewButton(theme, "Show Preview"),
+		btnShowRle:               controls.NewButton(theme, "Show Rle"),
 		btnSearch:                controls.NewIconButton(icons.Search, (theme.TextSize*5)/4),
 		btnSearchClose:           controls.NewIconButton(icons.Close, (theme.TextSize*5)/4),
 	}
@@ -124,17 +129,19 @@ type fileFinder struct {
 	previewMetadataShowing   bool
 	previewMetadataClickable *widget.Clickable
 	// searching...
-	search         string
-	searchShowing  bool
-	searchActive   bool
-	searchInput    *controls.Input
-	btnSearch      *controls.IconButton
-	btnSearchClose *controls.IconButton
-	// advanced buttons...
-	btnAdvDelete         *controls.Button
-	btnAdvAddPattern     *controls.Button
-	btnAdvCapturePattern *controls.Button
-	btnAdvCopyPattern    *controls.Button
+	search            string
+	searchShowing     bool
+	searchActive      bool
+	searchInput       *controls.Input
+	btnRefresh        *controls.IconButton
+	btnSearch         *controls.IconButton
+	btnSearchClose    *controls.IconButton
+	btnDelete         *controls.Button
+	btnAddPattern     *controls.Button
+	btnCapturePattern *controls.Button
+	btnCopyPattern    *controls.Button
+	btnShowPreview    *controls.Button
+	btnShowRle        *controls.Button
 }
 
 func (f *fileFinder) selectEntry(entry *dirEntry, keyboard bool) {
@@ -297,6 +304,13 @@ func (f *fileFinder) header(gtx layout.Context) layout.FlexChild {
 }
 
 func (f *fileFinder) breadcrumbs(gtx layout.Context) layout.FlexChild {
+	if f.btnRefresh.Clicked(gtx) {
+		f.searchShowing = false
+		f.searchActive = false
+		f.scannedDir = nil
+		f.backTo = f.result
+		f.result = nil
+	}
 	for i, d := range f.currentPath {
 		if d.clickable.Clicked(gtx) {
 			f.backTo = f.currentDir
@@ -307,12 +321,14 @@ func (f *fileFinder) breadcrumbs(gtx layout.Context) layout.FlexChild {
 		}
 	}
 	items := make([]layout.FlexChild, 0, len(f.currentPath)*2)
-	items = append(items, rigid(func(gtx layout.Context) layout.Dimensions {
-		lbl := material.Label(theme, theme.TextSize, "Path: ")
-		lbl.Font.Weight = font.Bold
-		lbl.MaxLines = 1
-		return lbl.Layout(gtx)
-	}))
+	items = append(items,
+		rigid(f.btnRefresh.Layout),
+		rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Label(theme, theme.TextSize, "Path: ")
+			lbl.Font.Weight = font.Bold
+			lbl.MaxLines = 1
+			return lbl.Layout(gtx)
+		}))
 	sep := label("/")
 	last := len(f.currentPath) - 1
 	for i, item := range f.currentPath {
@@ -367,7 +383,7 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 			case key.NameF1:
 				f.core.showHelp(-1)
 			case key.NameDeleteBackward:
-				if f.core.settings.FileFinderAdvanced && f.result != nil && f.result.isFile {
+				if f.result != nil && f.result.isFile {
 					f.deleteFile(f.result)
 				}
 			case key.NameLeftArrow:
@@ -428,13 +444,10 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 		f.list.ResetItems(items)
 		if f.backTo != nil {
 			for i, e := range items {
-				if e.isFile {
-					break
-				}
 				if e.path == f.backTo.path {
-					f.list.SetSelected(i)
 					f.result = e
-					f.list.ScrollTo(i)
+					f.list.SetSelected(i)
+					f.list.EnsureVisible(i)
 					break
 				}
 			}
@@ -502,30 +515,50 @@ func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
 			f.result.previewClicked(gtx)
 		}
 	}
-	if f.core.settings.FileFinderAdvanced && f.result != nil && f.result.isFile {
+	if f.result != nil {
+		for _, xc := range f.result.previewExtraClickables {
+			if xc.clicked(gtx) {
+				xc.doClick(f.result, gtx)
+			}
+		}
+	}
+	if f.result != nil && f.result.isFile {
 		isRle := strings.ToLower(filepath.Ext(f.result.name)) == ".rle"
-		if f.btnAdvDelete.Clicked(gtx) {
+		rleOk := f.result.previewRleOk
+		showRle := f.result.previewRle
+		if f.btnDelete.Clicked(gtx) {
 			f.deleteFile(f.result)
 		}
 		if isRle {
-			if f.btnAdvAddPattern.Clicked(gtx) {
+			if f.btnAddPattern.Clicked(gtx) {
 				f.addPattern(f.result)
 			}
-			if f.btnAdvCapturePattern.Clicked(gtx) {
+			if f.btnCapturePattern.Clicked(gtx) {
 				f.capturePattern(f.result)
 			}
-			if f.btnAdvCopyPattern.Clicked(gtx) {
+			if f.btnCopyPattern.Clicked(gtx) {
 				f.copyPattern(f.result, gtx)
+			}
+			if f.btnShowRle.Clicked(gtx) {
+				f.result.previewRle = true
+			}
+			if f.btnShowPreview.Clicked(gtx) {
+				f.result.previewRle = false
 			}
 		}
 		return layout.Flexed(3.5, func(gtx layout.Context) layout.Dimensions {
 			dims := layout.Inset{Top: 4, Left: 4, Bottom: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return flexVertical(8,
 					rigid(flexHorizontal(20,
-						rigid(f.btnAdvDelete.Layout),
-						conditionalRigid(isRle, f.btnAdvAddPattern.Layout, nil),
-						conditionalRigid(isRle, f.btnAdvCapturePattern.Layout, nil),
-						conditionalRigid(isRle, f.btnAdvCopyPattern.Layout, nil),
+						rigid(f.btnDelete.Layout),
+						conditionalRigid(isRle && rleOk, flexHorizontal(20,
+							rigid(f.btnAddPattern.Layout),
+							rigid(f.btnCapturePattern.Layout),
+							rigid(f.btnCopyPattern.Layout),
+						), nil),
+						conditionalRigid(isRle, flexHorizontal(0,
+							conditionalRigid(showRle, f.btnShowPreview.Layout, f.btnShowRle.Layout),
+						), nil),
 					)),
 					rigid(f.entryPreview(f.result)),
 				)(gtx)
@@ -739,20 +772,38 @@ type dirEntry struct {
 	isFile    bool
 	clickable *widget.Clickable
 
-	mutex            sync.Mutex
-	previewLoading   bool
-	preview          layout.Widget
-	previewExtra     [][2]string
-	previewImage     image.Image
-	previewError     error
-	previewScrollV   *widget.List
-	previewScrollH   *widget.List
-	previewClickable *widget.Clickable
-	previewClicked   func(gtx layout.Context)
-	previewZoom      float32
-
+	mutex                sync.Mutex
+	previewLoading       bool
+	preview              layout.Widget
+	previewExtra         [][2]string
+	previewRle           bool
+	previewRleOk         bool
+	previewRleSource     string
+	previewImage         image.Image
+	previewError         error
+	previewScrollV       *widget.List
+	previewScrollH       *widget.List
+	previewClickable     *widget.Clickable
+	previewClicked       func(gtx layout.Context)
+	previewZoom          float32
 	previewMetadata      [][2]string
 	prevewMetadataWidget layout.Widget
+	// Gif Extras.
+	previewGif             *gif.GIF
+	previewGifFrame        int
+	previewPlaying         bool
+	previewPlay            *controls.IconButton
+	previewStop            *controls.IconButton
+	previewFwd             *controls.IconButton
+	previewRev             *controls.IconButton
+	previewExtraClickables []previewExtraClickable
+	previewTimer           *time.Timer
+	previewMutex           sync.Mutex
+}
+
+type previewExtraClickable struct {
+	clicked func(layout.Context) bool
+	doClick func(*dirEntry, layout.Context)
 }
 
 func (e *dirEntry) buildPreview(allowExts map[string]struct{}) {
@@ -774,7 +825,7 @@ func (e *dirEntry) buildPreview(allowExts map[string]struct{}) {
 		case ".log", ".js", ".txt":
 			preview, err = e.buildPreviewText()
 		default:
-			preview, err = e.buildPreviewCommon()
+			preview, err = e.buildPreviewCommon(false)
 		}
 	}
 	if err != nil && preview == nil {
@@ -799,45 +850,50 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 	defer func() {
 		_ = f.Close()
 	}()
-	pattern, err := patterns.PatternRleDecoder(f)
+	data, err := io.ReadAll(f)
 	if err != nil {
 		extra := [][2]string{
-			{"RLE error:", err.Error()},
+			{"Read error:", err.Error()},
 		}
-		p, e2 := e.buildPreviewCommon()
+		p, e2 := e.buildPreviewCommon(false)
 		return p, extra, nil, e2
 	}
-	extra := [][2]string{
-		{"Name:", pattern.Name},
-		{"Dimensions:", strconv.Itoa(pattern.Width) + " x " + strconv.Itoa(pattern.Height)},
-	}
-	if pattern.Rule != nil {
-		if pattern.Rule.IsCustom() {
-			extra = append(extra, [2]string{
-				"Rule", pattern.Rule.Rle(),
-			})
-		} else {
-			extra = append(extra, [2]string{
-				"Rule", fmt.Sprintf("%s %q", pattern.Rule.Rle(), pattern.Rule.Name()),
-			})
+	e.previewRleSource = string(data)
+	e.previewRleOk = false
+	extra := make([][2]string, 0)
+	pattern, err := patterns.PatternRleDecoder(bytes.NewReader(data))
+	if err != nil {
+		extra = append(extra, [2]string{"RLE error:", err.Error()})
+		e.previewRle = true
+	} else {
+		e.previewRleOk = true
+		extra = append(extra,
+			[2]string{"Name:", pattern.Name},
+			[2]string{"Dimensions:", strconv.Itoa(pattern.Width) + " x " + strconv.Itoa(pattern.Height)})
+		if pattern.Rule != nil {
+			if pattern.Rule.IsCustom() {
+				extra = append(extra, [2]string{"Rule", pattern.Rule.Rle()})
+			} else {
+				extra = append(extra, [2]string{"Rule", fmt.Sprintf("%s %q", pattern.Rule.Rle(), pattern.Rule.Name())})
+			}
+		}
+		if pattern.Origination != "" {
+			extra = append(extra, [2]string{"Origin:", pattern.Origination})
+		}
+		if len(pattern.Comments) > 0 {
+			extra = append(extra, [2]string{"Comments:", strings.Join(pattern.Comments, "\n")})
 		}
 	}
-	if pattern.Origination != "" {
-		extra = append(extra, [2]string{"Origin:", pattern.Origination})
-	}
-	if len(pattern.Comments) > 0 {
-		extra = append(extra, [2]string{"Comments:", strings.Join(pattern.Comments, "\n")})
-	}
-	p, e2 := e.buildPreviewCommon()
+	p, e2 := e.buildPreviewCommon(true)
 	e.previewClickable = &widget.Clickable{}
 	e.previewClicked = func(gtx layout.Context) {
-		var buf bytes.Buffer
-		if err := patterns.PatternRleEncode(pattern, &buf); err == nil {
-			gtx.Execute(clipboard.WriteCmd{
-				Type: clipboardWriteType,
-				Data: io.NopCloser(&buf),
-			})
-		}
+		e.previewRle = !e.previewRle
+	}
+	if e.previewScrollV == nil {
+		e.previewScrollV = &widget.List{}
+		e.previewScrollV.List.Axis = layout.Vertical
+		e.previewScrollH = &widget.List{}
+		e.previewScrollH.List.Axis = layout.Horizontal
 	}
 	const minCellSize = 4
 	return flexVertical(0,
@@ -847,6 +903,24 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(16)}}
 		}),
 		flexed(func(gtx layout.Context) layout.Dimensions {
+			if e.previewRle || !e.previewRleOk {
+				dims := layout.Dimensions{Size: gtx.Constraints.Max}
+				borders(gtx, dims, borderColor, true, true, true, true)
+				return material.Clickable(gtx, e.previewClickable, func(gtx layout.Context) layout.Dimensions {
+					return material.List(theme, e.previewScrollV).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+						return e.previewScrollH.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+							gtx.Constraints.Min = image.Point{}
+							gtx.Constraints.Max = image.Point{X: 1 << 30, Y: 1 << 30}
+							lbl := material.Label(theme, (theme.TextSize*4)/5, e.previewRleSource)
+							lbl.MaxLines = 0
+							if e.parent.core.monoFont != nil {
+								lbl.Font = *e.parent.core.monoFont
+							}
+							return lbl.Layout(gtx)
+						})
+					})
+				})
+			}
 			maxWd, maxHt := gtx.Constraints.Max.X, gtx.Constraints.Max.Y
 			return material.Clickable(gtx, e.previewClickable, func(gtx layout.Context) layout.Dimensions {
 				var img image.Image
@@ -896,12 +970,13 @@ func (e *dirEntry) buildPreviewRle() (layout.Widget, [][2]string, image.Image, e
 					Size: image.Point{X: w, Y: h},
 				}
 			})
+
 		}),
 	), extra, nil, e2
 }
 
 func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, error) {
-	p, err := e.buildPreviewCommon()
+	p, err := e.buildPreviewCommon(false)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -914,7 +989,8 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 	}()
 	extras := make([][2]string, 0)
 	var img image.Image
-	switch filepath.Ext(e.name) {
+	gifAnimated := false
+	switch strings.ToLower(filepath.Ext(e.name)) {
 	case ".png":
 		var header [26]byte
 		if _, err = io.ReadFull(f, header[:]); err == nil {
@@ -934,8 +1010,29 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 	case ".gif":
 		var g *gif.GIF
 		if g, err = gif.DecodeAll(f); err == nil {
+			if gifAnimated = len(g.Image) > 1; gifAnimated {
+				e.previewGif = g
+				e.previewPlay = controls.NewIconButton(icons.Play, (theme.TextSize/2)*3)
+				e.previewStop = controls.NewIconButton(icons.Stop, (theme.TextSize/2)*3)
+				e.previewFwd = controls.NewIconButton(icons.SkipForward, (theme.TextSize/2)*3)
+				e.previewRev = controls.NewIconButton(icons.SkipBackward, (theme.TextSize/2)*3)
+				e.previewExtraClickables = []previewExtraClickable{
+					{e.previewPlay.Clicked, func(e *dirEntry, gtx layout.Context) {
+						e.playPreview()
+					}},
+					{e.previewStop.Clicked, func(e *dirEntry, gtx layout.Context) {
+						e.stopPreview()
+					}},
+					{e.previewFwd.Clicked, func(e *dirEntry, gtx layout.Context) {
+						e.nextPreviewFrame()
+					}},
+					{e.previewRev.Clicked, func(e *dirEntry, gtx layout.Context) {
+						e.previousPreviewFrame()
+					}},
+				}
+			}
 			img = g.Image[0]
-			if len(g.Image) > 1 {
+			if gifAnimated {
 				extras = append(extras,
 					[2]string{"Dimensions:", strconv.Itoa(img.Bounds().Dx()) + " x " + strconv.Itoa(img.Bounds().Dy()) + " (" + strconv.Itoa(len(g.Image)) + " frames)"})
 			}
@@ -953,6 +1050,15 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 	e.previewZoom = 1.0
 	return flexVertical(0,
 		rigid(p),
+		conditionalRigid(gifAnimated, func(gtx layout.Context) layout.Dimensions {
+			dpw := unit.Dp(float32(measureMaxText(gtx, font.Bold, "Dimensions:"))/gtx.Metric.PxPerDp) + 16
+			return inset(0, 0, dpw, 0, flexHorizontal(10,
+				rigid(e.previewRev.Layout),
+				conditionalRigid(e.previewPlaying, e.previewStop.Layout, e.previewPlay.Layout),
+				rigid(e.previewFwd.Layout),
+				rigid(inset(4, 0, 0, 0, label(" Frame: "+strconv.Itoa(e.previewGifFrame+1)))),
+			))(gtx)
+		}, nil),
 		rigid(func(gtx layout.Context) layout.Dimensions {
 			borders(gtx, layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: gtx.Dp(8)}}, borderColor, false, false, true, false)
 			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(16)}}
@@ -960,6 +1066,9 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 		flexed(func(gtx layout.Context) layout.Dimensions {
 			return material.Clickable(gtx, e.previewClickable, func(gtx layout.Context) layout.Dimensions {
 				img := e.previewImage
+				if img == nil {
+					return layout.Dimensions{}
+				}
 				b := img.Bounds()
 				if b.Dx() > gtx.Constraints.Max.X || b.Dy() > gtx.Constraints.Max.Y {
 					iw := float32(b.Dx())
@@ -1046,10 +1155,10 @@ func (e *dirEntry) buildPreviewJson() (layout.Widget, [][2]string, error) {
 	var js any
 	if err := json.NewDecoder(f).Decode(&js); err != nil {
 		extra := [][2]string{{"JSON error:", err.Error()}}
-		p, e2 := e.buildPreviewCommon()
+		p, e2 := e.buildPreviewCommon(false)
 		return p, extra, e2
 	}
-	p, err := e.buildPreviewCommon()
+	p, err := e.buildPreviewCommon(false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1097,7 +1206,7 @@ func (e *dirEntry) buildPreviewText() (layout.Widget, error) {
 	defer func() {
 		_ = f.Close()
 	}()
-	p, err := e.buildPreviewCommon()
+	p, err := e.buildPreviewCommon(false)
 	if err != nil {
 		return nil, err
 	}
@@ -1134,7 +1243,7 @@ func (e *dirEntry) buildPreviewText() (layout.Widget, error) {
 	), nil
 }
 
-func (e *dirEntry) buildPreviewCommon() (layout.Widget, error) {
+func (e *dirEntry) buildPreviewCommon(isRle bool) (layout.Widget, error) {
 	stat, err := os.Stat(e.path)
 	if err != nil {
 		return nil, err
@@ -1168,16 +1277,25 @@ func (e *dirEntry) buildPreviewCommon() (layout.Widget, error) {
 					)),
 				)
 			}
-			for _, x := range e.previewExtra {
-				extra := x
-				rows = append(rows, rigid(flexHorizontal(20,
-					rigidLabel(extra[0], text.End, font.Bold, labelMax),
-					rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Label(theme, theme.TextSize, extra[1])
-						lbl.MaxLines = 6
-						return lbl.Layout(gtx)
-					}),
-				)))
+			if len(e.previewExtra) > 0 {
+				extraRows := make([]layout.FlexChild, 0, len(e.previewExtra))
+				for _, x := range e.previewExtra {
+					extra := x
+					extraRows = append(extraRows, rigid(flexHorizontal(20,
+						rigidLabel(extra[0], text.End, font.Bold, labelMax),
+						rigid(func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Label(theme, theme.TextSize, extra[1])
+							lbl.MaxLines = 6
+							return lbl.Layout(gtx)
+						}),
+					)))
+				}
+				rows = append(rows, rigid(func(gtx layout.Context) layout.Dimensions {
+					if e.previewRle {
+						return layout.Dimensions{}
+					}
+					return flexVertical(4, extraRows...)(gtx)
+				}))
 			}
 			rows = append(rows, e.buildPreviewMetadata())
 			return flexVertical(4, rows...)(gtx)
@@ -1289,6 +1407,81 @@ func (e *dirEntry) buildPreviewDir(allowExts map[string]struct{}) (layout.Widget
 		}),
 	)
 	return preview, nil, nil
+}
+
+func (e *dirEntry) playPreview() {
+	e.previewMutex.Lock()
+	if e.previewPlaying {
+		e.previewMutex.Unlock()
+		return
+	}
+	e.previewPlaying = true
+	if e.previewGif.LoopCount == -1 {
+		e.previewGifFrame = 0
+	}
+	e.previewMutex.Unlock()
+	e.schedulePreviewFrame()
+}
+
+func (e *dirEntry) schedulePreviewFrame() {
+	e.previewMutex.Lock()
+	if !e.previewPlaying {
+		e.previewMutex.Unlock()
+		return
+	}
+	delay := max(e.previewGif.Delay[e.previewGifFrame], 1)
+	e.previewTimer = time.AfterFunc(time.Duration(delay)*10*time.Millisecond, func() {
+		e.previewMutex.Lock()
+		if !e.previewPlaying {
+			e.previewMutex.Unlock()
+			return
+		}
+		e.previewGifFrame = (e.previewGifFrame + 1) % len(e.previewGif.Image)
+		e.previewImage = e.previewGif.Image[e.previewGifFrame]
+		e.previewMutex.Unlock()
+		window.Invalidate()
+		if e.previewGif.LoopCount == -1 && e.previewGifFrame == len(e.previewGif.Image)-1 {
+			e.previewPlaying = false
+			return
+		}
+		e.schedulePreviewFrame()
+	})
+	e.previewMutex.Unlock()
+}
+
+func (e *dirEntry) stopPreview() {
+	e.previewMutex.Lock()
+	defer e.previewMutex.Unlock()
+	e.previewPlaying = false
+	if e.previewTimer != nil {
+		e.previewTimer.Stop()
+	}
+}
+
+func (e *dirEntry) nextPreviewFrame() {
+	e.previewMutex.Lock()
+	defer e.previewMutex.Unlock()
+	e.previewPlaying = false
+	if e.previewTimer != nil {
+		e.previewTimer.Stop()
+	}
+	e.previewGifFrame = (e.previewGifFrame + 1) % len(e.previewGif.Image)
+	e.previewImage = e.previewGif.Image[e.previewGifFrame]
+}
+
+func (e *dirEntry) previousPreviewFrame() {
+	e.previewMutex.Lock()
+	defer e.previewMutex.Unlock()
+	e.previewPlaying = false
+	if e.previewTimer != nil {
+		e.previewTimer.Stop()
+	}
+	if e.previewGifFrame > 0 {
+		e.previewGifFrame--
+	} else {
+		e.previewGifFrame = len(e.previewGif.Image) - 1
+	}
+	e.previewImage = e.previewGif.Image[e.previewGifFrame]
 }
 
 func fileSize(size int64) string {

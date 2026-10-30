@@ -59,16 +59,19 @@ func insetErrorLabel(err error) layout.Widget {
 	}
 }
 
-func label(s string) layout.Widget {
+func label(s string, opts ...any) layout.Widget {
 	lbl := material.Label(theme, theme.TextSize, s)
 	lbl.MaxLines = 1
-	return lbl.Layout
-}
-
-func labelItalic(s string) layout.Widget {
-	lbl := material.Label(theme, theme.TextSize, s)
-	lbl.MaxLines = 1
-	lbl.Font.Style = font.Italic
+	for _, o := range opts {
+		switch opt := o.(type) {
+		case font.Style:
+			lbl.Font.Style = opt
+		case font.Weight:
+			lbl.Font.Weight = opt
+		case text.Alignment:
+			lbl.Alignment = opt
+		}
+	}
 	return lbl.Layout
 }
 
@@ -252,6 +255,21 @@ func flexHorizontal(gap int, children ...layout.FlexChild) layout.Widget {
 func flexHorizontalSpaced(gap int, spacing layout.Spacing, children ...layout.FlexChild) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Horizontal, Gap: gap, Spacing: spacing}.Layout(gtx, children...)
+	}
+}
+
+func verticalCenter(w layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		macro := op.Record(gtx.Ops)
+		dims := w(gtx)
+		call := macro.Stop()
+		top := 0
+		if dims.Size.Y < gtx.Constraints.Max.Y {
+			top = (gtx.Constraints.Max.Y - (dims.Size.Y + (dims.Baseline / 2))) / 2
+		}
+		defer op.Offset(image.Point{X: 0, Y: top}).Push(gtx.Ops).Pop()
+		call.Add(gtx.Ops)
+		return dims
 	}
 }
 
