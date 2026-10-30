@@ -173,11 +173,11 @@ func (e *editor) handlePaste(evt transfer.DataEvent) {
 func (e *editor) handleShortcutKeys(gtx layout.Context, kev key.Event) (handled bool) {
 	switch kev.Name {
 	case "V":
-		//paste
+		// paste
 		handled = true
 		gtx.Execute(clipboard.ReadCmd{Tag: &e.clipboardTag})
 	case "C":
-		//copy
+		// copy
 		handled = true
 		if pattern := e.markedPattern(); pattern != nil {
 			pattern.Name = time.Now().Format("2006-01-02 15:04:05")
@@ -192,7 +192,7 @@ func (e *editor) handleShortcutKeys(gtx layout.Context, kev key.Event) (handled 
 			}
 		}
 	case "X":
-		//cut
+		// cut
 		handled = true
 		if pattern := e.markedPattern(); pattern != nil {
 			e.endMarking(false)
@@ -221,19 +221,20 @@ func (e *editor) handleShortcutKeys(gtx layout.Context, kev key.Event) (handled 
 			}
 		}
 	case "Z":
-		//undo
+		// undo
 		handled = true
 		e.endMarking(false)
 		e.doUndo()
 	case "A":
-		//all
+		// mark all
 		handled = true
-		e.markStartRow = e.g.grid.Height() - 1
-		e.markStartCol = e.g.grid.Width() - 1
-		e.markArea(0, 0)
+		e.clearMarking()
+		e.markStartRow = 0
+		e.markStartCol = 0
+		h, w := e.g.grid.Height()-1, e.g.grid.Width()-1
+		e.markArea(h, w)
+		e.row, e.col = h, w
 		e.blink = true
-		e.wasUnder = append(e.wasUnder, [2]int{e.row, e.col})
-		e.row, e.col = e.markStartRow, e.markStartCol
 		e.dirty = true
 	}
 	return handled

@@ -18,6 +18,7 @@ type gifEncoder struct {
 	globalColorTable [3 * 256]byte
 	loopCount        int
 	delay            int
+	comments         []string
 }
 
 const (
@@ -28,6 +29,7 @@ const (
 	gcLabel               = 0xF9
 	gcBlockSize           = 0x04
 	disposal         byte = 0x00
+	eComment              = 0xFE // Comment
 )
 
 func (e *gifEncoder) end() error {
@@ -51,7 +53,9 @@ func (e *gifEncoder) writeHeader() {
 	e.buf[2] = 0x00 // Pixel Aspect Ratio.
 	e.write(e.buf[:3])
 	e.encodeColorTable(paddedSize)
-
+	for _, c := range e.comments {
+		e.writeComment(c)
+	}
 	if e.loopCount >= 0 {
 		// add animation loop info
 		e.buf[0] = 0x21
@@ -169,6 +173,24 @@ func (e *gifEncoder) writeImageBlock(pm *image.Paletted) {
 	}
 	_ = lzww.Close() // flush to bw
 	bw.close()       // flush to e.w
+}
+
+func (e *gifEncoder) writeComment(comment string) {
+	if e.err != nil || comment == "" {
+		return
+	}
+	e.writeByte(sExtension) // Extension Introducer.
+	e.writeByte(eComment)   // Comment Extension Label.
+
+	data := []byte(comment)
+	for len(data) > 0 {
+		n := min(len(data), 255)
+		e.writeByte(byte(n))
+		e.write(data[:n])
+		data = data[n:]
+	}
+
+	e.writeByte(0) // Block Terminator.
 }
 
 type blockWriter struct {

@@ -18,6 +18,7 @@ const htmlStyling = `
     <style>
 		body {
 			font-size: 110%;
+			font-family: Tahoma,sans-serif;
 		}
 		code {
 			background-color: rgb(230,230,230);

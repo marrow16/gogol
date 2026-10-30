@@ -2,12 +2,15 @@ package animator
 
 import (
 	"errors"
+	"fmt"
 	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/logic"
 	"image/color"
 	"image/png"
 	"os"
 	"os/exec"
+	"sort"
+	"strings"
 )
 
 var ffmpegChecked = false
@@ -44,21 +47,15 @@ type Animator struct {
 	animationFormat string // "gif" or "mp4" - defaults to "gif"
 }
 
-func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument, skipStart int, maxFrames int) (err error) {
+func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument, skipStart int, maxFrames int, metadata map[string]string) (err error) {
 	skipStart = max(skipStart, 0)
 	maxFrames = max(maxFrames, 0)
 	if a.animationFormat != "mp4" {
-		return a.animateGif(filename, recorder, skipStart, maxFrames)
+		return a.animateGif(filename, recorder, skipStart, maxFrames, metadata)
 	}
 	if !Mp4Available() {
 		return errors.New("mp4 (ffmpeg) not available")
 	}
-	const (
-		fps         = "30"
-		preset      = "slow"
-		crf         = "0"
-		pixelFormat = "yuv420p"
-	)
 	grid := recorder.InitialGrid()
 	img := imaging.CellsImage(grid, imaging.Config{
 		CellSize:    a.cellSize,
@@ -67,7 +64,13 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument, sk
 		DeadColor:   a.dead,
 		BorderColor: a.border,
 	})
-	cmd := exec.Command("ffmpeg",
+	const (
+		fps         = "30"
+		preset      = "slow"
+		crf         = "0"
+		pixelFormat = "yuv420p"
+	)
+	args := []string{
 		"-y",
 		"-f", "image2pipe",
 		"-vcodec", "png",
@@ -78,17 +81,32 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument, sk
 		"-preset", preset,
 		"-crf", crf,
 		"-pix_fmt", pixelFormat,
-		filename,
-	)
+	}
+	if len(metadata) > 0 {
+		keys := make([]string, 0, len(metadata))
+		for k := range metadata {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if k != "" {
+				if v := metadata[k]; v != "" {
+					args = append(args, "-metadata", fmt.Sprintf(`%s=%q`, k, strings.ReplaceAll(v, `"`, "")))
+				}
+			}
+		}
+	}
+	args = append(args, filename)
+	cmd := exec.Command("ffmpeg", args...)
 	//var stderr bytes.Buffer
 	//cmd.Stderr = &stderr
 	ffmpegStdin, err := cmd.StdinPipe()
 	if err != nil {
-		return errors.New("Pipe create failed")
+		return errors.New("pipe create failed")
 	}
 	// start ffmpeg process in the background
 	if err := cmd.Start(); err != nil {
-		return errors.New("Failed to start ffmpeg")
+		return errors.New("failed to start ffmpeg")
 	}
 	// draw the initial frame (staring grid)
 	count := 0
@@ -97,7 +115,7 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument, sk
 		count++
 		frame++
 		if err = png.Encode(ffmpegStdin, img); err != nil {
-			return errors.New("Failed to write start frame")
+			return errors.New("failed to write start frame")
 		}
 	}
 	// iterate over the step changes from recorder...
@@ -140,7 +158,7 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument, sk
 		}
 		if frame >= skipStart {
 			if err = png.Encode(ffmpegStdin, img); err != nil {
-				return errors.New("Failed to encode frame")
+				return errors.New("failed to encode frame")
 			}
 			count++
 		}
@@ -156,7 +174,7 @@ func (a *Animator) Animate(filename string, recorder *logic.RecordInstrument, sk
 	return nil
 }
 
-func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument, skipStart int, maxFrames int) error {
+func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument, skipStart int, maxFrames int, metadata map[string]string) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -172,6 +190,19 @@ func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument,
 		DeadColor:   a.dead,
 		BorderColor: a.border,
 	})
+	comments := make([]string, 0, len(metadata))
+	keys := make([]string, 0, len(metadata))
+	for k := range metadata {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if k != "" {
+			if v := metadata[k]; v != "" {
+				comments = append(comments, fmt.Sprintf(`%s:%s`, k, v))
+			}
+		}
+	}
 	anim := &gifEncoder{
 		w:         f,
 		width:     img.Bounds().Dx(),
@@ -179,6 +210,7 @@ func (a *Animator) animateGif(filename string, recorder *logic.RecordInstrument,
 		palette:   img.Palette,
 		loopCount: -1,
 		delay:     7,
+		comments:  comments,
 	}
 	anim.writeHeader()
 	count := 0

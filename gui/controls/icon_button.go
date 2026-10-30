@@ -24,29 +24,15 @@ type IconButton struct {
 }
 
 func (b *IconButton) Layout(gtx layout.Context) layout.Dimensions {
-	if b.size < 0 {
-		return layout.Inset{Top: 0 - unit.Dp(b.size), Bottom: 0 - unit.Dp(b.size)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return b.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				wh := gtx.Constraints.Max.Y
-				size := image.Point{X: wh, Y: wh}
-				r := b.image.Bounds()
-				defer op.Affine(
-					f32.Affine2D{}.Scale(
-						f32.Point{X: 0, Y: 0},
-						f32.Point{X: float32(size.X) / float32(r.Dx()), Y: float32(size.Y) / float32(r.Dy())}),
-				).Push(gtx.Ops).Pop()
-				paint.NewImageOp(b.image).Add(gtx.Ops)
-				paint.PaintOp{}.Add(gtx.Ops)
-				return layout.Dimensions{Size: size}
-			})
-		})
-	}
 	return b.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		var wh int
-		if b.size != 0 {
-			wh = gtx.Sp(b.size)
-		} else {
+		switch {
+		case b.size == 0:
 			wh = gtx.Constraints.Max.Y
+		case b.size < 0:
+			wh = gtx.Constraints.Max.Y - gtx.Sp(0-b.size)
+		default:
+			wh = gtx.Sp(b.size)
 		}
 		size := image.Point{X: wh, Y: wh}
 		r := b.image.Bounds()

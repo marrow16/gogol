@@ -26,7 +26,7 @@ func newStatusBar(c *Core) *statusBar {
 		height:        30,
 		btnRotate:     controls.NewFlatButton(theme, "Rotate "+patterns.Rotate0.String()).Margin(layout.Inset{Top: 2, Bottom: 1}),
 		btnInterlace:  controls.NewFlatButton(theme, "Overlay").Margin(layout.Inset{Top: 2, Bottom: 1}),
-		btnModeCancel: controls.NewIconButton(icons.Close, -2),
+		btnModeCancel: controls.NewIconButton(icons.Close, -3),
 		btnCapture:    controls.NewFlatButton(theme, "Capture").Margin(layout.Inset{Top: 2, Bottom: 1}).Colors(white, &button),
 		btnFill:       controls.NewFlatButton(theme, "Fill").Margin(layout.Inset{Top: 2, Bottom: 1}),
 		btnClear:      controls.NewFlatButton(theme, "Clear").Margin(layout.Inset{Top: 2, Bottom: 1}),
@@ -335,17 +335,17 @@ func (sb *statusBar) leftArea(gtx layout.Context) layout.FlexChild {
 		case sb.core.mode == editMode:
 			return sb.inset(gtx, flexHorizontal(8,
 				rigid(sb.btnModeCancel.Layout),
-				rigidLabel("Edit Mode", 0, 0, 0),
+				rigid(verticalCenter(label("Edit Mode"))),
 			))
 		case sb.core.mode == placePatternMode:
 			return sb.inset(gtx, flexHorizontal(8,
 				rigid(sb.btnModeCancel.Layout),
-				rigidLabel("Place Pattern Mode", 0, 0, 0),
+				rigid(verticalCenter(label("Place Pattern Mode"))),
 			))
 		case sb.core.mode == heatMapMode:
 			return sb.inset(gtx, flexHorizontal(8,
 				rigid(sb.btnModeCancel.Layout),
-				rigidLabel("Heat Map Display", 0, 0, 0),
+				rigid(verticalCenter(label("Heat Map Display"))),
 			))
 		case sb.core.status != "":
 			sb.stepDims = sb.insetLabel(gtx, sb.core.status, text.Start)
@@ -401,10 +401,10 @@ func (sb *statusBar) middleArea(gtx layout.Context) layout.FlexChild {
 		return flexed(func(gtx layout.Context) layout.Dimensions {
 			return sb.inset(gtx, flexHorizontalSpaced(0, layout.SpaceBetween,
 				rigid(flexHorizontal(8,
-					rigid(label("@ X:"+strconv.Itoa(sb.core.gridHolder.editor.col)+" Y:"+strconv.Itoa(sb.core.gridHolder.editor.row))),
+					rigid(verticalCenter(label("@ X:"+strconv.Itoa(sb.core.gridHolder.editor.col)+" Y:"+strconv.Itoa(sb.core.gridHolder.editor.row)))),
 					conditionalRigid(sb.core.gridHolder.editor.marking, flexHorizontal(8,
-						rigid(label("Marking W:"+strconv.Itoa(max(sb.core.gridHolder.editor.col, sb.core.gridHolder.editor.markStartCol)-min(sb.core.gridHolder.editor.col, sb.core.gridHolder.editor.markStartCol)+1)+
-							" H:"+strconv.Itoa(max(sb.core.gridHolder.editor.row, sb.core.gridHolder.editor.markStartRow)-min(sb.core.gridHolder.editor.row, sb.core.gridHolder.editor.markStartRow)+1))),
+						rigid(verticalCenter(label("  Marking W:"+strconv.Itoa(max(sb.core.gridHolder.editor.col, sb.core.gridHolder.editor.markStartCol)-min(sb.core.gridHolder.editor.col, sb.core.gridHolder.editor.markStartCol)+1)+
+							" H:"+strconv.Itoa(max(sb.core.gridHolder.editor.row, sb.core.gridHolder.editor.markStartRow)-min(sb.core.gridHolder.editor.row, sb.core.gridHolder.editor.markStartRow)+1)))),
 					), nil),
 				)),
 				conditionalRigid(sb.core.gridHolder.editor.marking,
@@ -447,7 +447,7 @@ func (sb *statusBar) middleArea(gtx layout.Context) layout.FlexChild {
 		}
 		return flexed(func(gtx layout.Context) layout.Dimensions {
 			return sb.inset(gtx, flexHorizontalSpaced(0, layout.SpaceBetween,
-				rigidLabel(lbl, 0, 0, 0),
+				rigid(verticalCenter(label(lbl))),
 				rigid(flexHorizontal(8,
 					rigid(sb.btnPlace.Layout),
 					rigid(sb.btnRotate.Layout),
@@ -543,7 +543,7 @@ func (sb *statusBar) insetLabel(gtx layout.Context, s string, align text.Alignme
 		gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
 		return layout.Inset{Top: 3, Bottom: 3, Left: 6, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-				rigid(lbl.Layout),
+				rigid(verticalCenter(lbl.Layout)),
 			)
 		})
 	})

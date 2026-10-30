@@ -383,7 +383,7 @@ func (p *patternsPopout) layoutPreviewMetadata(pattern *patterns.Pattern, gtx la
 			rigidLabel("Filename:", text.End, font.Bold, labelMax),
 			flexed(func(gtx layout.Context) layout.Dimensions {
 				if pattern.Filename == "" {
-					return labelItalic("[built-in]")(gtx)
+					return label("[built-in]", font.Italic)(gtx)
 				}
 				return label(pattern.Filename)(gtx)
 			}),
