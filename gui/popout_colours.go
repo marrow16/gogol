@@ -32,31 +32,31 @@ func newColorsPopout(p *menuPopup, c *Core) *colorsPopout {
 	}
 	result.aliveR = controls.NewNumberInput(theme, 3, 0, 255, 16, func(v int) {
 		result.colorChanged(0, 0, v)
-	}).SetValue(int(c.settings.CellAliveColor.R))
+	}).SetValue(int(c.settings.CellAliveColor.R)).WithSpinner(true)
 	result.aliveG = controls.NewNumberInput(theme, 3, 0, 255, 16, func(v int) {
 		result.colorChanged(0, 1, v)
-	}).SetValue(int(c.settings.CellAliveColor.G))
+	}).SetValue(int(c.settings.CellAliveColor.G)).WithSpinner(true)
 	result.aliveB = controls.NewNumberInput(theme, 3, 0, 255, 16, func(v int) {
 		result.colorChanged(0, 2, v)
-	}).SetValue(int(c.settings.CellAliveColor.B))
+	}).SetValue(int(c.settings.CellAliveColor.B)).WithSpinner(true)
 	result.deadR = controls.NewNumberInput(theme, 3, 0, 255, 16, func(v int) {
 		result.colorChanged(1, 0, v)
-	}).SetValue(int(c.settings.CellDeadColor.R))
+	}).SetValue(int(c.settings.CellDeadColor.R)).WithSpinner(true)
 	result.deadG = controls.NewNumberInput(theme, 3, 0, 255, 16, func(v int) {
 		result.colorChanged(1, 1, v)
-	}).SetValue(int(c.settings.CellDeadColor.G))
+	}).SetValue(int(c.settings.CellDeadColor.G)).WithSpinner(true)
 	result.deadB = controls.NewNumberInput(theme, 3, 0, 255, 16, func(v int) {
 		result.colorChanged(1, 2, v)
-	}).SetValue(int(c.settings.CellDeadColor.B))
+	}).SetValue(int(c.settings.CellDeadColor.B)).WithSpinner(true)
 	result.borderR = controls.NewNumberInput(theme, 3, 0, 255, 16, func(v int) {
 		result.colorChanged(2, 0, v)
-	}).SetValue(int(c.settings.CellBorderColor.R))
+	}).SetValue(int(c.settings.CellBorderColor.R)).WithSpinner(true)
 	result.borderG = controls.NewNumberInput(theme, 3, 0, 255, 16, func(v int) {
 		result.colorChanged(2, 1, v)
-	}).SetValue(int(c.settings.CellBorderColor.G))
+	}).SetValue(int(c.settings.CellBorderColor.G)).WithSpinner(true)
 	result.borderB = controls.NewNumberInput(theme, 3, 0, 255, 16, func(v int) {
 		result.colorChanged(2, 2, v)
-	}).SetValue(int(c.settings.CellBorderColor.B))
+	}).SetValue(int(c.settings.CellBorderColor.B)).WithSpinner(true)
 	result.inputs = []*controls.NumberInput[int]{
 		result.aliveR, result.aliveG, result.aliveB,
 		result.deadR, result.deadG, result.deadB,

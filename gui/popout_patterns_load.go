@@ -17,7 +17,6 @@ type loadPatternsPopout struct {
 	setFocused bool
 	path       *controls.Input
 	btnLoad    *controls.Button
-	btnPath    *controls.PathButton
 	error      error
 	loaded     *int
 }
@@ -28,9 +27,9 @@ func newLoadPatternsPopout(p *menuPopup, c *Core) *loadPatternsPopout {
 		core:       c,
 		setFocused: true,
 		btnLoad:    controls.NewButton(theme, "Load"),
-		btnPath:    controls.NewPathButton(theme),
 	}
-	result.path = controls.NewInput(theme, "", 256, result.clearError).MaximumWidth(30)
+	result.path = controls.NewInput(theme, "", 256, result.clearError).
+		MaximumWidth(30).WithEllipsisButton(result.ellipsisClicked)
 	return result
 }
 
@@ -67,17 +66,18 @@ func (p *loadPatternsPopout) loadPatterns() {
 	}
 }
 
+func (p *loadPatternsPopout) ellipsisClicked() {
+	p.core.showFileFinder("Select Pattern(s)", []string{".rle"}, true, func(path string) {
+		p.path.SetText(path)
+		p.setFocused = true
+	}, func() {
+		p.setFocused = true
+	})
+}
+
 func (p *loadPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnLoad.Clicked(gtx) {
 		p.loadPatterns()
-	}
-	if p.btnPath.Clicked(gtx) {
-		p.core.showFileFinder("Select Pattern(s)", []string{".rle"}, true, func(path string) {
-			p.path.SetText(path)
-			p.setFocused = true
-		}, func() {
-			p.setFocused = true
-		})
 	}
 	if p.setFocused {
 		p.setFocused = false
@@ -88,8 +88,7 @@ func (p *loadPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 		rigid(label("Enter pattern filename or directory (for library)...")),
 		rigid(flexHorizontal(0,
 			rigidLabel("Path: ", text.End, 0, labelMax),
-			flexed(p.path.Layout),
-			rigid(p.btnPath.Layout),
+			rigid(p.path.Layout),
 		)),
 		rigid(flexHorizontal(0,
 			rigid(func(gtx layout.Context) layout.Dimensions {
@@ -112,5 +111,5 @@ func (p *loadPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *loadPatternsPopout) hasFocus(gtx layout.Context) bool {
-	return p.path.IsFocused(gtx) || p.btnLoad.IsFocused(gtx) || p.btnPath.IsFocused(gtx)
+	return p.path.IsFocused(gtx) || p.btnLoad.IsFocused(gtx)
 }

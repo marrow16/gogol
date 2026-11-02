@@ -1,6 +1,7 @@
 package controls
 
 import (
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -31,6 +32,10 @@ func (b *Button) Clicked(gtx layout.Context) bool {
 
 func (b *Button) IsFocused(gtx layout.Context) bool {
 	return gtx.Focused(&b.clickable)
+}
+
+func (b *Button) SetFocused(gtx layout.Context) {
+	gtx.Execute(key.FocusCmd{Tag: &b.clickable})
 }
 
 func (b *Button) BackgroundColor(c color.NRGBA) *Button {

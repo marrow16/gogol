@@ -10,6 +10,7 @@ var (
 	borderColor          = color.NRGBA{R: 181, G: 181, B: 181, A: 255}
 	borderFocusedColor   = color.NRGBA{R: 102, G: 128, B: 230, A: 230}
 	selectedColor        = color.NRGBA{R: 102, G: 128, B: 230, A: 80}
+	hoverColor           = color.NRGBA{R: 181, G: 181, B: 181, A: 80}
 	selectedFocusedColor = color.NRGBA{R: 102, G: 128, B: 230, A: 160}
 	linkColor            = color.NRGBA{R: 102, G: 128, B: 230, A: 255}
 	errorColor           = color.NRGBA{R: 200, G: 0, B: 0, A: 255}

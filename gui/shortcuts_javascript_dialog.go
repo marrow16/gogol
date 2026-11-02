@@ -3,11 +3,13 @@ package gui
 import (
 	"fmt"
 	"gioui.org/font"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/dop251/goja"
@@ -43,66 +45,51 @@ func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any
 		case string:
 			result.items = append(result.items, dialogItemLabel(it))
 		case map[string]any:
-			lbl := ""
-			if rawL, ok := it["label"]; ok {
-				if s, ok := rawL.(string); ok {
+			itm := jsItemDecoder(it)
+			if typeStr, ok := itm.isString("type"); ok {
+				lbl := ""
+				if s, ok := itm.isString("label"); ok {
 					lbl = s
 				}
-			}
-			if rawV, ok := it["type"]; ok {
-				if typeStr, ok := rawV.(string); ok {
-					switch strings.ToLower(typeStr) {
-					case "ok":
-						if lbl != "" {
-							okLabel = lbl
-						}
-						if oc, ok := it["onClick"]; ok {
-							if ocf, ok := oc.(func(goja.FunctionCall) goja.Value); ok {
-								result.onOkClick = ocf
-							}
-						}
-					case "cancel":
-						if lbl != "" {
-							cancelLabel = lbl
-						}
-						if oc, ok := it["onClick"]; ok {
-							if ocf, ok := oc.(func(goja.FunctionCall) goja.Value); ok {
-								result.onCancelClick = ocf
-							}
-						}
-					case "init":
-						for k, v := range it {
-							if k != "type" {
-								switch k {
-								case "func":
-									if ocf, ok := v.(func(goja.FunctionCall) goja.Value); ok {
-										initFunc = ocf
+				switch strings.ToLower(typeStr) {
+				case "ok":
+					if lbl != "" {
+						okLabel = lbl
+					}
+					result.onOkClick, _ = itm.jsFunc("onClick")
+				case "cancel":
+					if lbl != "" {
+						cancelLabel = lbl
+					}
+					result.onCancelClick, _ = itm.jsFunc("onClick")
+				case "init", "initialise", "initialize":
+					for k, v := range itm {
+						if k != "type" {
+							switch k {
+							case "func":
+								initFunc, _ = itm.jsFunc("func")
+							case "onChange":
+								result.onChangeCallback, _ = itm.jsFunc("onChange")
+							case "hide":
+								switch vt := v.(type) {
+								case string:
+									result.hidden[vt] = true
+								case []any:
+									for _, name := range vt {
+										result.hidden[fmt.Sprintf("%v", name)] = true
 									}
-								case "onChange":
-									if ocf, ok := v.(func(goja.FunctionCall) goja.Value); ok {
-										result.onChangeCallback = ocf
-									}
-								case "hide":
-									switch vt := v.(type) {
-									case string:
-										result.hidden[vt] = true
-									case []any:
-										for _, name := range vt {
-											result.hidden[fmt.Sprintf("%v", name)] = true
-										}
-									}
-								default:
-									result.setValues[k] = v
 								}
+							default:
+								result.setValues[k] = v
 							}
 						}
-					default:
-						if item, addLabel := buildPromptDialogRow(result, rt, typeStr, lbl, it); item != nil {
-							ctrls++
-							result.items = append(result.items, item)
-							if addLabel {
-								result.labels = append(result.labels, lbl)
-							}
+					}
+				default:
+					if item, addLabel := buildPromptDialogRow(result, rt, typeStr, lbl, it); item != nil {
+						ctrls++
+						result.items = append(result.items, item)
+						if addLabel {
+							result.labels = append(result.labels, lbl)
 						}
 					}
 				}
@@ -205,6 +192,7 @@ func (w *PromptDialogWrapper) Set(name string, value any) {
 		set = set || i.set(name, value)
 	}
 	if !set {
+		// not a known control - just set as named value
 		w.dlg.setValues[name] = value
 	}
 	window.Invalidate()
@@ -228,6 +216,14 @@ func (w *PromptDialogWrapper) Ok() {
 }
 
 func (w *PromptDialogWrapper) Cancel() {
+	if w.dlg.onCancelClick != nil {
+		response := make(map[string]any)
+		maps.Copy(response, w.dlg.setValues)
+		for _, item := range w.dlg.items {
+			item.response(response)
+		}
+		w.dlg.jsCall(w.dlg.onCancelClick, response)
+	}
 	w.dlg.reply <- nil
 }
 
@@ -293,254 +289,156 @@ func (p *shortcutPromptDialog) isHidden(item dialogItem) bool {
 	return false
 }
 
-func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t string, lbl string, item map[string]any) (result dialogItem, addLabel bool) {
-	itemString := func(name string) string {
-		if v, ok := item[name]; ok {
-			if s, ok := v.(string); ok {
-				return s
-			}
-		}
-		return ""
-	}
-	itemInt := func(name string, def int) int {
-		if v, ok := item[name]; ok {
-			switch vt := v.(type) {
-			case int:
-				return vt
-			case int64:
-				return int(vt)
-			case float64:
-				return int(vt)
-			case float32:
-				return int(vt)
-			}
-		}
-		return def
-	}
-	itemBool := func(name string, def bool) bool {
-		if v, ok := item[name]; ok {
-			if b, ok := v.(bool); ok {
-				return b
-			}
-		}
-		return def
-	}
-	buildWhenFunc := func() func(data map[string]any) bool {
-		if v, ok := item["when"]; ok {
-			if vs, ok := v.(string); ok {
-				if pts := strings.SplitN(vs, "=", 2); len(pts) == 2 {
-					name := pts[0]
-					not := false
-					if before, ok := strings.CutSuffix(name, "!"); ok {
-						not = true
-						name = before
-					}
-					value := pts[1]
-					return func(data map[string]any) bool {
-						b := false
-						if dv, vok := data[name]; vok {
-							switch dvt := dv.(type) {
-							case string:
-								b = value == dvt
-							case []string:
-								b = slices.Contains(dvt, value)
-							default:
-								b = value == fmt.Sprintf("%v", dv)
-							}
-						}
-						if not {
-							b = !b
-						}
-						return b
-					}
-				}
-			}
-		}
-		return nil
-	}
-	maxL := itemInt("maxLen", 10)
+func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t string, lbl string, item jsItemDecoder) (result dialogItem, addLabel bool) {
+	name := item.string("name")
 	addLabel = true
 	switch strings.ToLower(t) {
 	case "str", "string":
-		name := itemString("name")
-		input := controls.NewInput(theme, itemString("filter"), maxL, func(s string) {
-			if parent.onChangeCallback != nil {
+		maxLen := max(item.integer("maxLen", 10), 0)
+		input := controls.NewInput(theme, item.string("filter"), maxLen, func(s string) {
+			if parent.onChangeCallback != nil && name != "" {
 				parent.jsCall(parent.onChangeCallback, map[string]any{"value": s, "name": name})
 			}
 			window.Invalidate()
-		}).MaximumWidth(maxL)
-		input.SetText(itemString("initial"))
+		}).MaximumWidth(max(item.integer("maxWidth", 0), 0))
+		input.SetText(item.string("initial"))
 		result = &dialogItemString{
 			parent: parent,
-			whenFn: buildWhenFunc(),
+			whenFn: item.boolFunc("when"),
 			name:   name,
 			label:  lbl,
 			input:  input,
 		}
 	case "int", "integer":
-		name := itemString("name")
-		input := controls.NewNumberInput[int](theme, maxL, itemInt("min", 0), itemInt("max", 0), 0, func(i int) {
-			if parent.onChangeCallback != nil {
+		maxLen := max(item.integer("maxLen", 10), 0)
+		input := controls.NewNumberInput[int](theme, maxLen, item.integer("min", 0), item.integer("max", 0), 0, func(i int) {
+			if parent.onChangeCallback != nil && name != "" {
 				parent.jsCall(parent.onChangeCallback, map[string]any{"value": i, "name": name})
 			}
 			window.Invalidate()
-		})
-		input.SetValue(itemInt("initial", 0))
+		}).WithSpinner(item.bool("spinner", false))
+		input.SetValue(item.integer("initial", 0))
 		result = &dialogItemInt{
 			parent: parent,
-			whenFn: buildWhenFunc(),
+			whenFn: item.boolFunc("when"),
 			name:   name,
 			label:  lbl,
 			input:  input,
 		}
 	case "label":
 		addLabel = false
-		var clr *color.NRGBA
-		if _, ok := item["color"]; ok {
-			if c, cOk := parseColor(itemString("color")); cOk {
-				clr = &c
-			}
-		}
 		result = &dialogItemLabelLine{
-			name:   itemString("name"),
-			whenFn: buildWhenFunc(),
+			name:   name,
+			whenFn: item.boolFunc("when"),
 			label:  lbl,
-			small:  itemBool("small", false),
-			bold:   itemBool("bold", false),
-			italic: itemBool("italic", false),
-			color:  clr,
+			small:  item.bool("small", false),
+			bold:   item.bool("bold", false),
+			italic: item.bool("italic", false),
+			color:  item.color("color"),
 		}
 	case "radio":
-		if rv, ok := item["options"]; ok {
-			if lv, ok := rv.([]any); ok && len(lv) > 0 {
-				options := make([]string, len(lv))
-				for i, v := range lv {
-					switch iv := v.(type) {
-					case string:
-						options[i] = iv
-					case fmt.Stringer:
-						options[i] = iv.String()
-					default:
-						options[i] = fmt.Sprintf("%v", v)
-					}
-				}
-				initial := ""
-				if v := itemInt("initial", -1); v >= 0 && v < len(options) {
-					initial = options[v]
-				}
-				r := &dialogItemRadio{
-					whenFn:     buildWhenFunc(),
-					parent:     parent,
-					name:       itemString("name"),
-					label:      lbl,
-					enum:       &widget.Enum{Value: initial},
-					horizontal: itemBool("horizontal", false),
-				}
-				for _, o := range options {
-					r.radios = append(r.radios, controls.NewRadioButton(theme, r.enum, o, o))
-				}
-				result = r
+		if options, ok := item.arrayString("options"); ok {
+			initial := ""
+			if v := item.integer("initial", -1); v >= 0 && v < len(options) {
+				initial = options[v]
 			}
+			r := &dialogItemRadio{
+				whenFn:     item.boolFunc("when"),
+				parent:     parent,
+				name:       name,
+				label:      lbl,
+				enum:       &widget.Enum{Value: initial},
+				horizontal: item.bool("horizontal", false),
+			}
+			for _, o := range options {
+				r.radios = append(r.radios, controls.NewRadioButton(theme, r.enum, o, o))
+			}
+			result = r
 		}
 	case "check":
-		if rv, ok := item["options"]; ok {
-			if lv, ok := rv.([]any); ok && len(lv) > 0 {
-				options := make([]string, len(lv))
-				for i, v := range lv {
-					switch iv := v.(type) {
-					case string:
-						options[i] = iv
-					case fmt.Stringer:
-						options[i] = iv.String()
-					default:
-						options[i] = fmt.Sprintf("%v", v)
-					}
-				}
-				r := &dialogItemCheck{
-					parent:     parent,
-					whenFn:     buildWhenFunc(),
-					name:       itemString("name"),
-					label:      lbl,
-					horizontal: itemBool("horizontal", false),
-				}
-				initial := itemInt("initial", 0)
-				for i, o := range options {
-					idx := 1 << i
-					r.checks = append(r.checks, controls.NewCheckBox(theme, o, idx&initial != 0))
-				}
-				result = r
+		if options, ok := item.arrayString("options"); ok {
+			r := &dialogItemCheck{
+				parent:     parent,
+				whenFn:     item.boolFunc("when"),
+				name:       name,
+				label:      lbl,
+				horizontal: item.bool("horizontal", false),
 			}
+			initial := item.integer("initial", 0)
+			for i, o := range options {
+				idx := 1 << i
+				r.checks = append(r.checks, controls.NewCheckBox(theme, o, idx&initial != 0))
+			}
+			result = r
 		}
 	case "list":
-		if rv, ok := item["options"]; ok {
-			name := itemString("name")
-			if lv, ok := rv.([]any); ok && len(lv) > 0 {
-				options := make([]string, len(lv))
-				for i, v := range lv {
-					switch iv := v.(type) {
-					case string:
-						options[i] = iv
-					case fmt.Stringer:
-						options[i] = iv.String()
-					default:
-						options[i] = fmt.Sprintf("%v", v)
+		if options, ok := item.arrayString("options"); ok {
+			result = &dialogItemList{
+				parent: parent,
+				whenFn: item.boolFunc("when"),
+				name:   name,
+				label:  lbl,
+				list: controls.NewList[string](theme, options, true).RowRenderer(func(gtx layout.Context, index int, item string) layout.Dimensions {
+					return inset(0, 0, 4, 4, label(item))(gtx)
+				}).OnItemSelect(func(item string, _ bool) {
+					if parent.onChangeCallback != nil && name != "" {
+						parent.jsCall(parent.onChangeCallback, map[string]any{"value": item, "name": name})
+						window.Invalidate()
 					}
-				}
-				result = &dialogItemList{
-					parent: parent,
-					whenFn: buildWhenFunc(),
-					name:   name,
-					label:  lbl,
-					list: controls.NewList[string](theme, options, true).RowRenderer(func(gtx layout.Context, index int, item string) layout.Dimensions {
-						return inset(0, 0, 4, 4, label(item))(gtx)
-					}).OnItemSelect(func(item string, _ bool) {
-						if parent.onChangeCallback != nil {
-							parent.jsCall(parent.onChangeCallback, map[string]any{"value": item, "name": name})
-							window.Invalidate()
-						}
-					}),
-					maxLen:   itemInt("maxLen", 0),
-					maxWidth: itemInt("maxWidth", 0),
-				}
+				}),
+				maxLen:   item.integer("maxLen", 0),
+				maxWidth: item.integer("maxWidth", 0),
 			}
 		}
+	case "dropdown":
+		if options, ok := item.arrayString("options"); ok {
+			chooser := controls.NewChooser[string](theme, max(item.integer("maxWidth", 10), 10), options, func(s *string) {
+				if parent.onChangeCallback != nil && name != "" {
+					parent.jsCall(parent.onChangeCallback, map[string]any{"value": *s, "name": name})
+				}
+				window.Invalidate()
+			}, nil).MaxRows(item.integer("maxLen", 10)).Direction(!item.bool("down", false))
+			chooser.SetText(item.string("initial"))
+			return &dialogItemDropdown{
+				parent:  parent,
+				whenFn:  item.boolFunc("when"),
+				name:    name,
+				label:   lbl,
+				chooser: chooser,
+			}, true
+		}
 	case "text":
-		name := itemString("name")
 		r := &dialogItemText{
-			whenFn: buildWhenFunc(),
+			whenFn: item.boolFunc("when"),
 			name:   name,
 			label:  lbl,
 			input: controls.NewEditor(theme, func(text string, gtx layout.Context) {
-				if parent.onChangeCallback != nil {
+				if parent.onChangeCallback != nil && name != "" {
 					parent.jsCall(parent.onChangeCallback, map[string]any{"value": text, "name": name})
 				}
 				gtx.Execute(op.InvalidateCmd{})
 			}),
-			maxLines: itemInt("maxLines", 0),
-			maxWidth: itemInt("maxWidth", 0),
+			maxLines: item.integer("maxLines", 0),
+			maxWidth: item.integer("maxWidth", 0),
 		}
-		if initial := itemString("initial"); initial != "" {
+		if initial := item.string("initial"); initial != "" {
 			r.input.SetText(initial)
 		}
 		result = r
 	case "button":
 		addLabel = false
-		bLabel := itemString("label")
+		bLabel := item.string("label")
 		if bLabel == "" {
 			bLabel = "Button"
 		}
 		r := &dialogItemButton{
-			whenFn: buildWhenFunc(),
-			name:   itemString("name"),
+			whenFn: item.boolFunc("when"),
+			name:   name,
 			rt:     rt,
 			label:  bLabel,
 		}
-		if oc, ok := item["onClick"]; ok {
-			if ocf, ok := oc.(func(goja.FunctionCall) goja.Value); ok {
-				r.onClick = ocf
-			}
-		}
-		if itemBool("flat", false) {
+		r.onClick, _ = item.jsFunc("onClick")
+		if item.bool("flat", false) {
 			r.flatButton = controls.NewFlatButton(theme, bLabel).Inset(layout.Inset{Top: 2, Bottom: 3, Left: 4, Right: 4})
 		} else {
 			r.button = controls.NewButton(theme, bLabel)
@@ -548,47 +446,30 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		result = r
 	case "buttons":
 		addLabel = false
-		if rv, ok := item["options"]; ok {
-			if lv, ok := rv.([]any); ok && len(lv) > 0 {
-				options := make([]string, len(lv))
-				for i, v := range lv {
-					switch iv := v.(type) {
-					case string:
-						options[i] = iv
-					case fmt.Stringer:
-						options[i] = iv.String()
-					default:
-						options[i] = fmt.Sprintf("%v", v)
-					}
-				}
-				r := &dialogItemButtons{
-					whenFn: buildWhenFunc(),
-					rt:     rt,
-					name:   itemString("name"),
-					label:  lbl,
-				}
-				flat := itemBool("flat", false)
-				for _, o := range options {
-					if len(o) > 0 {
-						if flat {
-							r.flatButtons = append(r.flatButtons, controls.NewFlatButton(theme, o).Inset(layout.Inset{Top: 2, Bottom: 3, Left: 4, Right: 4}))
-						} else {
-							r.buttons = append(r.buttons, controls.NewButton(theme, o))
-						}
-					}
-				}
-				if oc, ok := item["onClick"]; ok {
-					if ocf, ok := oc.(func(goja.FunctionCall) goja.Value); ok {
-						r.onClick = ocf
-					}
-				}
-				result = r
+		if options, ok := item.arrayString("options"); ok {
+			r := &dialogItemButtons{
+				whenFn: item.boolFunc("when"),
+				rt:     rt,
+				name:   name,
+				label:  lbl,
+				gap:    item.integer("gap", 10),
 			}
+			flat := item.bool("flat", false)
+			for _, o := range options {
+				if len(o) > 0 {
+					if flat {
+						r.flatButtons = append(r.flatButtons, controls.NewFlatButton(theme, o).Inset(layout.Inset{Top: 2, Bottom: 3, Left: 4, Right: 4}))
+					} else {
+						r.buttons = append(r.buttons, controls.NewButton(theme, o))
+					}
+				}
+			}
+			r.onClick, _ = item.jsFunc("onClick")
+			result = r
 		}
 	case "file":
-		name := itemString("name")
 		input := controls.NewInput(theme, nil, 0, func(s string) {
-			if parent.onChangeCallback != nil {
+			if parent.onChangeCallback != nil && name != "" {
 				parent.jsCall(parent.onChangeCallback, map[string]any{"value": s, "name": name})
 			}
 			window.Invalidate()
@@ -603,55 +484,148 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		}
 		r := &dialogItemFile{
 			parent:    parent,
-			whenFn:    buildWhenFunc(),
+			whenFn:    item.boolFunc("when"),
 			name:      name,
 			label:     lbl,
 			input:     input,
-			path:      controls.NewPathButton(theme),
 			allowExts: allowExts,
-			allowDirs: itemBool("allowDirs", false),
-			maxWidth:  max(itemInt("maxWidth", 16), 16),
+			allowDirs: item.bool("allowDirs", false),
 		}
-		if initial := itemString("initial"); initial != "" {
+		r.input.MaximumWidth(max(item.integer("maxWidth", 16), 16)).WithEllipsisButton(r.ellipsisClicked)
+		if initial := item.string("initial"); initial != "" {
 			r.input.SetText(initial)
 		}
 		result = r
+	case "progress", "progressbar":
+		initial := min(max(item.integer("initial", 0), 0), 100)
+		initF := float32(initial) / 100
+		ht := unit.Dp(max(item.integer("height", 8), 4))
+		var radius unit.Dp
+		if _, ok := item["radius"]; ok {
+			radius = unit.Dp(max(item.integer("radius", 0), 0))
+		} else {
+			radius = ht / 2
+		}
+		r := &dialogItemProgress{
+			parent: parent,
+			whenFn: item.boolFunc("when"),
+			name:   name,
+			label:  lbl,
+			control: controls.ProgressBar{
+				Color:      backgroundColor,
+				Height:     ht,
+				Radius:     radius,
+				TrackColor: selectedFocusedColor,
+				Progress:   initF,
+				Reversed:   item.bool("reversed", false),
+			},
+			width: max(item.integer("width", 16), 6),
+		}
+		if clr := item.color("color"); clr != nil {
+			r.control.Color = *clr
+		}
+		if clr := item.color("progressColor"); clr != nil {
+			r.control.TrackColor = *clr
+		}
+		result = r
+	case "slider":
+		float := &widget.Float{}
+		float.Value = min(max(item.float("initial", 0), 0), 1)
+		r := &dialogItemSlider{
+			parent:  parent,
+			whenFn:  item.boolFunc("when"),
+			name:    name,
+			label:   lbl,
+			control: material.Slider(theme, float),
+			width:   max(item.integer("width", 16), 6),
+			height:  unit.Dp(max(item.integer("height", 0), 20)),
+		}
+		if !item.bool("horizontal", true) {
+			r.control.Axis = layout.Vertical
+		}
+		result = r
+	case "switch":
+		r := &dialogItemSwitch{
+			parent: parent,
+			whenFn: item.boolFunc("when"),
+			name:   name,
+			label:  lbl,
+		}
+		r.control = material.Switch(theme, &r.value, "")
+		r.value.Value = item.bool("initial", false)
+		result = r
 	case "group":
-		if raw, ok := item["items"]; ok {
-			if its, ok := raw.([]any); ok {
-				items := make([]dialogItem, 0, len(its))
-				labels := make([]string, 0, len(its))
-				gLabel := lbl
-				for _, itm := range its {
-					if it, ok := itm.(map[string]any); ok {
-						lbl := ""
-						if rawL, ok := it["label"]; ok {
-							if s, ok := rawL.(string); ok {
-								lbl = s
-							}
-						}
-						if rawV, ok := it["type"]; ok {
-							if typeStr, ok := rawV.(string); ok {
-								if item, addLabel := buildPromptDialogRow(parent, rt, typeStr, lbl, it); item != nil {
-									items = append(items, item)
-									if addLabel {
-										labels = append(labels, lbl)
-									}
-								}
-							}
+		if children, ok := item.arrayObject("items", true); ok {
+			items := make([]dialogItem, 0, len(children))
+			labels := make([]string, 0, len(children))
+			gLabel := lbl
+			for _, itm := range children {
+				if typeStr, ok := itm.isString("type"); ok {
+					sLbl := itm.string("label")
+					if sItem, sAddLabel := buildPromptDialogRow(parent, rt, typeStr, sLbl, itm); sItem != nil {
+						items = append(items, sItem)
+						if sAddLabel {
+							labels = append(labels, sLbl)
 						}
 					}
 				}
-				if len(items) > 0 {
-					result = &dialogItemGroup{
-						whenFn:     buildWhenFunc(),
-						name:       itemString("name"),
-						label:      gLabel,
-						items:      items,
-						labels:     labels,
-						horizontal: itemBool("horizontal", false),
-					}
+			}
+			if len(items) > 0 {
+				result = &dialogItemGroup{
+					whenFn:     item.boolFunc("when"),
+					name:       name,
+					label:      gLabel,
+					items:      items,
+					labels:     labels,
+					horizontal: item.bool("horizontal", false),
+					border:     item.bool("border", false),
+					padding:    unit.Dp(item.integer("padding", 0)),
 				}
+			}
+		}
+	case "tabbed":
+		addLabel = false
+		if rawTabs, ok := item.arrayObject("tabs", true); ok && len(rawTabs) > 0 {
+			buttons := make([]*controls.FlatButton, 0, len(rawTabs))
+			tabs := make([]*dialogItemGroup, 0, len(rawTabs))
+			for tabNo, itm := range rawTabs {
+				if rawItems, ok := itm.arrayObject("items", true); ok {
+					actualItems := make([]dialogItem, 0, len(rawItems))
+					labels := make([]string, 0, len(rawItems))
+					for _, ai := range rawItems {
+						aiLbl := ai.string("label")
+						if r, ad := buildPromptDialogRow(parent, rt, ai.string("type"), ai.string("label"), ai); r != nil {
+							actualItems = append(actualItems, r)
+							if ad {
+								labels = append(labels, aiLbl)
+							}
+						}
+					}
+					tabLabel := itm.string("label")
+					if tabLabel == "" {
+						tabLabel = "Tab " + strconv.Itoa(tabNo+1)
+					}
+					buttons = append(buttons, controls.NewFlatButton(theme, tabLabel))
+					tabs = append(tabs, &dialogItemGroup{
+						whenFn: itm.boolFunc("when"),
+						parent: parent,
+						items:  actualItems,
+						labels: labels,
+					})
+				}
+			}
+			if len(tabs) > 0 {
+				r := &dialogItemTabbed{
+					whenFn:   item.boolFunc("when"),
+					parent:   parent,
+					name:     name,
+					selected: item.integer("initial", 0),
+					width:    max(item.integer("width", 0), 0),
+					height:   max(item.integer("height", 0), 0),
+					buttons:  buttons,
+					tabs:     tabs,
+				}
+				result = r
 			}
 		}
 	}
@@ -830,41 +804,84 @@ func (i *dialogItemList) response(response map[string]any) {
 }
 
 func (i *dialogItemList) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, labelWidth int) layout.Dimensions {
+	ht := 0
+	wd := 0
+	if i.maxLen > 2 {
+		ht = (measureText(gtx, "Xy").Size.Y * i.maxLen) + 2
+	} else {
+		ht = (measureText(gtx, "Xy").Size.Y * 3) + 2
+	}
+	if i.maxWidth > 0 {
+		wd = (measureText(gtx, "\u2003").Size.X * i.maxWidth) + 10
+	} else {
+		wd = measureMaxText(gtx, 0, i.list.Items...) + measureText(gtx, "W").Size.X + 8
+	}
 	if len(i.label) > 0 {
 		return flexHorizontal(10,
 			rigidLabel(i.label, text.End, font.Bold, labelWidth),
 			rigid(func(gtx layout.Context) layout.Dimensions {
-				if i.maxLen > 0 {
-					chh := measureText(gtx, "Xy").Size.Y
-					gtx.Constraints.Max.Y = (chh * i.maxLen) + 2
-					gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
-				}
-				if i.maxWidth > 0 {
-					chw := measureText(gtx, "\u2003").Size.X
-					gtx.Constraints.Max.X = (chw * i.maxWidth) + 10
-					gtx.Constraints.Min.X = gtx.Constraints.Max.X
-				} else {
-					maxW := measureMaxText(gtx, 0, i.list.Items...) + measureText(gtx, "W").Size.X + 8
-					gtx.Constraints.Max.X, gtx.Constraints.Min.X = maxW, maxW
-				}
+				gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+				gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
 				return i.list.Layout(gtx)
 			}),
 		)(gtx)
 	}
-	if i.maxLen > 0 {
-		chh := measureText(gtx, "Xy").Size.Y
-		gtx.Constraints.Max.Y = (chh * i.maxLen) + 2
-		gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
-	}
-	if i.maxWidth > 0 {
-		chw := measureText(gtx, "\u2003").Size.X
-		gtx.Constraints.Max.X = (chw * i.maxWidth) + 10
-		gtx.Constraints.Min.X = gtx.Constraints.Max.X
-	} else {
-		maxW := measureMaxText(gtx, 0, i.list.Items...) + measureText(gtx, "W").Size.X + 8
-		gtx.Constraints.Max.X, gtx.Constraints.Min.X = maxW, maxW
-	}
+	gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+	gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
 	return i.list.Layout(gtx)
+}
+
+type dialogItemDropdown struct {
+	dialogItemCommon
+	name    string
+	label   string
+	chooser *controls.Chooser[string]
+}
+
+func (i *dialogItemDropdown) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemDropdown) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case string:
+			i.chooser.SetText(vt)
+		default:
+			i.chooser.SetText(fmt.Sprintf("%v", value))
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemDropdown) get(name string) (any, bool) {
+	if name == i.name {
+		return i.chooser.Text(), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemDropdown) response(response map[string]any) {
+	if len(i.name) > 0 {
+		response[i.name] = i.chooser.Text()
+	}
+}
+
+func (i *dialogItemDropdown) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				dims := i.chooser.Layout(gtx)
+				i.chooser.LayoutDropdown(gtx)
+				return dims
+			}),
+		)(gtx)
+	}
+	dims := i.chooser.Layout(gtx)
+	i.chooser.LayoutDropdown(gtx)
+	return dims
 }
 
 type dialogItemRadio struct {
@@ -1325,6 +1342,7 @@ type dialogItemButtons struct {
 	onClick     func(goja.FunctionCall) goja.Value
 	buttons     []*controls.Button
 	flatButtons []*controls.FlatButton
+	gap         int
 }
 
 func (i *dialogItemButtons) getName() (string, bool) {
@@ -1382,10 +1400,10 @@ func (i *dialogItemButtons) layout(gtx layout.Context, dlg *shortcutPromptDialog
 	if len(i.label) > 0 {
 		return flexHorizontal(10,
 			rigidLabel(i.label, text.End, font.Bold, labelWidth),
-			rigid(flexHorizontal(10, cols...)),
+			rigid(flexHorizontal(i.gap, cols...)),
 		)(gtx)
 	}
-	return flexHorizontal(10, cols...)(gtx)
+	return flexHorizontal(i.gap, cols...)(gtx)
 }
 
 type dialogItemGroup struct {
@@ -1395,6 +1413,8 @@ type dialogItemGroup struct {
 	items      []dialogItem
 	labels     []string
 	horizontal bool
+	border     bool
+	padding    unit.Dp
 }
 
 func (i *dialogItemGroup) getName() (string, bool) {
@@ -1430,30 +1450,42 @@ func (i *dialogItemGroup) layout(gtx layout.Context, dlg *shortcutPromptDialog, 
 	}
 	rows := make([]layout.FlexChild, 0, len(i.items))
 	subLabelWidth := measureMaxText(gtx, font.Bold, i.labels...)
-	for _, i := range i.items {
-		item := i
+	for n := range len(i.items) {
+		item := i.items[n]
 		if item.when(response) && !dlg.isHidden(item) {
 			rows = append(rows, rigid(func(gtx layout.Context) layout.Dimensions {
 				return item.layout(gtx, dlg, response, subLabelWidth)
 			}))
 		}
 	}
-	if i.horizontal {
-		if len(i.label) > 0 {
-			return flexHorizontal(10,
+	bw := unit.Dp(0)
+	if i.border {
+		bw = 1
+	}
+	switch {
+	case i.horizontal && len(i.label) > 0:
+		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: i.padding, Bottom: i.padding, Left: i.padding, Right: i.padding}.Layout(gtx, flexHorizontal(10,
 				rigidLabel(i.label, text.End, font.Bold, labelWidth),
 				rigid(flexHorizontal(10, rows...)),
-			)(gtx)
-		}
-		return flexHorizontal(10, rows...)(gtx)
+			))
+		})
+	case i.horizontal:
+		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: i.padding, Bottom: i.padding, Left: i.padding, Right: i.padding}.Layout(gtx, flexHorizontal(10, rows...))
+		})
+	case len(i.label) > 0:
+		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: i.padding, Bottom: i.padding, Left: i.padding, Right: i.padding}.Layout(gtx, flexHorizontal(10,
+				rigidLabel(i.label, text.End, font.Bold, labelWidth),
+				rigid(flexVertical(10, rows...)),
+			))
+		})
+	default:
+		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: i.padding, Bottom: i.padding, Left: i.padding, Right: i.padding}.Layout(gtx, flexVertical(10, rows...))
+		})
 	}
-	if len(i.label) > 0 {
-		return flexHorizontal(10,
-			rigidLabel(i.label, text.End, font.Bold, labelWidth),
-			rigid(flexVertical(10, rows...)),
-		)(gtx)
-	}
-	return flexVertical(10, rows...)(gtx)
 }
 
 type dialogItemFile struct {
@@ -1461,10 +1493,8 @@ type dialogItemFile struct {
 	name       string
 	label      string
 	input      *controls.Input
-	path       *controls.PathButton
 	allowExts  []string
 	allowDirs  bool
-	maxWidth   int
 	setFocused bool
 }
 
@@ -1500,38 +1530,599 @@ func (i *dialogItemFile) response(res map[string]any) {
 	}
 }
 
+func (i *dialogItemFile) ellipsisClicked() {
+	i.parent.core.showFileFinder("Select File", i.allowExts, i.allowDirs, func(path string) {
+		i.input.SetText(path)
+		i.setFocused = true
+	}, func() {
+		i.setFocused = true
+	})
+}
+
 func (i *dialogItemFile) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
-	if i.path.Clicked(gtx) {
-		dlg.core.showFileFinder("Select File", i.allowExts, i.allowDirs, func(path string) {
-			i.input.SetText(path)
-			i.setFocused = true
-		}, func() {
-			i.setFocused = true
-		})
-	}
 	if i.setFocused {
 		i.input.SetFocused(gtx)
 		i.setFocused = false
 	}
-	wd := measureText(gtx, "\u2003").Size.X * i.maxWidth
 	if len(i.label) > 0 {
 		return flexHorizontal(10,
 			rigidLabel(i.label, text.End, font.Bold, labelWidth),
-			rigid(flexHorizontal(0,
-				rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
-					return i.input.Layout(gtx)
-				}),
-				rigid(i.path.Layout),
-			)),
+			rigid(i.input.Layout),
 		)(gtx)
 	} else {
 		return flexHorizontal(0,
 			rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
 				return i.input.Layout(gtx)
 			}),
-			rigid(i.path.Layout),
 		)(gtx)
 	}
+}
+
+type dialogItemProgress struct {
+	dialogItemCommon
+	name    string
+	label   string
+	control controls.ProgressBar
+	width   int
+}
+
+func (i *dialogItemProgress) getName() (string, bool) {
+	if i.name != "" {
+		return i.name, true
+	}
+	return "", false
+}
+
+func (i *dialogItemProgress) set(name string, value any) bool {
+	if i.name == name {
+		switch vt := value.(type) {
+		case nil:
+			i.control.Progress = 0
+		case int:
+			i.control.Progress = float32(vt) / 100
+		case int64:
+			i.control.Progress = float32(vt) / 100
+		case float64:
+			i.control.Progress = float32(vt) / 100
+		case float32:
+			i.control.Progress = vt / 100
+		case string:
+			if n, err := strconv.ParseFloat(vt, 32); err == nil {
+				i.control.Progress = float32(n) / 100
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemProgress) get(name string) (any, bool) {
+	if i.name == name {
+		return int(i.control.Progress * 100), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemProgress) response(res map[string]any) {
+	if len(i.name) > 0 {
+		res[i.name] = int(i.control.Progress * 100)
+	}
+}
+
+func (i *dialogItemProgress) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
+	var wd int
+	if i.width > 0 {
+		wd = measureText(gtx, "\u2003").Size.X * i.width
+	} else {
+		wd = measureText(gtx, "\u2003").Size.X * 8
+	}
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+				return i.control.Layout(gtx)
+			}),
+		)(gtx)
+	}
+	gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+	return i.control.Layout(gtx)
+}
+
+type dialogItemSlider struct {
+	dialogItemCommon
+	name    string
+	label   string
+	control material.SliderStyle
+	width   int
+	height  unit.Dp
+}
+
+func (i *dialogItemSlider) getName() (string, bool) {
+	if i.name != "" {
+		return i.name, true
+	}
+	return "", false
+}
+
+func (i *dialogItemSlider) set(name string, value any) bool {
+	if i.name == name {
+		switch vt := value.(type) {
+		case nil:
+			i.control.Float.Value = 0
+		case int:
+			i.control.Float.Value = float32(vt)
+		case int64:
+			i.control.Float.Value = float32(vt)
+		case float64:
+			i.control.Float.Value = float32(vt)
+		case float32:
+			i.control.Float.Value = vt
+		case string:
+			if n, err := strconv.ParseFloat(vt, 32); err == nil {
+				i.control.Float.Value = float32(n)
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemSlider) get(name string) (any, bool) {
+	if i.name == name {
+		return i.control.Float.Value, true
+	}
+	return nil, false
+}
+
+func (i *dialogItemSlider) response(res map[string]any) {
+	if len(i.name) > 0 {
+		res[i.name] = i.control.Float.Value
+	}
+}
+
+func (i *dialogItemSlider) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
+	var wd int
+	var ht int
+	if i.control.Axis == layout.Horizontal {
+		if i.width > 0 {
+			wd = measureText(gtx, "\u2003").Size.X * i.width
+		} else {
+			wd = measureText(gtx, "\u2003").Size.X * 8
+		}
+	} else {
+		ht = gtx.Dp(i.height)
+	}
+	if i.control.Float.Update(gtx) && i.name != "" && i.parent.onChangeCallback != nil {
+		i.parent.jsCall(i.parent.onChangeCallback, map[string]any{
+			"name":  i.name,
+			"value": i.control.Float.Value,
+		})
+	}
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				if i.control.Axis == layout.Horizontal {
+					gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+					ht = measureText(gtx, "Xy").Size.Y
+					gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
+					return verticalCenter(i.control.Layout)(gtx)
+				} else {
+					return i.control.Layout(gtx)
+				}
+			}),
+		)(gtx)
+	}
+	if i.control.Axis == layout.Horizontal {
+		gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+	} else {
+		gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
+	}
+	return i.control.Layout(gtx)
+}
+
+type dialogItemSwitch struct {
+	dialogItemCommon
+	name    string
+	label   string
+	value   widget.Bool
+	control material.SwitchStyle
+}
+
+func (i *dialogItemSwitch) getName() (string, bool) {
+	if i.name != "" {
+		return i.name, true
+	}
+	return "", false
+}
+
+func (i *dialogItemSwitch) set(name string, value any) bool {
+	if i.name == name {
+		switch vt := value.(type) {
+		case nil:
+			i.value.Value = false
+		case int:
+			i.value.Value = vt != 0
+		case int64:
+			i.value.Value = vt != 0
+		case string:
+			if b, err := strconv.ParseBool(vt); err == nil {
+				i.value.Value = b
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemSwitch) get(name string) (any, bool) {
+	if i.name == name {
+		return i.value.Value, true
+	}
+	return nil, false
+}
+
+func (i *dialogItemSwitch) response(res map[string]any) {
+	if len(i.name) > 0 {
+		res[i.name] = i.value.Value
+	}
+}
+
+func (i *dialogItemSwitch) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
+	if i.value.Update(gtx) && i.name != "" && i.parent.onChangeCallback != nil {
+		i.parent.jsCall(i.parent.onChangeCallback, map[string]any{
+			"name":  i.name,
+			"value": i.value.Value,
+		})
+	}
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(i.control.Layout),
+		)(gtx)
+	}
+	return i.control.Layout(gtx)
+}
+
+type dialogItemTabbed struct {
+	dialogItemCommon
+	name     string
+	selected int
+	width    int
+	height   int
+	buttons  []*controls.FlatButton
+	tabs     []*dialogItemGroup
+}
+
+func (i *dialogItemTabbed) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemTabbed) set(name string, value any) bool {
+	result := false
+	if name == i.name {
+		result = true
+		switch vt := value.(type) {
+		case nil:
+			i.selected = 0
+		case int:
+			i.selected = vt
+		case int64:
+			i.selected = int(vt)
+		}
+	}
+	for _, item := range i.tabs {
+		result = result || item.set(name, value)
+	}
+	return result
+}
+
+func (i *dialogItemTabbed) get(name string) (any, bool) {
+	for _, item := range i.tabs {
+		if v, ok := item.get(name); ok {
+			return v, ok
+		}
+	}
+	return nil, false
+}
+
+func (i *dialogItemTabbed) response(response map[string]any) {
+	if i.name != "" {
+		response[i.name] = i.selected
+	}
+	for _, itm := range i.tabs {
+		itm.response(response)
+	}
+}
+
+func (i *dialogItemTabbed) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
+	for n, b := range i.buttons {
+		if b.Clicked(gtx) {
+			changed := n != i.selected
+			i.selected = n
+			if changed && dlg.onChangeCallback != nil && i.name != "" {
+				dlg.jsCall(dlg.onChangeCallback, map[string]any{"name": i.name, "value": n})
+			}
+			b.SetFocused(gtx)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+	}
+	for n, b := range i.buttons {
+		btnNo := n
+		if b.IsFocused(gtx) {
+			b.HandleKeys(gtx, func(k key.Name) {
+				switch k {
+				case key.NameLeftArrow:
+					if btnNo > 0 {
+						i.selected = btnNo - 1
+					} else {
+						i.selected = len(i.buttons) - 1
+					}
+					i.buttons[i.selected].SetFocused(gtx)
+					if dlg.onChangeCallback != nil && i.name != "" {
+						dlg.jsCall(dlg.onChangeCallback, map[string]any{"name": i.name, "value": i.selected})
+					}
+					gtx.Execute(op.InvalidateCmd{})
+				case key.NameRightArrow:
+					if btnNo < len(i.buttons)-1 {
+						i.selected = btnNo + 1
+					} else {
+						i.selected = 0
+					}
+					i.buttons[i.selected].SetFocused(gtx)
+					if dlg.onChangeCallback != nil && i.name != "" {
+						dlg.jsCall(dlg.onChangeCallback, map[string]any{"name": i.name, "value": i.selected})
+					}
+					gtx.Execute(op.InvalidateCmd{})
+				}
+			}, key.NameLeftArrow, key.NameRightArrow)
+		}
+	}
+	wd := 0
+	ht := 0
+	if i.height > 0 {
+		ht = measureText(gtx, "Xy").Size.Y * i.height
+	} else {
+		maxItems := 0
+		for _, t := range i.tabs {
+			if l := len(t.items); l > maxItems {
+				maxItems = l
+			}
+		}
+		ht = measureText(gtx, "Xy").Size.Y * maxItems
+	}
+	if i.width > 0 {
+		wd = (measureText(gtx, "\u2003").Size.X * i.width) + 10
+	}
+	showButtons := make([]layout.FlexChild, 0, len(i.buttons))
+	showControls := make([]layout.FlexChild, 0)
+	for n, t := range i.tabs {
+		if t.when(response) {
+			btn := i.buttons[n]
+			btn.Inset(layout.Inset{Left: 6, Right: 6, Top: 3, Bottom: 8})
+			if n == i.selected {
+				btn.Colors(foregroundColor, &selectedFocusedColor)
+				subLabelWidth := measureMaxText(gtx, font.Bold, t.labels...)
+				for s := range len(t.items) {
+					item := t.items[s]
+					if item.when(response) && !dlg.isHidden(item) {
+						showControls = append(showControls, rigid(func(gtx layout.Context) layout.Dimensions {
+							return item.layout(gtx, dlg, response, subLabelWidth)
+						}))
+					}
+				}
+			} else {
+				btn.Colors(foregroundColor, nil)
+			}
+			showButtons = append(showButtons, rigid(btn.Layout))
+		}
+	}
+	return flexVertical(-7,
+		rigid(inset(0, 0, 4, 0, flexHorizontal(-1, showButtons...))),
+		rigid(func(gtx layout.Context) layout.Dimensions {
+			if ht > 0 {
+				gtx.Constraints.Min.Y = ht
+			}
+			if wd > 0 {
+				gtx.Constraints.Min.X = wd
+			}
+			macro := op.Record(gtx.Ops)
+			dims := widget.Border{Color: borderColor, CornerRadius: 4, Width: 1}.Layout(gtx, inset(4, 4, 4, 4, func(gtx layout.Context) layout.Dimensions {
+				return flexVertical(10, showControls...)(gtx)
+			}))
+			call := macro.Stop()
+			paint.FillShape(gtx.Ops, backgroundColor, clip.UniformRRect(image.Rectangle{Max: dims.Size}, 4).Op(gtx.Ops))
+			call.Add(gtx.Ops)
+			return dims
+		}),
+	)(gtx)
+}
+
+type jsItemDecoder map[string]any
+
+func (j jsItemDecoder) string(name string) string {
+	if rv, ok := j[name]; ok {
+		switch v := rv.(type) {
+		case string:
+			return v
+		case int, int64, float32, float64:
+			return fmt.Sprintf("%v", v)
+		}
+	}
+	return ""
+}
+
+func (j jsItemDecoder) isString(name string) (string, bool) {
+	if rv, ok := j[name]; ok {
+		if s, ok := rv.(string); ok {
+			return s, true
+		}
+	}
+	return "", false
+}
+
+func (j jsItemDecoder) integer(name string, def int) int {
+	if rv, ok := j[name]; ok {
+		switch v := rv.(type) {
+		case int:
+			return v
+		case int64:
+			return int(v)
+		case float64:
+			return int(v)
+		case float32:
+			return int(v)
+		case string:
+			if i, err := strconv.Atoi(v); err == nil {
+				return i
+			}
+		}
+	}
+	return def
+}
+
+func (j jsItemDecoder) float(name string, def float32) float32 {
+	if rv, ok := j[name]; ok {
+		switch v := rv.(type) {
+		case int:
+			return float32(v)
+		case int64:
+			return float32(v)
+		case float64:
+			return float32(v)
+		case float32:
+			return v
+		case string:
+			if i, err := strconv.ParseFloat(v, 32); err == nil {
+				return float32(i)
+			}
+		}
+	}
+	return def
+}
+
+func (j jsItemDecoder) bool(name string, def bool) bool {
+	if rv, ok := j[name]; ok {
+		switch v := rv.(type) {
+		case bool:
+			return v
+		case int64:
+			return v != 0
+		case float64:
+			return v != 0
+		case float32:
+			return v != 0
+		case string:
+			if b, err := strconv.ParseBool(v); err == nil {
+				return b
+			}
+		}
+	}
+	return def
+}
+
+func (j jsItemDecoder) object(name string) (jsItemDecoder, bool) {
+	if rv, ok := j[name]; ok {
+		if v, ok := rv.(map[string]any); ok {
+			return v, true
+		}
+	}
+	return nil, false
+}
+
+func (j jsItemDecoder) arrayString(name string) ([]string, bool) {
+	if rv, ok := j[name]; ok {
+		switch v := rv.(type) {
+		case []any:
+			result := make([]string, len(v))
+			for i, it := range v {
+				switch item := it.(type) {
+				case nil:
+					result[i] = "null"
+				case string:
+					result[i] = item
+				case fmt.Stringer:
+					result[i] = item.String()
+				default:
+					result[i] = fmt.Sprintf("%v", item)
+				}
+			}
+			return result, true
+		case []string:
+			return v, true
+		}
+	}
+	return nil, false
+}
+
+func (j jsItemDecoder) color(name string) *color.NRGBA {
+	if s, ok := j.isString(name); ok {
+		if c, ok := parseColor(s); ok {
+			return &c
+		}
+	}
+	return nil
+}
+
+func (j jsItemDecoder) arrayObject(name string, ignoreBadItems bool) ([]jsItemDecoder, bool) {
+	if rv, ok := j[name]; ok {
+		if v, ok := rv.([]any); ok {
+			result := make([]jsItemDecoder, 0, len(v))
+			for _, it := range v {
+				if item, ok := it.(map[string]any); ok {
+					result = append(result, jsItemDecoder(item))
+				} else if !ignoreBadItems {
+					return nil, false
+				}
+			}
+			return result, true
+		}
+	}
+	return nil, false
+}
+
+func (j jsItemDecoder) jsFunc(name string) (func(goja.FunctionCall) goja.Value, bool) {
+	if rv, ok := j[name]; ok {
+		if jsfunc, ok := rv.(func(goja.FunctionCall) goja.Value); ok {
+			return jsfunc, jsfunc != nil
+		}
+	}
+	return nil, false
+}
+
+func (j jsItemDecoder) boolFunc(name string) func(data map[string]any) bool {
+	if rv, ok := j[name]; ok {
+		if vs, ok := rv.(string); ok {
+			if pts := strings.SplitN(vs, "=", 2); len(pts) == 2 {
+				nm := pts[0]
+				not := false
+				if before, ok := strings.CutSuffix(nm, "!"); ok {
+					not = true
+					nm = before
+				}
+				value := pts[1]
+				return func(data map[string]any) bool {
+					b := false
+					if dv, vok := data[nm]; vok {
+						switch dvt := dv.(type) {
+						case bool:
+							b = dvt
+						case string:
+							b = value == dvt
+						case []string:
+							b = slices.Contains(dvt, value)
+						default:
+							b = value == fmt.Sprintf("%v", dv)
+						}
+					}
+					if not {
+						b = !b
+					}
+					return b
+				}
+			}
+		}
+	}
+	return nil
 }

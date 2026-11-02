@@ -40,7 +40,7 @@ type rulesPopup struct {
 	selectedIndex      int
 	sortedRules        []logic.Rule
 	list               widget.List
-	ruleClicks         []widget.Clickable
+	ruleClicks         []controls.Clickable
 	rleInput           *controls.Input
 	permInput          *controls.NumberInput[int]
 	intInput           *controls.NumberInput[int]
@@ -63,7 +63,7 @@ func (p *rulesPopup) rleChanged(text string) {
 			p.nameInput.SetText(r.Name())
 			if found {
 				p.selectedIndex = idx
-				p.list.ScrollTo(idx)
+				p.ensureVisible(idx)
 			} else {
 				p.selectedIndex = -1
 			}
@@ -82,7 +82,7 @@ func (p *rulesPopup) permChanged(n int) {
 		p.intInput.SetValue(r.Integer())
 		if found {
 			p.selectedIndex = idx
-			p.list.ScrollTo(idx)
+			p.ensureVisible(idx)
 		} else {
 			p.selectedIndex = -1
 		}
@@ -100,7 +100,7 @@ func (p *rulesPopup) intChanged(n int) {
 		p.permInput.SetValue(r.Permutation())
 		if found {
 			p.selectedIndex = idx
-			p.list.ScrollTo(idx)
+			p.ensureVisible(idx)
 		} else {
 			p.selectedIndex = -1
 		}
@@ -108,6 +108,15 @@ func (p *rulesPopup) intChanged(n int) {
 }
 
 func (p *rulesPopup) nameChanged(_ string) {}
+
+func (p *rulesPopup) ensureVisible(idx int) {
+	if idx >= (p.list.Position.First + p.list.Position.Count - 1) {
+		p.list.ScrollTo(idx)
+	}
+	if p.selectedIndex < p.list.Position.First {
+		p.list.ScrollTo(idx)
+	}
+}
 
 func (p *rulesPopup) refreshRules() {
 	p.sortedRules = make([]logic.Rule, 0, len(logic.Rules))
@@ -126,7 +135,7 @@ func (p *rulesPopup) setSelected() {
 	})
 	if found {
 		p.selectedIndex = idx
-		p.list.ScrollTo(idx)
+		p.ensureVisible(idx)
 	} else {
 		p.selectedIndex = -1
 	}
@@ -241,7 +250,7 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 		pgtx.Constraints.Min.X = gtx.Constraints.Max.X
 		p.list.Axis = layout.Vertical
 		if len(p.ruleClicks) != len(p.sortedRules) {
-			p.ruleClicks = make([]widget.Clickable, len(p.sortedRules))
+			p.ruleClicks = make([]controls.Clickable, len(p.sortedRules))
 		}
 		idx, ok := slices.BinarySearchFunc(p.sortedRules, p.core.gridHolder.grid.Rule(), func(a, b logic.Rule) int {
 			return strings.Compare(a.Name(), b.Name())
@@ -267,6 +276,8 @@ func (p *rulesPopup) layoutList(rowDims layout.Dimensions) layout.FlexChild {
 							bg = selectedFocusedColor
 						}
 						paint.FillShape(gtx.Ops, bg, clip.Rect{Max: image.Point{X: pgtx.Constraints.Max.X, Y: rowDims.Size.Y}}.Op())
+					} else if p.ruleClicks[index].Hovered() {
+						paint.FillShape(gtx.Ops, hoverColor, clip.Rect{Max: image.Point{X: pgtx.Constraints.Max.X, Y: rowDims.Size.Y}}.Op())
 					}
 					gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 					r := p.sortedRules[index]

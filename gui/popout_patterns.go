@@ -295,9 +295,7 @@ func (p *patternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt int) lay
 	case p.previewMode.Value == searchFilter:
 		return p.layoutSearchFilter(gtx)
 	case currentPattern == nil:
-		return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceAround}.Layout(gtx,
-			rigidFixedWidth(label("(select a pattern)"), gtx.Constraints.Max.X, layout.Center),
-		)
+		return verticalCenter(label("(select a pattern)", text.Middle))(gtx)
 	case p.previewMode.Value == previewMetadata:
 		return p.layoutPreviewMetadata(currentPattern, gtx)
 	default:

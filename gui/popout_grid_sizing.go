@@ -42,10 +42,10 @@ func newSizingPopout(p *menuPopup, c *Core) *sizingPopout {
 	result.width = controls.NewNumberInput(theme, 4, 2, 9999, 10, nil).SetValue(c.settings.Width)
 	result.cellSize = controls.NewNumberInput(theme, 3, 1, 32, 1, func(v int) {
 		result.core.setCellSize(v)
-	}).SetValue(c.settings.CellSize)
+	}).SetValue(c.settings.CellSize).WithSpinner(true)
 	result.randomize = controls.NewNumberInput(theme, 3, 0, 100, 10, func(v int) {
 		result.core.setRandomization(v)
-	}).SetValue(c.settings.Randomization)
+	}).SetValue(c.settings.Randomization).WithSpinner(true)
 	result.inputs = []*controls.NumberInput[int]{
 		result.height, result.width, result.cellSize, result.randomize,
 	}
