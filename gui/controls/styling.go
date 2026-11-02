@@ -19,6 +19,7 @@ var Style = Styling{
 	ForegroundColor:        color.NRGBA{R: 0, G: 0, B: 0, A: 255},
 	SelectedColor:          color.NRGBA{R: 102, G: 128, B: 230, A: 80},
 	SelectedFocusedColor:   color.NRGBA{R: 102, G: 128, B: 230, A: 160},
+	ShadeColor:             color.NRGBA{R: 0, G: 0, B: 0, A: 40},
 }
 
 type Styling struct {
@@ -30,6 +31,7 @@ type Styling struct {
 	ForegroundColor        color.NRGBA
 	SelectedColor          color.NRGBA
 	SelectedFocusedColor   color.NRGBA
+	ShadeColor             color.NRGBA
 	MonoFont               *font.Font
 }
 

@@ -558,7 +558,7 @@ var contentShortCutsJsRef = content{
 				hanging{indent: 8, prefix: "• ", content: content{"if no allowed responses are supplied, the user can input any length and the function returns when the user presses ", keys{keyEnter}, "."}},
 				"Returns: ", code(`string`), " - the user input",
 			}},
-			{{codeCopyable(`promptDialog(string,array[,callback])`)}, {
+			{{codeCopyable(`promptDialog(string,array)`)}, {
 				"Prompts the user to complete a dialog. The dialog is displayed from the ", StatusBar.link("statusbar"), " and the function is blocking until the user completes the dialog (by pressing either the ", bold("Ok"), " or ", bold("Cancel"), " buttons).",
 				"\nThe first string arg is the label shown in the statusbar for the dialog.",
 				" The second array arg is the definition for the dialog.",
@@ -854,7 +854,8 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"min": 0, // minimum value
 	"max": 100, // maximum value
 	"maxLen": 3, // optional - max length for input
-	"initial": 18 // optional - initial value
+	"initial": 18, // optional - initial value
+	"spinner": true // optional - show up/down spinners
 }`},
 	}},
 	indent{indent: 8, content: content{
@@ -889,7 +890,7 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"name": "opt-l", // used as key in response object
 	"label": "Select:", // optional
 	"options": ["Foo", "Bar", "Baz"],
-	"initial": 0 // optional - initial option selected
+	"initial": 0, // optional - initial option selected
 	"maxLen": 3 // optional - max number of items to display
 }`},
 	}},
@@ -900,8 +901,8 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"type": "text",
 	"name": "opt-t", // used as key in response object
 	"label": "Some Text:", // optional
-	"initial": "initial value" // optional - initial value
-	"maxLines": 3 // optional - max number of lines to display
+	"initial": "initial value", // optional - initial value
+	"maxLines": 3, // optional - max number of lines to display
 	"maxWidth": 20 // optional - max width (in ems) for input display
 }`},
 	}},
@@ -913,7 +914,8 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"name": "file", // used as key in response object
 	"label": "File:", // optional
 	"maxWidth": 18, // optional - max display width for input
-	"extensions": [".rle"], // optional - allowed file extensions 
+	"extensions": [".rle"], // optional - allowed file extensions
+	"allowDirs": true, // optional - allow directories to be selected
 	"initial": "glider.rle" // optional - initial value
 }`},
 	}},
@@ -958,8 +960,62 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"name": "lbl-1", // optional - not shown in response but allows addressing
 	"label": "Group", // optional
 	"horizontal": false, // optional - defaults to false
-	"items": [...], // array of dialog items
+	"items": [...] // array of dialog items
 }`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Tabs"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "tabbed",
+	"name": "tabs-1", // optional - not shown in response but allows addressing
+	"initial": 1, // optional - initial tab selected
+	"width": 30, // optional - minimum width
+	"height": 5, // optional - minimum height
+	"tabs": [
+		{
+			"label": "First Tab",
+			"items": [...] // array of dialog items
+		},
+		...
+	]
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Slider"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "slider",
+	"label": "Slider:", // optional
+	"name": "slider", // optional
+	"height": 100, // optional - display height
+	"width": 20, // optional - display width
+	"initial": 0.5, // optional - initial value (0.0-1.0)
+	"horizontal": true // optional - defaults to true
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Switch"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "switch",
+	"label": "Switch:", // optional
+	"name": "sw", // optional
+	"initial": true // optional
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Progress Bar"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "progress",
+	"name": "progress", // optional - not shown in response but allows addressing
+	"label": "Progress:", // optional
+	"radius": 0, // optional - rounding radius for display
+	"height": 20, // optional - the height for display
+	"initial": 25 // optional - initial value (0-100)
+}`},
+		italic("Note: Progress bar is display only - and cannot be interacted with by dialog user."),
 	}},
 	indent{indent: 8, content: content{
 		h4("• Re-label Ok button"),
@@ -990,7 +1046,11 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"func": function(data:object,dlg:object), // optional
 	"onChange": function(data:object,dlg:object) // optional
 }`},
-		"Notes:",
+		"The type ", code(`init`), " is not a control - it is the actions to perform when the dialog is shown.",
+		"\nNotes:",
+		hanging{indent: 8, gap: 8, prefix: "•", content: content{
+			"the optional ", code(`hide`), " property is an array of control names that should be initially hidden when the dialog is shown.",
+		}},
 		hanging{indent: 8, gap: 8, prefix: "•", content: content{
 			"the optional ", code(`func`), " property is a callback that is called immediately before the dialog is shown.",
 		}},

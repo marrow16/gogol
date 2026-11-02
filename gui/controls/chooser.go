@@ -8,7 +8,6 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"image"
@@ -23,18 +22,20 @@ type Chooser[T any] struct {
 	dropdownRows   int
 	maxWidth       int
 	editor         widget.Editor
-	button         widget.Clickable
+	editorStyle    material.EditorStyle
+	button         Clickable
 	list           widget.List
 	listStyle      material.ListStyle
 	opened         bool
 	items          []T
 	filteredItems  []T
-	rowClicks      []widget.Clickable
+	rowClicks      []Clickable
 	dims           layout.Dimensions
 	onChangeFn     func(item *T)
 	onSubmitFn     func(text string)
 	noRefilter     bool
 	middleEllipsis bool
+	dropdownUp     bool
 }
 
 func defaultLabeller(item any) string {
@@ -69,7 +70,13 @@ func NewChooser[T any](theme *material.Theme, maxWidth int, items []T, onChange 
 			return defaultLabeller(item)
 		}
 	}
+	result.editorStyle = material.Editor(theme, &result.editor, "")
 	return result
+}
+
+func (i *Chooser[T]) MaxRows(r int) *Chooser[T] {
+	i.dropdownRows = max(r, 3)
+	return i
 }
 
 func (i *Chooser[T]) OnSubmit(fn func(text string)) *Chooser[T] {
@@ -83,6 +90,11 @@ func (i *Chooser[T]) Opened(opened bool) {
 
 func (i *Chooser[T]) MiddleEllipsis(me bool) *Chooser[T] {
 	i.middleEllipsis = me
+	return i
+}
+
+func (i *Chooser[T]) Direction(up bool) *Chooser[T] {
+	i.dropdownUp = up
 	return i
 }
 
@@ -117,10 +129,11 @@ func (i *Chooser[T]) Layout(gtx layout.Context) layout.Dimensions {
 	i.update(gtx)
 	bc, bt := Style.bordering(i.IsFocused(gtx))
 	i.dims = widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+		bw := 0
+		dims := layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Gap: 10, Axis: layout.Horizontal}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					maxChWd := measureText(gtx, i.theme, "M")
+					maxChWd := measureText(gtx, i.theme, "\u2003")
 					maxWidth := maxChWd.Size.X * i.maxWidth
 					if maxWidth < gtx.Constraints.Max.X {
 						gtx.Constraints.Max.X = maxWidth
@@ -128,22 +141,33 @@ func (i *Chooser[T]) Layout(gtx layout.Context) layout.Dimensions {
 					if gtx.Constraints.Min.X > gtx.Constraints.Max.X {
 						gtx.Constraints.Min.X = gtx.Constraints.Max.X
 					}
-					return material.Editor(i.theme, &i.editor, "").Layout(gtx)
+					return i.editorStyle.Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					ch := "▼"
 					if i.opened {
 						ch = "▲"
 					}
-					btn := material.Button(i.theme, &i.button, ch)
-					btn.Inset = layout.Inset{Top: 0, Bottom: 0, Left: 0, Right: 0}
-					btn.Background = Style.BackgroundColor
-					btn.Color = Style.ForegroundColor
-					btn.TextSize = unit.Sp(16)
-					return btn.Layout(gtx)
+					macro := op.Record(gtx.Ops)
+					dims := i.button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Label(i.theme, i.theme.TextSize, ch)
+						lbl.Alignment = text.Middle
+						lbl.MaxLines = 1
+						return lbl.Layout(gtx)
+					})
+					call := macro.Stop()
+					if i.button.Hovered() {
+						paint.FillShape(gtx.Ops, Style.ShadeColor, clip.Rect{Max: image.Point{X: dims.Size.X, Y: dims.Size.Y}}.Op())
+					}
+					call.Add(gtx.Ops)
+					bw = dims.Size.X
+					return dims
 				}),
 			)
 		})
+		bl := dims.Size.X - bw - gtx.Dp(6)
+		paint.FillShape(gtx.Ops, Style.BorderColor, clip.Rect{Min: image.Point{X: bl}, Max: image.Point{X: bl + gtx.Dp(1), Y: dims.Size.Y}}.Op())
+		return dims
 	})
 	return i.dims
 }
@@ -188,45 +212,72 @@ func (i *Chooser[T]) handleKeys(gtx layout.Context) {
 		ev, ok := gtx.Event(
 			key.Filter{Focus: &i.editor, Name: key.NameUpArrow},
 			key.Filter{Focus: &i.editor, Name: key.NameDownArrow},
-		)
+			key.Filter{Focus: &i.editor, Name: key.NamePageUp},
+			key.Filter{Focus: &i.editor, Name: key.NamePageDown},
+			key.Filter{Focus: &i.editor, Name: key.NameHome},
+			key.Filter{Focus: &i.editor, Name: key.NameEnd})
 		if !ok {
 			break
 		}
 		if kev, ok := ev.(key.Event); ok && kev.State == key.Press {
 			curr := i.editor.Text()
+			currL := strings.ToLower(curr)
 			idx := 0
-			if len(curr) > 0 {
-				idx = slices.IndexFunc(i.items, func(item T) bool {
-					return strings.EqualFold(i.labeller(item), curr)
-				})
-				if idx == -1 {
-					// no exact find, find starts with...
-					curr = strings.ToLower(curr)
-					idx = slices.IndexFunc(i.filteredItems, func(item T) bool {
-						return strings.HasPrefix(strings.ToLower(i.labeller(item)), curr)
-					})
-					if idx != -1 {
-						lbl := i.labeller(i.items[idx])
-						i.editor.SetText(lbl)
-						i.editor.SetCaret(len(lbl), 0)
+			comp := 0
+			compS := 0
+			if len(curr) > 0 && kev.Name != key.NameHome && kev.Name != key.NameEnd {
+				idx = -1
+				for n := range len(i.items) {
+					lbl := i.labeller(i.items[n])
+					if lbl == curr {
+						idx = n
+						break
 					}
-					return
+					lbl = strings.ToLower(lbl)
+					if sc := stringSimilarity(lbl, currL); sc > compS {
+						compS = sc
+						comp = n
+					}
 				}
 			}
 			maxi := len(i.items) - 1
 			switch kev.Name {
 			case key.NameUpArrow:
-				if idx-1 > 0 {
+				if idx == -1 {
+					idx = comp
+				} else if idx > 0 {
 					idx--
 				} else {
 					idx = maxi
 				}
 			case key.NameDownArrow:
-				if idx < maxi {
+				if idx == -1 {
+					idx = comp
+				} else if idx < maxi {
 					idx++
 				} else {
 					idx = 0
 				}
+			case key.NamePageUp:
+				if idx == -1 {
+					idx = comp
+				} else if idx-(i.dropdownRows-1) > 0 {
+					idx -= i.dropdownRows - 1
+				} else {
+					idx = 0
+				}
+			case key.NamePageDown:
+				if idx == -1 {
+					idx = comp
+				} else if idx+(i.dropdownRows-1) <= maxi {
+					idx += i.dropdownRows - 1
+				} else {
+					idx = maxi
+				}
+			case key.NameHome:
+				idx = 0
+			case key.NameEnd:
+				idx = maxi
 			}
 			if idx >= 0 && idx <= maxi {
 				lbl := i.labeller(i.items[idx])
@@ -253,36 +304,59 @@ func (i *Chooser[T]) handleOpenedKeys(gtx layout.Context) {
 		}
 		if kev, ok := ev.(key.Event); ok && kev.State == key.Press {
 			curr := i.editor.Text()
+			currL := strings.ToLower(curr)
 			maxi := len(i.filteredItems) - 1
 			idx := 0
-			if len(curr) > 0 {
-				idx = slices.IndexFunc(i.filteredItems, func(item T) bool {
-					return strings.EqualFold(i.labeller(item), curr)
-				})
+			comp := 0
+			compS := 0
+			if len(curr) > 0 && kev.Name != key.NameHome && kev.Name != key.NameEnd {
+				idx = -1
+				for n := range len(i.filteredItems) {
+					lbl := i.labeller(i.filteredItems[n])
+					if lbl == curr {
+						idx = n
+						break
+					}
+					lbl = strings.ToLower(lbl)
+					if sc := stringSimilarity(lbl, currL); sc > compS {
+						compS = sc
+						comp = n
+					}
+				}
 			}
 			switch kev.Name {
 			case key.NameEnter, key.NameReturn:
-				i.opened = false
+				if idx != -1 {
+					i.opened = false
+				}
 			case key.NameUpArrow:
-				if idx > 0 {
+				if idx == -1 {
+					idx = comp
+				} else if idx > 0 {
 					idx--
 				} else {
 					idx = maxi
 				}
 			case key.NameDownArrow:
-				if idx < maxi {
+				if idx == -1 {
+					idx = comp
+				} else if idx < maxi {
 					idx++
 				} else {
 					idx = 0
 				}
 			case key.NamePageUp:
-				if idx-(i.dropdownRows-1) > 0 {
+				if idx == -1 {
+					comp -= i.dropdownRows - 1
+				} else if idx-(i.dropdownRows-1) > 0 {
 					idx -= i.dropdownRows - 1
 				} else {
 					idx = 0
 				}
 			case key.NamePageDown:
-				if idx+(i.dropdownRows-1) <= maxi {
+				if idx == -1 {
+					comp += i.dropdownRows - 1
+				} else if idx+(i.dropdownRows-1) <= maxi {
 					idx += i.dropdownRows - 1
 				} else {
 					idx = maxi
@@ -298,6 +372,9 @@ func (i *Chooser[T]) handleOpenedKeys(gtx layout.Context) {
 				lbl := i.labeller(i.filteredItems[idx])
 				i.editor.SetText(lbl)
 				i.editor.SetCaret(len(lbl), 0)
+			} else {
+				comp = max(min(comp, len(i.filteredItems)-1), 0)
+				i.list.ScrollTo(comp)
 			}
 		}
 	}
@@ -331,18 +408,42 @@ func (i *Chooser[T]) searchAndFilter() {
 			// filter list down to those that contain this value
 			startsWith := make([]T, 0, len(i.items))
 			contains := make([]T, 0, len(i.items))
-			for _, item := range i.items {
+			comp := 0
+			compS := 0
+			for n, item := range i.items {
 				lbl := strings.ToLower(i.labeller(item))
 				if strings.HasPrefix(lbl, curr) {
 					startsWith = append(startsWith, item)
 				} else if strings.Contains(lbl, curr) {
 					contains = append(contains, item)
+				} else if sc := stringSimilarity(lbl, curr); sc > compS {
+					compS = sc
+					comp = n
 				}
 			}
-			i.filteredItems = append(startsWith, contains...)
-			i.list.ScrollTo(0)
+			if len(startsWith) == 0 && len(contains) == 0 {
+				i.filteredItems = i.items
+				i.list.ScrollTo(comp)
+			} else {
+				i.filteredItems = append(startsWith, contains...)
+				i.list.ScrollTo(0)
+			}
 		}
 	}
+}
+
+func stringSimilarity(a, b string) int {
+	ra := []rune(a)
+	rb := []rune(b)
+	l := min(len(ra), len(rb))
+	result := 0
+	for i := range l {
+		if ra[i] != rb[i] {
+			break
+		}
+		result++
+	}
+	return result
 }
 
 func (i *Chooser[T]) changed() {
@@ -361,11 +462,15 @@ func (i *Chooser[T]) changed() {
 
 func (i *Chooser[T]) LayoutDropdown(gtx layout.Context) {
 	if i.opened && len(i.filteredItems) > 0 {
-		stack := op.Offset(image.Point{X: 0, Y: i.dims.Size.Y}).Push(gtx.Ops)
 		rowDims := measureText(gtx, i.theme, "Xy")
 		showRows := min(len(i.filteredItems), i.dropdownRows)
 		height := rowDims.Size.Y * showRows
 		width := i.dims.Size.X
+		y := i.dims.Size.Y
+		if i.dropdownUp {
+			y = -height
+		}
+		stack := op.Offset(image.Point{X: 0, Y: y}).Push(gtx.Ops)
 		layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				pgtx := gtx
@@ -376,7 +481,7 @@ func (i *Chooser[T]) LayoutDropdown(gtx layout.Context) {
 				paint.FillShape(gtx.Ops, Style.BackgroundColor, clip.Rect{Max: image.Point{X: width, Y: height}}.Op())
 				i.list.Axis = layout.Vertical
 				if len(i.rowClicks) != len(i.filteredItems) {
-					i.rowClicks = make([]widget.Clickable, len(i.filteredItems))
+					i.rowClicks = make([]Clickable, len(i.filteredItems))
 				}
 				fillAdj := 0
 				if len(i.filteredItems) <= i.dropdownRows {

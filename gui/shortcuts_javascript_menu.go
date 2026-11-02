@@ -10,6 +10,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/dop251/goja"
+	"github.com/marrow16/gogol/gui/controls"
 	"image"
 )
 
@@ -44,7 +45,7 @@ func newShortcutPromptMenu(c *Core, rt *goja.Runtime, prompt string, selected in
 		prompt:       prompt,
 		list:         widget.List{Axis: layout.Vertical},
 		options:      actualOptions,
-		optionClicks: make([]widget.Clickable, len(actualOptions)),
+		optionClicks: make([]controls.Clickable, len(actualOptions)),
 		itemIndices:  indices,
 		length:       length,
 		rt:           rt,
@@ -79,7 +80,7 @@ type shortcutPromptMenu struct {
 	list         widget.List
 	listStyle    material.ListStyle
 	options      []string
-	optionClicks []widget.Clickable
+	optionClicks []controls.Clickable
 	length       int
 	itemIndices  map[int]int
 	callback     func(goja.FunctionCall) goja.Value
@@ -152,8 +153,10 @@ func (p *shortcutPromptMenu) Layout(gtx layout.Context) layout.Dimensions {
 		}
 		if idx == p.selected {
 			paint.FillShape(gtx.Ops, selectedFocusedColor, clip.Rect{Max: image.Point{X: gtx.Constraints.Max.X, Y: itemHt}}.Op())
+		} else if p.optionClicks[idx].Hovered() {
+			paint.FillShape(gtx.Ops, hoverColor, clip.Rect{Max: image.Point{X: gtx.Constraints.Max.X, Y: itemHt}}.Op())
 		}
-		return material.Clickable(gtx, &p.optionClicks[idx], inset(0, 0, 3, 3, label(p.options[idx])))
+		return p.optionClicks[idx].Layout(gtx, inset(0, 0, 3, 3, label(p.options[idx])))
 	})
 	call := macro.Stop()
 	paint.FillShape(gtx.Ops, backgroundColor, clip.Rect{Max: dims.Size}.Op())

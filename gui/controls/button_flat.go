@@ -1,6 +1,8 @@
 package controls
 
 import (
+	"gioui.org/io/event"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -54,6 +56,9 @@ func (b *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 					background := fill.Stop()
 					background.Add(gtx.Ops)
 					content.Add(gtx.Ops)
+					if gtx.Focused(&b.clickable) || b.clickable.Hovered() {
+						paint.FillShape(gtx.Ops, Style.ShadeColor, clip.UniformRRect(image.Rectangle{Max: dims.Size}, r).Op(gtx.Ops))
+					}
 					return dims
 				})
 			})
@@ -62,7 +67,12 @@ func (b *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 	return b.margin.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return b.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return widget.Border{Color: Style.BorderColor, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return b.inset.Layout(gtx, b.style.Layout)
+				dims := b.inset.Layout(gtx, b.style.Layout)
+				if gtx.Focused(&b.clickable) || b.clickable.Hovered() {
+					r := gtx.Dp(3)
+					paint.FillShape(gtx.Ops, Style.ShadeColor, clip.UniformRRect(image.Rectangle{Max: dims.Size}, r).Op(gtx.Ops))
+				}
+				return dims
 			})
 		})
 	})
@@ -74,6 +84,29 @@ func (b *FlatButton) Clicked(gtx layout.Context) bool {
 
 func (b *FlatButton) IsFocused(gtx layout.Context) bool {
 	return gtx.Focused(&b.clickable)
+}
+
+func (b *FlatButton) SetFocused(gtx layout.Context) {
+	gtx.Execute(key.FocusCmd{Tag: &b.clickable})
+}
+
+func (b *FlatButton) HandleKeys(gtx layout.Context, fn func(k key.Name), keyNames ...key.Name) {
+	if fn == nil || len(keyNames) == 0 {
+		return
+	}
+	filters := make([]event.Filter, len(keyNames))
+	for i, kn := range keyNames {
+		filters[i] = key.Filter{Focus: &b.clickable, Name: kn}
+	}
+	for {
+		ev, ok := gtx.Event(filters...)
+		if !ok {
+			break
+		}
+		if kev, ok := ev.(key.Event); ok && kev.State == key.Press {
+			fn(kev.Name)
+		}
+	}
 }
 
 func (b *FlatButton) Label(label string) *FlatButton {

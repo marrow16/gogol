@@ -1,23 +1,29 @@
 package controls
 
 import (
+	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"image"
 )
 
 type Input struct {
-	theme      *material.Theme
-	editor     widget.Editor
-	style      material.EditorStyle
-	onChangeFn func(text string)
-	onSubmitFn func(text string)
-	upDownFn   func(k key.Name, text string) (string, bool)
-	maxWidth   int
+	theme            *material.Theme
+	editor           widget.Editor
+	style            material.EditorStyle
+	onChangeFn       func(text string)
+	onSubmitFn       func(text string)
+	upDownFn         func(k key.Name, text string) (string, bool)
+	maxWidth         int
+	decorator        layout.Widget
+	decoratorOnClick func()
 }
 
 func NewInput(theme *material.Theme, filter any, maxLen int, fn func(text string)) *Input {
@@ -81,26 +87,51 @@ func (i *Input) IsFocused(gtx layout.Context) bool {
 
 func (i *Input) Layout(gtx layout.Context) layout.Dimensions {
 	i.Update(gtx)
+	maxWd := 0
 	if i.maxWidth > 0 {
-		maxChWd := measureText(gtx, i.theme, "M")
-		maxWidth := maxChWd.Size.X * i.maxWidth
-		if maxWidth < gtx.Constraints.Max.X {
-			gtx.Constraints.Max.X = maxWidth
-		}
-		if gtx.Constraints.Min.X > gtx.Constraints.Max.X {
-			gtx.Constraints.Min.X = gtx.Constraints.Max.X
-		}
+		maxWd = measureText(gtx, i.theme, "\u2003").Size.X * i.maxWidth
 	} else if i.editor.MaxLen > 0 {
-		maxChWd := measureText(gtx, i.theme, "M")
-		maxWidth := maxChWd.Size.X * i.editor.MaxLen
-		if maxWidth < gtx.Constraints.Max.X {
-			gtx.Constraints.Max.X = maxWidth
+		maxWd = measureText(gtx, i.theme, "\u2003").Size.X * i.editor.MaxLen
+	}
+	bc, bt := Style.bordering(!i.editor.ReadOnly && i.IsFocused(gtx))
+	if i.decorator != nil {
+		if maxWd == 0 {
+			maxWd = measureText(gtx, i.theme, "\u2003").Size.X * 6
+		}
+		// need to add decorator width
+		mi := op.Record(gtx.Ops)
+		iDims := i.style.Layout(gtx)
+		_ = mi.Stop()
+		macro := op.Record(gtx.Ops)
+		dgtx := gtx
+		dgtx.Constraints.Max.Y = iDims.Size.Y + gtx.Dp(4)
+		dDims := i.decorator(dgtx)
+		gtx.Constraints.Max.X = maxWd + dDims.Size.X + 4
+		gtx.Constraints.Min.X = maxWd + dDims.Size.X + 4
+		dCall := macro.Stop()
+		return widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Gap: 4, Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X, gtx.Constraints.Max.X = maxWd, maxWd
+					return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, i.style.Layout)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					dCall.Add(gtx.Ops)
+					lineHt := iDims.Size.Y + (gtx.Dp(2) * 2)
+					paint.FillShape(gtx.Ops, Style.BorderColor, clip.Rect{Max: image.Point{X: gtx.Dp(1), Y: lineHt}}.Op())
+					return dDims
+				}),
+			)
+		})
+	}
+	if maxWd > 0 {
+		if maxWd < gtx.Constraints.Max.X {
+			gtx.Constraints.Max.X = maxWd
 		}
 		if gtx.Constraints.Min.X > gtx.Constraints.Max.X {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		}
 	}
-	bc, bt := Style.bordering(!i.editor.ReadOnly && i.IsFocused(gtx))
 	return widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 2, Bottom: 2, Left: 4, Right: 4}.Layout(gtx, i.style.Layout)
 	})
@@ -108,37 +139,54 @@ func (i *Input) Layout(gtx layout.Context) layout.Dimensions {
 
 func (i *Input) Update(gtx layout.Context) {
 	currentlyFocused := gtx.Focused(&i.editor)
-	if currentlyFocused && i.upDownFn != nil {
-		for {
-			ev, ok := gtx.Event(
-				pointer.Filter{
-					Target:  &i.editor,
-					Kinds:   pointer.Scroll,
-					ScrollY: pointer.ScrollRange{Min: 0, Max: 100000},
-				},
+	if currentlyFocused && (i.upDownFn != nil || i.decoratorOnClick != nil) {
+		filters := make([]event.Filter, 0, 6)
+		if i.upDownFn != nil {
+			filters = append(filters, pointer.Filter{
+				Target:  &i.editor,
+				Kinds:   pointer.Scroll,
+				ScrollY: pointer.ScrollRange{Min: 0, Max: 100000},
+			},
 				key.Filter{Focus: &i.editor, Name: key.NameUpArrow},
 				key.Filter{Focus: &i.editor, Name: key.NameDownArrow},
 				key.Filter{Focus: &i.editor, Name: key.NamePageUp},
-				key.Filter{Focus: &i.editor, Name: key.NamePageDown},
-			)
+				key.Filter{Focus: &i.editor, Name: key.NamePageDown})
+		}
+		if i.decoratorOnClick != nil {
+			filters = append(filters, key.Filter{Focus: &i.editor, Required: key.ModCtrl, Name: key.NameEnter},
+				key.Filter{Focus: &i.editor, Required: key.ModCtrl, Name: key.NameReturn})
+		}
+		for {
+			ev, ok := gtx.Event(filters...)
 			if !ok {
 				break
 			}
 			switch evt := ev.(type) {
 			case key.Event:
 				if evt.State == key.Press {
-					if s, ok := i.upDownFn(evt.Name, i.editor.Text()); ok {
-						i.SetText(s)
+					switch evt.Name {
+					case key.NameEnter, key.NameReturn:
+						if i.decoratorOnClick != nil {
+							i.decoratorOnClick()
+						}
+					case key.NameUpArrow, key.NameDownArrow, key.NamePageUp, key.NamePageDown:
+						if i.upDownFn != nil {
+							if s, ok := i.upDownFn(evt.Name, i.editor.Text()); ok {
+								i.SetText(s)
+							}
+						}
 					}
 				}
 			case pointer.Event:
-				if evt.Scroll.Y == 0 {
-					if s, ok := i.upDownFn(key.NameUpArrow, i.editor.Text()); ok {
-						i.SetText(s)
-					}
-				} else {
-					if s, ok := i.upDownFn(key.NameDownArrow, i.editor.Text()); ok {
-						i.SetText(s)
+				if i.upDownFn != nil {
+					if evt.Scroll.Y == 0 {
+						if s, ok := i.upDownFn(key.NameUpArrow, i.editor.Text()); ok {
+							i.SetText(s)
+						}
+					} else {
+						if s, ok := i.upDownFn(key.NameDownArrow, i.editor.Text()); ok {
+							i.SetText(s)
+						}
 					}
 				}
 			}
@@ -163,6 +211,42 @@ func (i *Input) Update(gtx layout.Context) {
 	if currentlyFocused != gtx.Focused(&i.editor) {
 		gtx.Execute(op.InvalidateCmd{})
 	}
+}
+
+func (i *Input) WithDecorator(w layout.Widget) *Input {
+	i.decorator = w
+	return i
+}
+
+func (i *Input) WithEllipsisButton(onClick func()) *Input {
+	if onClick == nil {
+		i.decorator = nil
+		return i
+	}
+	clickable := Clickable{}
+	lbl := material.Label(i.theme, i.theme.TextSize, "…")
+	lbl.MaxLines = 1
+	lbl.Alignment = text.Middle
+	i.decoratorOnClick = onClick
+	i.decorator = func(gtx layout.Context) layout.Dimensions {
+		if clickable.Clicked(gtx) {
+			onClick()
+		}
+		return clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			macro := op.Record(gtx.Ops)
+			dims := layout.Inset{Left: 2, Right: 2, Bottom: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
+				return layout.S.Layout(gtx, lbl.Layout)
+			})
+			call := macro.Stop()
+			if clickable.Hovered() {
+				paint.FillShape(gtx.Ops, Style.ShadeColor, clip.Rect{Max: image.Point{X: dims.Size.X, Y: dims.Size.Y}}.Op())
+			}
+			call.Add(gtx.Ops)
+			return dims
+		})
+	}
+	return i
 }
 
 type InputFilterType int

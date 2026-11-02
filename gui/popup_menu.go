@@ -8,8 +8,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
-	"gioui.org/widget"
-	"gioui.org/widget/material"
+	"github.com/marrow16/gogol/gui/controls"
 	"image"
 )
 
@@ -401,7 +400,7 @@ func (m menuItems) measureWidth(gtx layout.Context) int {
 
 type menuItem struct {
 	parent    *menuPopup
-	clickable widget.Clickable
+	clickable controls.Clickable
 	label     string
 	key       string
 	popout    popoutType
@@ -420,16 +419,17 @@ func (i *menuItem) layout(gtx layout.Context, width int) layout.Dimensions {
 		paint.FillShape(gtx.Ops, borderColor, clip.Rect{Min: image.Point{X: 0, Y: dims.Size.Y / 2}, Max: image.Point{X: dims.Size.X, Y: (dims.Size.Y / 2) + 1}}.Op())
 		return dims
 	}
-	for i.clickable.Clicked(gtx) {
+	if i.clickable.Clicked(gtx) {
 		if i.popout != popoutNone {
 			i.parent.poppedOut = true
 		}
 		i.parent.setSelected(i.index)
+		gtx.Execute(op.InvalidateCmd{})
 		if i.fn != nil {
 			i.fn()
 		}
 	}
-	return material.Clickable(gtx, &i.clickable, func(gtx layout.Context) layout.Dimensions {
+	return i.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		extra := unit.Dp(0)
 		if len(i.key) == 0 {
 			sz1 := measureText(gtx, "C")
@@ -449,6 +449,8 @@ func (i *menuItem) layout(gtx layout.Context, width int) layout.Dimensions {
 		call := macro.Stop()
 		if i.index == i.parent.selected {
 			paint.FillShape(gtx.Ops, selectedColor, clip.Rect{Max: dims.Size}.Op())
+		} else if i.clickable.Hovered() {
+			paint.FillShape(gtx.Ops, hoverColor, clip.Rect{Max: dims.Size}.Op())
 		}
 		call.Add(gtx.Ops)
 		i.height = dims.Size.Y

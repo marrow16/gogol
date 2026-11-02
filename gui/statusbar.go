@@ -8,7 +8,6 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/gui/controls"
 	"github.com/marrow16/gogol/gui/icons"
@@ -87,7 +86,7 @@ type statusBar struct {
 	showingPopup    popup
 	top             int
 	right           int
-	middleClickable widget.Clickable
+	middleClickable controls.Clickable
 	ruleDims        layout.Dimensions
 	stepDims        layout.Dimensions
 	buttonsStepping []layout.FlexChild
@@ -563,7 +562,7 @@ func (sb *statusBar) drawInsetBorder(gtx layout.Context, r image.Rectangle) {
 }
 
 type statusBarButton struct {
-	clickable widget.Clickable
+	clickable controls.Clickable
 	fn        func()
 	img       image.Image
 	isAlt     bool

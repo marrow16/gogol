@@ -72,6 +72,12 @@ func label(s string, opts ...any) layout.Widget {
 			lbl.Alignment = opt
 		}
 	}
+	if lbl.Alignment != text.Start {
+		return func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return lbl.Layout(gtx)
+		}
+	}
 	return lbl.Layout
 }
 

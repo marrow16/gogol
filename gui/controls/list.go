@@ -17,7 +17,7 @@ type List[T any] struct {
 	border         bool
 	theme          *material.Theme
 	list           widget.List
-	clickables     []widget.Clickable
+	clickables     []Clickable
 	selectedIndex  int
 	focused        bool
 	tag            struct{}
@@ -81,7 +81,7 @@ func (l *List[T]) OnIsSelected(fn func(index int, item T) bool) *List[T] {
 func (l *List[T]) ResetItems(items []T) {
 	l.selectedIndex = 0
 	l.Items = items
-	l.clickables = make([]widget.Clickable, 0)
+	l.clickables = make([]Clickable, 0)
 }
 
 func (l *List[T]) IsFocused(_ layout.Context) bool {
@@ -90,7 +90,7 @@ func (l *List[T]) IsFocused(_ layout.Context) bool {
 
 func (l *List[T]) Layout(gtx layout.Context) layout.Dimensions {
 	if len(l.clickables) != len(l.Items) {
-		l.clickables = make([]widget.Clickable, len(l.Items))
+		l.clickables = make([]Clickable, len(l.Items))
 	}
 	for {
 		ev, ok := gtx.Event(

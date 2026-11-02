@@ -8,7 +8,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/text"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/gui/controls"
 	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/patterns"
@@ -329,15 +328,7 @@ func (p *capturedPatternsPopout) layoutPreview(gtx layout.Context, maxWd, maxHt 
 	currentPattern := p.chooser.CurrentItem()
 	switch {
 	case currentPattern == nil:
-		return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceAround}.Layout(gtx,
-			rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Constraints.Max.X
-				lbl := material.Label(theme, theme.TextSize, "(select a pattern)")
-				lbl.MaxLines = 1
-				lbl.Alignment = text.Middle
-				return lbl.Layout(gtx)
-			}),
-		)
+		return verticalCenter(label("(select a pattern)", text.Middle))(gtx)
 	case p.previewMode.Value == previewMetadata:
 		return p.layoutPreviewMetadata(*currentPattern, gtx)
 	default:

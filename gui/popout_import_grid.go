@@ -20,7 +20,6 @@ type importGridPopout struct {
 	setFocused bool
 	path       *controls.Input
 	btnImport  *controls.Button
-	btnPath    *controls.PathButton
 	chkResize  *controls.Checkbox
 	error      error
 }
@@ -31,10 +30,10 @@ func newImportGridPopout(p *menuPopup, c *Core) *importGridPopout {
 		core:       c,
 		setFocused: true,
 		btnImport:  controls.NewButton(theme, "Import"),
-		btnPath:    controls.NewPathButton(theme),
 		chkResize:  controls.NewCheckBox(theme, "Resize grid", true),
 	}
-	result.path = controls.NewInput(theme, "", 256, result.clearError).MaximumWidth(30)
+	result.path = controls.NewInput(theme, "", 256, result.clearError).
+		MaximumWidth(30).WithEllipsisButton(result.ellipsisClicked)
 	return result
 }
 
@@ -92,17 +91,18 @@ func (p *importGridPopout) importGrid() {
 	}
 }
 
+func (p *importGridPopout) ellipsisClicked() {
+	p.core.showFileFinder("Import Grid", []string{".rle"}, false, func(path string) {
+		p.path.SetText(path)
+		p.setFocused = true
+	}, func() {
+		p.setFocused = true
+	})
+}
+
 func (p *importGridPopout) layout(gtx layout.Context) layout.Dimensions {
 	if p.btnImport.Clicked(gtx) {
 		p.importGrid()
-	}
-	if p.btnPath.Clicked(gtx) {
-		p.core.showFileFinder("Import Grid", []string{".rle"}, false, func(path string) {
-			p.path.SetText(path)
-			p.setFocused = true
-		}, func() {
-			p.setFocused = true
-		})
 	}
 	if p.setFocused {
 		p.path.SetFocused(gtx)
@@ -112,8 +112,7 @@ func (p *importGridPopout) layout(gtx layout.Context) layout.Dimensions {
 	return popoutLayout(gtx, flexVertical(8,
 		rigid(flexHorizontal(0,
 			rigidLabel("Path: ", text.End, 0, labelMax),
-			flexed(p.path.Layout),
-			rigid(p.btnPath.Layout),
+			rigid(p.path.Layout),
 		)),
 		rigid(flexHorizontal(20,
 			rigidFixedWidth(nil, labelMax-20, 0),
@@ -126,5 +125,5 @@ func (p *importGridPopout) layout(gtx layout.Context) layout.Dimensions {
 
 func (p *importGridPopout) hasFocus(gtx layout.Context) bool {
 	return p.path.IsFocused(gtx) || p.chkResize.IsFocused(gtx) ||
-		p.btnImport.IsFocused(gtx) || p.btnPath.IsFocused(gtx)
+		p.btnImport.IsFocused(gtx)
 }
