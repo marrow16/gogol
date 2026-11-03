@@ -240,11 +240,9 @@ func (p *menuPopup) layout(gtx layout.Context) layout.Dimensions {
 		p.itemWidth = p.menuItems.measureWidth(gtx)
 	}
 	macro := op.Record(gtx.Ops)
-	dims := layout.Inset{Top: 2, Left: 2, Bottom: 2, Right: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{
-			Axis: layout.Vertical,
-		}.Layout(gtx, p.menuItems.layout(p.itemWidth)...)
-	})
+	dims := layout.Flex{
+		Axis: layout.Vertical,
+	}.Layout(gtx, p.menuItems.layout(p.itemWidth)...)
 	p.width = dims.Size.X
 	call := macro.Stop()
 	paint.FillShape(gtx.Ops, backgroundColor, clip.Rect{Max: dims.Size}.Op())

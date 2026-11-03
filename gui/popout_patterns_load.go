@@ -14,8 +14,8 @@ import (
 type loadPatternsPopout struct {
 	parent     *menuPopup
 	core       *Core
-	setFocused bool
 	path       *controls.Input
+	setFocused bool
 	btnLoad    *controls.Button
 	error      error
 	loaded     *int
@@ -23,10 +23,9 @@ type loadPatternsPopout struct {
 
 func newLoadPatternsPopout(p *menuPopup, c *Core) *loadPatternsPopout {
 	result := &loadPatternsPopout{
-		parent:     p,
-		core:       c,
-		setFocused: true,
-		btnLoad:    controls.NewButton(theme, "Load"),
+		parent:  p,
+		core:    c,
+		btnLoad: controls.NewButton(theme, "Load"),
 	}
 	result.path = controls.NewInput(theme, "", 256, result.clearError).
 		MaximumWidth(30).WithEllipsisButton(result.ellipsisClicked)
@@ -80,8 +79,8 @@ func (p *loadPatternsPopout) layout(gtx layout.Context) layout.Dimensions {
 		p.loadPatterns()
 	}
 	if p.setFocused {
-		p.setFocused = false
 		p.path.SetFocused(gtx)
+		p.setFocused = false
 	}
 	labelMax := measureMaxText(gtx, font.Normal, "Path: ")
 	return popoutLayout(gtx, flexVertical(8,

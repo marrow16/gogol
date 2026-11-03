@@ -489,7 +489,7 @@ func (sb *statusBar) middleArea(gtx layout.Context) layout.FlexChild {
 
 func (sb *statusBar) rightArea() layout.FlexChild {
 	buttons := make([]layout.FlexChild, 0, 14)
-	if sb.core.mode == noMode {
+	if sb.core.mode == noMode && !sb.core.isShortcutsInteractive() {
 		for i, f := range sb.buttonsExtra {
 			btn := string(rune('A' + i))
 			if btn == "G" {

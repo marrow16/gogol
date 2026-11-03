@@ -960,6 +960,9 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"name": "lbl-1", // optional - not shown in response but allows addressing
 	"label": "Group", // optional
 	"horizontal": false, // optional - defaults to false
+	"gap": 8, // optional - the gap between items (defaults to 10)
+	"border": true, // optional - display border (defaults to false)
+	"padding": 8, // optional - defaults to 0
 	"items": [...] // array of dialog items
 }`},
 	}},

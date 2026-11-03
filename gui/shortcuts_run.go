@@ -27,13 +27,24 @@ func (c *Core) startShortcuts() {
 }
 
 func (c *Core) stopShortcuts() {
+	c.shortcutMutex.Lock()
+	defer c.shortcutMutex.Unlock()
 	c.shortcutRunning = false
+	c.shortcutPrompt = nil
+	c.shortcutPromptMenu = nil
+	c.shortcutPromptDialog = nil
 }
 
 func (c *Core) isShortcutsRunning() bool {
 	c.shortcutMutex.RLock()
 	defer c.shortcutMutex.RUnlock()
 	return c.shortcutRunning
+}
+
+func (c *Core) isShortcutsInteractive() bool {
+	c.shortcutMutex.RLock()
+	defer c.shortcutMutex.RUnlock()
+	return c.shortcutRunning && (c.shortcutPrompt != nil || c.shortcutPromptMenu != nil || c.shortcutPromptDialog != nil)
 }
 
 func (c *Core) setShortcutsStatus(s string, repeats []int, override bool) {

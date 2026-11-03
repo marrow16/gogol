@@ -20,6 +20,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any) *shortcutPromptDialog {
@@ -126,6 +127,15 @@ type shortcutPromptDialog struct {
 	labels           []string
 	hidden           map[string]bool
 	setValues        map[string]any
+	mutex            sync.RWMutex
+}
+
+func (p *shortcutPromptDialog) copySetValues() map[string]any {
+	p.mutex.RLock()
+	result := make(map[string]any, len(p.setValues))
+	maps.Copy(result, p.setValues)
+	p.mutex.RUnlock()
+	return result
 }
 
 func (p *shortcutPromptDialog) wait() (map[string]any, bool) {
@@ -153,21 +163,28 @@ type PromptDialogWrapper struct {
 }
 
 func (w *PromptDialogWrapper) Show(names ...string) {
+	w.dlg.mutex.Lock()
 	for _, name := range names {
 		delete(w.dlg.hidden, name)
 	}
+	w.dlg.mutex.Unlock()
 	window.Invalidate()
 }
 
 func (w *PromptDialogWrapper) Hide(names ...string) {
+	w.dlg.mutex.Lock()
 	for _, name := range names {
 		w.dlg.hidden[name] = true
 	}
+	w.dlg.mutex.Unlock()
 	window.Invalidate()
 }
 
 func (w *PromptDialogWrapper) IsHidden(name string) bool {
-	return w.dlg.hidden[name]
+	w.dlg.mutex.RLock()
+	result := w.dlg.hidden[name]
+	w.dlg.mutex.RUnlock()
+	return result
 }
 
 func (w *PromptDialogWrapper) Get(name string) any {
@@ -181,7 +198,9 @@ func (w *PromptDialogWrapper) Get(name string) any {
 		}
 	}
 	if !got {
+		w.dlg.mutex.RLock()
 		result = w.dlg.setValues[name]
+		w.dlg.mutex.RUnlock()
 	}
 	return result
 }
@@ -199,7 +218,9 @@ func (w *PromptDialogWrapper) Set(name string, value any) {
 }
 
 func (w *PromptDialogWrapper) Clear(name string) {
+	w.dlg.mutex.Lock()
 	delete(w.dlg.setValues, name)
+	w.dlg.mutex.Unlock()
 	for _, i := range w.dlg.items {
 		i.set(name, nil)
 	}
@@ -207,8 +228,7 @@ func (w *PromptDialogWrapper) Clear(name string) {
 }
 
 func (w *PromptDialogWrapper) Ok() {
-	response := make(map[string]any)
-	maps.Copy(response, w.dlg.setValues)
+	response := w.dlg.copySetValues()
 	for _, item := range w.dlg.items {
 		item.response(response)
 	}
@@ -217,8 +237,7 @@ func (w *PromptDialogWrapper) Ok() {
 
 func (w *PromptDialogWrapper) Cancel() {
 	if w.dlg.onCancelClick != nil {
-		response := make(map[string]any)
-		maps.Copy(response, w.dlg.setValues)
+		response := w.dlg.copySetValues()
 		for _, item := range w.dlg.items {
 			item.response(response)
 		}
@@ -243,14 +262,15 @@ func (p *shortcutPromptDialog) submit(response map[string]any, button string) {
 	if button != "" {
 		response["button"] = button
 	}
+	p.mutex.RLock()
 	maps.Copy(response, p.setValues)
+	p.mutex.RUnlock()
 	p.reply <- response
 }
 
 func (p *shortcutPromptDialog) layoutDialog(gtx layout.Context) layout.Dimensions {
 	labelWidth := measureMaxText(gtx, font.Bold, p.labels...)
-	response := make(map[string]any, len(p.items))
-	maps.Copy(response, p.setValues)
+	response := p.copySetValues()
 	for _, item := range p.items {
 		item.response(response)
 	}
@@ -283,10 +303,14 @@ func (p *shortcutPromptDialog) layoutDialog(gtx layout.Context) layout.Dimension
 }
 
 func (p *shortcutPromptDialog) isHidden(item dialogItem) bool {
-	if name, ok := item.getName(); ok {
-		return p.hidden[name]
+	name, ok := item.getName()
+	if !ok {
+		return false
 	}
-	return false
+	p.mutex.RLock()
+	result := p.hidden[name]
+	p.mutex.RUnlock()
+	return result
 }
 
 func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t string, lbl string, item jsItemDecoder) (result dialogItem, addLabel bool) {
@@ -578,6 +602,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 					items:      items,
 					labels:     labels,
 					horizontal: item.bool("horizontal", false),
+					gap:        unit.Dp(item.integer("gap", 10)),
 					border:     item.bool("border", false),
 					padding:    unit.Dp(item.integer("padding", 0)),
 				}
@@ -609,6 +634,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 					tabs = append(tabs, &dialogItemGroup{
 						whenFn: itm.boolFunc("when"),
 						parent: parent,
+						name:   itm.string("name"),
 						items:  actualItems,
 						labels: labels,
 					})
@@ -1413,6 +1439,7 @@ type dialogItemGroup struct {
 	items      []dialogItem
 	labels     []string
 	horizontal bool
+	gap        unit.Dp
 	border     bool
 	padding    unit.Dp
 }
@@ -1462,28 +1489,29 @@ func (i *dialogItemGroup) layout(gtx layout.Context, dlg *shortcutPromptDialog, 
 	if i.border {
 		bw = 1
 	}
+	gap := gtx.Dp(i.gap)
 	switch {
 	case i.horizontal && len(i.label) > 0:
 		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: i.padding, Bottom: i.padding, Left: i.padding, Right: i.padding}.Layout(gtx, flexHorizontal(10,
 				rigidLabel(i.label, text.End, font.Bold, labelWidth),
-				rigid(flexHorizontal(10, rows...)),
+				rigid(flexHorizontal(gap, rows...)),
 			))
 		})
 	case i.horizontal:
 		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: i.padding, Bottom: i.padding, Left: i.padding, Right: i.padding}.Layout(gtx, flexHorizontal(10, rows...))
+			return layout.Inset{Top: i.padding, Bottom: i.padding, Left: i.padding, Right: i.padding}.Layout(gtx, flexHorizontal(gap, rows...))
 		})
 	case len(i.label) > 0:
 		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: i.padding, Bottom: i.padding, Left: i.padding, Right: i.padding}.Layout(gtx, flexHorizontal(10,
 				rigidLabel(i.label, text.End, font.Bold, labelWidth),
-				rigid(flexVertical(10, rows...)),
+				rigid(flexVertical(gap, rows...)),
 			))
 		})
 	default:
 		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: i.padding, Bottom: i.padding, Left: i.padding, Right: i.padding}.Layout(gtx, flexVertical(10, rows...))
+			return layout.Inset{Top: i.padding, Bottom: i.padding, Left: i.padding, Right: i.padding}.Layout(gtx, flexVertical(gap, rows...))
 		})
 	}
 }
@@ -1837,48 +1865,88 @@ func (i *dialogItemTabbed) response(response map[string]any) {
 }
 
 func (i *dialogItemTabbed) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
-	for n, b := range i.buttons {
-		if b.Clicked(gtx) {
-			changed := n != i.selected
-			i.selected = n
+	visibleTabs := make([]int, 0, len(i.tabs))
+	showButtons := make([]layout.FlexChild, 0, len(i.buttons))
+	// work out which tabs are actually visible...
+	for n, t := range i.tabs {
+		if t.when(response) && !dlg.isHidden(t) {
+			visibleTabs = append(visibleTabs, n)
+			showButtons = append(showButtons, rigid(i.buttons[n].Layout))
+		}
+	}
+	if len(visibleTabs) == 0 {
+		// no visible tabs - show notghing...
+		return layout.Dimensions{}
+	}
+	// handle tab button clicks...
+	for _, tabNo := range visibleTabs {
+		if i.buttons[tabNo].Clicked(gtx) {
+			changed := tabNo != i.selected
+			i.selected = tabNo
 			if changed && dlg.onChangeCallback != nil && i.name != "" {
-				dlg.jsCall(dlg.onChangeCallback, map[string]any{"name": i.name, "value": n})
+				dlg.jsCall(dlg.onChangeCallback, map[string]any{"name": i.name, "value": i.selected})
 			}
-			b.SetFocused(gtx)
+			i.buttons[tabNo].SetFocused(gtx)
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	for n, b := range i.buttons {
-		btnNo := n
-		if b.IsFocused(gtx) {
-			b.HandleKeys(gtx, func(k key.Name) {
-				switch k {
-				case key.NameLeftArrow:
-					if btnNo > 0 {
-						i.selected = btnNo - 1
-					} else {
-						i.selected = len(i.buttons) - 1
+	// handle tab button keys...
+	if len(visibleTabs) > 1 {
+		for n := range len(visibleTabs) {
+			btnNo := visibleTabs[n]
+			btn := i.buttons[btnNo]
+			if btn.IsFocused(gtx) {
+				btn.HandleKeys(gtx, func(k key.Name) {
+					switch k {
+					case key.NameLeftArrow:
+						if n > 0 {
+							i.selected = visibleTabs[n-1]
+						} else {
+							i.selected = visibleTabs[len(visibleTabs)-1]
+						}
+					case key.NameRightArrow:
+						if n < len(visibleTabs)-1 {
+							i.selected = visibleTabs[n+1]
+						} else {
+							i.selected = visibleTabs[0]
+						}
 					}
-					i.buttons[i.selected].SetFocused(gtx)
 					if dlg.onChangeCallback != nil && i.name != "" {
 						dlg.jsCall(dlg.onChangeCallback, map[string]any{"name": i.name, "value": i.selected})
 					}
-					gtx.Execute(op.InvalidateCmd{})
-				case key.NameRightArrow:
-					if btnNo < len(i.buttons)-1 {
-						i.selected = btnNo + 1
-					} else {
-						i.selected = 0
-					}
 					i.buttons[i.selected].SetFocused(gtx)
-					if dlg.onChangeCallback != nil && i.name != "" {
-						dlg.jsCall(dlg.onChangeCallback, map[string]any{"name": i.name, "value": i.selected})
-					}
 					gtx.Execute(op.InvalidateCmd{})
-				}
-			}, key.NameLeftArrow, key.NameRightArrow)
+				}, key.NameLeftArrow, key.NameRightArrow)
+			}
 		}
 	}
+	// check that selected tab is actually visible...
+	selectedVisible := false
+	for _, n := range visibleTabs {
+		btn := i.buttons[n]
+		btn.Inset(layout.Inset{Left: 6, Right: 6, Top: 3, Bottom: 8})
+		btn.Colors(foregroundColor, nil)
+		if n == i.selected {
+			selectedVisible = true
+		}
+	}
+	if !selectedVisible {
+		i.selected = visibleTabs[0]
+	}
+	i.buttons[i.selected].Colors(foregroundColor, &selectedFocusedColor)
+	// build the controls for the selected tab...
+	showControls := make([]layout.FlexChild, 0)
+	tab := i.tabs[i.selected]
+	subLabelWidth := measureMaxText(gtx, font.Bold, tab.labels...)
+	for n := range len(tab.items) {
+		item := tab.items[n]
+		if item.when(response) && !dlg.isHidden(item) {
+			showControls = append(showControls, rigid(func(gtx layout.Context) layout.Dimensions {
+				return item.layout(gtx, dlg, response, subLabelWidth)
+			}))
+		}
+	}
+	// work out width & height...
 	wd := 0
 	ht := 0
 	if i.height > 0 {
@@ -1894,29 +1962,6 @@ func (i *dialogItemTabbed) layout(gtx layout.Context, dlg *shortcutPromptDialog,
 	}
 	if i.width > 0 {
 		wd = (measureText(gtx, "\u2003").Size.X * i.width) + 10
-	}
-	showButtons := make([]layout.FlexChild, 0, len(i.buttons))
-	showControls := make([]layout.FlexChild, 0)
-	for n, t := range i.tabs {
-		if t.when(response) {
-			btn := i.buttons[n]
-			btn.Inset(layout.Inset{Left: 6, Right: 6, Top: 3, Bottom: 8})
-			if n == i.selected {
-				btn.Colors(foregroundColor, &selectedFocusedColor)
-				subLabelWidth := measureMaxText(gtx, font.Bold, t.labels...)
-				for s := range len(t.items) {
-					item := t.items[s]
-					if item.when(response) && !dlg.isHidden(item) {
-						showControls = append(showControls, rigid(func(gtx layout.Context) layout.Dimensions {
-							return item.layout(gtx, dlg, response, subLabelWidth)
-						}))
-					}
-				}
-			} else {
-				btn.Colors(foregroundColor, nil)
-			}
-			showButtons = append(showButtons, rigid(btn.Layout))
-		}
 	}
 	return flexVertical(-7,
 		rigid(inset(0, 0, 4, 0, flexHorizontal(-1, showButtons...))),

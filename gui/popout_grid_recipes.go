@@ -27,7 +27,6 @@ func newGridRecipesPopout(p *menuPopup, c *Core) *gridRecipesPopout {
 	result := &gridRecipesPopout{
 		parent:     p,
 		core:       c,
-		setFocused: true,
 		btnPath:    controls.NewPathButton(theme),
 		btnRun:     controls.NewButton(theme, "Run"),
 		btnSaveRle: controls.NewButton(theme, "Save as RLE"),

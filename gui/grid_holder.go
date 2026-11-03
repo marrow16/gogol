@@ -11,6 +11,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
+	"github.com/marrow16/gogol/gui/controls"
 	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/logic"
 	"github.com/marrow16/gogol/patterns"
@@ -59,14 +60,15 @@ func newGridHolder(c *Core) (*gridHolder, error) {
 }
 
 type gridHolder struct {
-	core      *Core
-	grid      *logic.Grid
-	canvas    *image.NRGBA
-	imgOp     paint.ImageOp
-	dirty     bool
-	clickable widget.Clickable
-	zoom      float32
-	pan       f32.Point
+	core       *Core
+	grid       *logic.Grid
+	canvas     *image.NRGBA
+	imgOp      paint.ImageOp
+	dirty      bool
+	clickable  widget.Clickable
+	nonFocused controls.Clickable
+	zoom       float32
+	pan        f32.Point
 	// underlays/overlays (for pattern placing)...
 	underlay *underlay
 	overlay  *overlay
@@ -93,29 +95,32 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 	canvasRect := image.Rectangle{
 		Min: image.Point{X: int(g.pan.X), Y: int(g.pan.Y)},
 		Max: image.Point{X: int(g.pan.X) + canvasSize.X, Y: int(g.pan.Y) + canvasSize.Y}}
+	var eventTarget any
+	focusable := g.isFocusable()
+	if focusable {
+		eventTarget = &g.clickable
+	} else {
+		eventTarget = &g.nonFocused
+	}
 	eventFilters := []event.Filter{
 		pointer.Filter{
-			Target:  &g.clickable,
+			Target:  eventTarget,
 			Kinds:   pointer.Press | pointer.Drag | pointer.Release | pointer.Cancel | pointer.Scroll,
 			ScrollX: pointer.ScrollRange{Min: -canvasSize.X, Max: canvasSize.X},
 			ScrollY: pointer.ScrollRange{Min: -canvasSize.Y, Max: canvasSize.Y},
 		},
 	}
-	if g.overlay != nil {
-		gtx.Execute(key.FocusCmd{Tag: &g.clickable})
+	if focusable {
+		gtx.Execute(key.FocusCmd{Tag: eventTarget})
 		eventFilters = append(eventFilters,
-			key.Filter{Focus: &g.clickable, Optional: key.ModShift | key.ModCtrl | key.ModAlt | key.ModShortcut},
+			key.Filter{Focus: eventTarget, Optional: key.ModShift | key.ModCtrl | key.ModAlt | key.ModShortcut},
 		)
-
-	} else if g.editor.active {
-		gtx.Execute(key.FocusCmd{Tag: &g.clickable})
-		eventFilters = append(eventFilters,
-			key.Filter{Focus: &g.clickable, Optional: key.ModShift | key.ModCtrl | key.ModAlt | key.ModShortcut},
-			transfer.TargetFilter{
+		if g.editor.active {
+			eventFilters = append(eventFilters, transfer.TargetFilter{
 				Target: &g.editor.clipboardTag,
 				Type:   clipboardReadType,
-			},
-		)
+			})
+		}
 	}
 	for {
 		ev, ok := gtx.Event(eventFilters...)
@@ -139,7 +144,11 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 				g.pan = clampPan(g.pan, canvasSize, size)
 				gtx.Execute(op.InvalidateCmd{})
 			case pointer.Press:
-				gtx.Execute(key.FocusCmd{Tag: &g.clickable})
+				if g.core.isShortcutsInteractive() {
+					g.core.stopShortcuts()
+				}
+				g.core.statusBar.showHidePopup(popupNone)
+				gtx.Execute(key.FocusCmd{Tag: eventTarget})
 				if g.overlay != nil && evt.Buttons == pointer.ButtonPrimary {
 					if r, c, ok := g.mouseToGrid(evt.Position); ok {
 						g.overlay.row, g.overlay.col = r, c
@@ -167,17 +176,34 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 	defer gridClip.Pop()
 	defer op.Offset(canvasRect.Min).Push(gtx.Ops).Pop()
 	gtx.Constraints = layout.Exact(canvasRect.Size())
-	g.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		imgOp := g.imageOp()
-		zoom := op.Affine(
-			f32.Affine2D{}.Scale(f32.Point{X: 0, Y: 0}, f32.Point{X: g.zoom, Y: g.zoom}),
-		).Push(gtx.Ops)
-		imgOp.Add(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
-		zoom.Pop()
-		return layout.Dimensions{Size: canvasRect.Size()}
-	})
+	if g.isFocusable() {
+		g.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			imgOp := g.imageOp()
+			zoom := op.Affine(
+				f32.Affine2D{}.Scale(f32.Point{X: 0, Y: 0}, f32.Point{X: g.zoom, Y: g.zoom}),
+			).Push(gtx.Ops)
+			imgOp.Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
+			zoom.Pop()
+			return layout.Dimensions{Size: canvasRect.Size()}
+		})
+	} else {
+		g.nonFocused.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			imgOp := g.imageOp()
+			zoom := op.Affine(
+				f32.Affine2D{}.Scale(f32.Point{X: 0, Y: 0}, f32.Point{X: g.zoom, Y: g.zoom}),
+			).Push(gtx.Ops)
+			imgOp.Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
+			zoom.Pop()
+			return layout.Dimensions{Size: canvasRect.Size()}
+		})
+	}
 	return layout.Dimensions{Size: size}
+}
+
+func (g *gridHolder) isFocusable() bool {
+	return g.editor.active || g.overlay != nil || g.core.mode == placePatternMode
 }
 
 func (g *gridHolder) mouseToGrid(pos f32.Point) (row, col int, ok bool) {

@@ -17,8 +17,8 @@ import (
 type importGridPopout struct {
 	parent     *menuPopup
 	core       *Core
-	setFocused bool
 	path       *controls.Input
+	setFocused bool
 	btnImport  *controls.Button
 	chkResize  *controls.Checkbox
 	error      error
@@ -26,11 +26,10 @@ type importGridPopout struct {
 
 func newImportGridPopout(p *menuPopup, c *Core) *importGridPopout {
 	result := &importGridPopout{
-		parent:     p,
-		core:       c,
-		setFocused: true,
-		btnImport:  controls.NewButton(theme, "Import"),
-		chkResize:  controls.NewCheckBox(theme, "Resize grid", true),
+		parent:    p,
+		core:      c,
+		btnImport: controls.NewButton(theme, "Import"),
+		chkResize: controls.NewCheckBox(theme, "Resize grid", true),
 	}
 	result.path = controls.NewInput(theme, "", 256, result.clearError).
 		MaximumWidth(30).WithEllipsisButton(result.ellipsisClicked)
