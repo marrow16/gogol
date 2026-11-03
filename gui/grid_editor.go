@@ -354,25 +354,6 @@ func (e *editor) handleSpecialKeys(kev key.Event) {
 	case "F":
 		// fill/clear
 		e.markingFillClear(kev.Modifiers&key.ModShift == 0)
-		/*
-			if pattern := e.markedPattern(); pattern != nil {
-				e.endMarking(false)
-				sr := min(e.row, e.markStartRow)
-				sc := min(e.col, e.markStartCol)
-				e.addPatternUndo(*pattern, sr, sc, patterns.Rotate0)
-				np := patterns.Pattern{
-					Width:  pattern.Width,
-					Height: pattern.Height,
-					Cells:  slices.Clone(pattern.Cells),
-				}
-				fill := kev.Modifiers&key.ModShift == 0
-				for i := 0; i < len(np.Cells); i++ {
-					np.Cells[i] = fill
-				}
-				e.clearMarking()
-				np.Draw(e.g.grid, sr, sc, patterns.Rotate0)
-			}
-		*/
 	case "Z":
 		e.endMarking(false)
 		e.doUndo()
