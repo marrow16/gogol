@@ -15,7 +15,8 @@ import (
 
 func NewFlatButton(theme *material.Theme, label string) *FlatButton {
 	b := &FlatButton{
-		inset: layout.Inset{Left: 4, Right: 4},
+		inset:     layout.Inset{Left: 4, Right: 4},
+		focusable: true,
 	}
 	s := material.Label(theme, theme.TextSize, label)
 	s.Color = Style.ForegroundColor
@@ -24,34 +25,27 @@ func NewFlatButton(theme *material.Theme, label string) *FlatButton {
 }
 
 type FlatButton struct {
-	clickable  widget.Clickable
-	inset      layout.Inset
-	margin     layout.Inset
-	style      material.LabelStyle
-	background *color.NRGBA
+	clickable    widget.Clickable
+	nonFocusable Clickable
+	inset        layout.Inset
+	margin       layout.Inset
+	style        material.LabelStyle
+	background   *color.NRGBA
+	focusable    bool
 }
 
 func (b *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
-	if b.background != nil {
+	switch {
+	case b.background != nil && b.focusable:
 		return b.margin.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return b.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return widget.Border{
-					Color:        *b.background,
-					CornerRadius: 3,
-					Width:        1,
-				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return widget.Border{Color: *b.background, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					macro := op.Record(gtx.Ops)
 					dims := b.inset.Layout(gtx, b.style.Layout)
 					content := macro.Stop()
 					fill := op.Record(gtx.Ops)
 					r := gtx.Dp(3)
-					rr := clip.RRect{
-						Rect: image.Rectangle{Max: dims.Size},
-						NE:   r,
-						NW:   r,
-						SE:   r,
-						SW:   r,
-					}
+					rr := clip.RRect{Rect: image.Rectangle{Max: dims.Size}, NE: r, NW: r, SE: r, SW: r}
 					paint.FillShape(gtx.Ops, *b.background, rr.Op(gtx.Ops))
 					background := fill.Stop()
 					background.Add(gtx.Ops)
@@ -63,40 +57,89 @@ func (b *FlatButton) Layout(gtx layout.Context) layout.Dimensions {
 				})
 			})
 		})
-	}
-	return b.margin.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return b.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return widget.Border{Color: Style.BorderColor, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				dims := b.inset.Layout(gtx, b.style.Layout)
-				if gtx.Focused(&b.clickable) || b.clickable.Hovered() {
+	case b.background != nil:
+		return b.margin.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return b.nonFocusable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return widget.Border{Color: *b.background, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					macro := op.Record(gtx.Ops)
+					dims := b.inset.Layout(gtx, b.style.Layout)
+					content := macro.Stop()
+					fill := op.Record(gtx.Ops)
 					r := gtx.Dp(3)
-					paint.FillShape(gtx.Ops, Style.ShadeColor, clip.UniformRRect(image.Rectangle{Max: dims.Size}, r).Op(gtx.Ops))
-				}
-				return dims
+					rr := clip.RRect{Rect: image.Rectangle{Max: dims.Size}, NE: r, NW: r, SE: r, SW: r}
+					paint.FillShape(gtx.Ops, *b.background, rr.Op(gtx.Ops))
+					background := fill.Stop()
+					background.Add(gtx.Ops)
+					content.Add(gtx.Ops)
+					if b.nonFocusable.Hovered() {
+						paint.FillShape(gtx.Ops, Style.ShadeColor, clip.UniformRRect(image.Rectangle{Max: dims.Size}, r).Op(gtx.Ops))
+					}
+					return dims
+				})
 			})
 		})
-	})
+	case b.focusable:
+		return b.margin.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return b.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return widget.Border{Color: Style.BorderColor, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					dims := b.inset.Layout(gtx, b.style.Layout)
+					if gtx.Focused(&b.clickable) || b.clickable.Hovered() {
+						r := gtx.Dp(3)
+						paint.FillShape(gtx.Ops, Style.ShadeColor, clip.UniformRRect(image.Rectangle{Max: dims.Size}, r).Op(gtx.Ops))
+					}
+					return dims
+				})
+			})
+		})
+	default:
+		return b.margin.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return b.nonFocusable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return widget.Border{Color: Style.BorderColor, CornerRadius: 3, Width: 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					dims := b.inset.Layout(gtx, b.style.Layout)
+					if b.nonFocusable.Hovered() {
+						r := gtx.Dp(3)
+						paint.FillShape(gtx.Ops, Style.ShadeColor, clip.UniformRRect(image.Rectangle{Max: dims.Size}, r).Op(gtx.Ops))
+					}
+					return dims
+				})
+			})
+		})
+	}
 }
 
 func (b *FlatButton) Clicked(gtx layout.Context) bool {
-	return b.clickable.Clicked(gtx)
+	if b.focusable {
+		return b.clickable.Clicked(gtx)
+	}
+	return b.nonFocusable.Clicked(gtx)
 }
 
 func (b *FlatButton) IsFocused(gtx layout.Context) bool {
-	return gtx.Focused(&b.clickable)
+	if b.focusable {
+		return gtx.Focused(&b.clickable)
+	}
+	return gtx.Focused(&b.nonFocusable)
 }
 
 func (b *FlatButton) SetFocused(gtx layout.Context) {
-	gtx.Execute(key.FocusCmd{Tag: &b.clickable})
+	if b.focusable {
+		gtx.Execute(key.FocusCmd{Tag: &b.clickable})
+	}
 }
 
 func (b *FlatButton) HandleKeys(gtx layout.Context, fn func(k key.Name), keyNames ...key.Name) {
+	var tag any
+	if b.focusable {
+		tag = &b.clickable
+	} else {
+		tag = &b.nonFocusable
+	}
 	if fn == nil || len(keyNames) == 0 {
 		return
 	}
 	filters := make([]event.Filter, len(keyNames))
 	for i, kn := range keyNames {
-		filters[i] = key.Filter{Focus: &b.clickable, Name: kn}
+		filters[i] = key.Filter{Focus: tag, Name: kn}
 	}
 	for {
 		ev, ok := gtx.Event(filters...)
@@ -111,6 +154,11 @@ func (b *FlatButton) HandleKeys(gtx layout.Context, fn func(k key.Name), keyName
 
 func (b *FlatButton) Label(label string) *FlatButton {
 	b.style.Text = label
+	return b
+}
+
+func (b *FlatButton) Focusable(on bool) *FlatButton {
+	b.focusable = on
 	return b
 }
 

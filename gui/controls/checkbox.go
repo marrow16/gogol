@@ -1,6 +1,7 @@
 package controls
 
 import (
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -34,6 +35,10 @@ func (c *Checkbox) Update(gtx layout.Context) bool {
 
 func (c *Checkbox) IsFocused(gtx layout.Context) bool {
 	return gtx.Focused(c.value)
+}
+
+func (c *Checkbox) SetFocused(gtx layout.Context) {
+	gtx.Execute(key.FocusCmd{Tag: c.value})
 }
 
 func (c *Checkbox) Checked() bool {

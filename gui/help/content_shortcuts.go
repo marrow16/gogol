@@ -929,7 +929,8 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"small": true, // optional - defaults to false
 	"italic": true, // optional - defaults to false
 	"bold": true, // optional - defaults to false
-	"color": "#ff0000" // optional
+	"color": "#ff0000", // optional
+	"indent": true // optional - aligns with other controls (defaults to false)
 }`},
 	}},
 	indent{indent: 8, content: content{
@@ -1046,6 +1047,7 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 		codeBlock{code: `{
 	"type": "init",
 	"hide": ["ctrl-1"], // optional - initially hidden controls
+	"focused": "ctrl-2", // optional - the initially focused control
 	"func": function(data:object,dlg:object), // optional
 	"onChange": function(data:object,dlg:object) // optional
 }`},
@@ -1079,6 +1081,7 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 			hanging{gap: 8, prefix: content{codeCopyable(`.IsHidden(name:string):bool`)}, content: content{}},
 			hanging{gap: 8, prefix: content{codeCopyable(`.Ok()`)}, content: content{}},
 			hanging{gap: 8, prefix: content{codeCopyable(`.Set(name:string, value:any)`)}, content: content{}},
+			hanging{gap: 8, prefix: content{codeCopyable(`.SetFocus(name:string)`)}, content: content{}},
 			hanging{gap: 8, prefix: content{codeCopyable(`.Show(names:string...)`)}, content: content{}},
 		}},
 	}},
