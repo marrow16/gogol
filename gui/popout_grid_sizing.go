@@ -125,6 +125,8 @@ func (p *sizingPopout) layout(gtx layout.Context) layout.Dimensions {
 		p.core.setBoundaryMode(logic.BoundaryModeFromString(p.boundaryMode.Value, p.core.gridHolder.grid.BoundaryMode()))
 	}
 	labelMax := measureMaxText(gtx, font.Normal, "Grid size: ", "Cell size: ", "Wrapping mode: ", "Boundary mode: ", "Randomize %: ")
+	controls.HandleRadioKeys(gtx, p.radioWrapNone, p.radioWrapHorizontal, p.radioWrapVertical, p.radioWrapAll)
+	controls.HandleRadioKeys(gtx, p.radioBoundaryDead, p.radioBoundaryAlive)
 	return popoutLayout(gtx, flexVertical(8,
 		rigid(flexHorizontal(20,
 			rigidLabel("Grid size:", text.End, 0, labelMax),

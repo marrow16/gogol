@@ -357,6 +357,15 @@ func (p *instrumentationPopout) saveAnimation() {
 
 func (p *instrumentationPopout) layoutHeatMap(gtx layout.Context) layout.Dimensions {
 	labelMax := measureMaxText(gtx, font.Bold, "Steps: ", "Type: ")
+	controls.HandleRadioKeys(gtx,
+		p.radioActivity,
+		p.radioOccupancy,
+		p.radioBirths,
+		p.radioAge,
+		p.radioLongevity,
+		p.radioFreshness,
+		p.radioPhaseParity,
+		p.radioAll)
 	return layout.Inset{Left: 16, Bottom: 4}.Layout(gtx, flexVertical(0,
 		rigid(flexHorizontal(20,
 			rigidLabel("Type:", text.End, 0, labelMax),

@@ -80,6 +80,10 @@ func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any
 										result.hidden[fmt.Sprintf("%v", name)] = true
 									}
 								}
+							case "focused":
+								if s, ok := v.(string); ok {
+									result.focused = s
+								}
 							default:
 								result.setValues[k] = v
 							}
@@ -127,6 +131,7 @@ type shortcutPromptDialog struct {
 	labels           []string
 	hidden           map[string]bool
 	setValues        map[string]any
+	focused          string
 	mutex            sync.RWMutex
 }
 
@@ -149,6 +154,14 @@ func (p *shortcutPromptDialog) wait() (map[string]any, bool) {
 }
 
 func (p *shortcutPromptDialog) Layout(gtx layout.Context) layout.Dimensions {
+	if p.focused != "" {
+		for _, item := range p.items {
+			if ok := item.setFocused(gtx, p.focused); ok {
+				break
+			}
+		}
+		p.focused = ""
+	}
 	macro := op.Record(gtx.Ops)
 	dims := inset(8, 8, 8, 8, p.layoutDialog)(gtx)
 	call := macro.Stop()
@@ -224,6 +237,13 @@ func (w *PromptDialogWrapper) Clear(name string) {
 	for _, i := range w.dlg.items {
 		i.set(name, nil)
 	}
+	window.Invalidate()
+}
+
+func (w *PromptDialogWrapper) SetFocused(name string) {
+	w.dlg.mutex.Lock()
+	w.dlg.focused = name
+	w.dlg.mutex.Unlock()
 	window.Invalidate()
 }
 
@@ -359,6 +379,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			bold:   item.bool("bold", false),
 			italic: item.bool("italic", false),
 			color:  item.color("color"),
+			indent: item.bool("indent", false),
 		}
 	case "radio":
 		if options, ok := item.arrayString("options"); ok {
@@ -659,6 +680,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 }
 
 type dialogItem interface {
+	setFocused(gtx layout.Context, name string) bool
 	getName() (string, bool)
 	set(name string, value any) bool
 	get(name string) (any, bool)
@@ -668,6 +690,10 @@ type dialogItem interface {
 }
 
 type dialogItemLabel string
+
+func (i dialogItemLabel) setFocused(gtx layout.Context, name string) bool {
+	return false
+}
 
 func (i dialogItemLabel) getName() (string, bool) {
 	return "", false
@@ -705,6 +731,11 @@ type dialogItemLabelLine struct {
 	bold   bool
 	italic bool
 	color  *color.NRGBA
+	indent bool
+}
+
+func (i *dialogItemLabelLine) setFocused(gtx layout.Context, name string) bool {
+	return i.name == name
 }
 
 func (i *dialogItemLabelLine) getName() (string, bool) {
@@ -737,7 +768,7 @@ func (i *dialogItemLabelLine) response(_ map[string]any) {
 	// nothing to set
 }
 
-func (i *dialogItemLabelLine) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ int) layout.Dimensions {
+func (i *dialogItemLabelLine) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, labelWidth int) layout.Dimensions {
 	lbl := material.Label(theme, theme.TextSize, i.label)
 	if i.small {
 		lbl.TextSize = (theme.TextSize * 4) / 5
@@ -750,6 +781,12 @@ func (i *dialogItemLabelLine) layout(gtx layout.Context, _ *shortcutPromptDialog
 	}
 	if i.color != nil {
 		lbl.Color = *i.color
+	}
+	if i.indent {
+		return flexHorizontal(10,
+			rigidLabel("", text.End, font.Bold, labelWidth),
+			rigid(lbl.Layout),
+		)(gtx)
 	}
 	return lbl.Layout(gtx)
 }
@@ -773,6 +810,14 @@ type dialogItemList struct {
 	list     *controls.List[string]
 	maxLen   int
 	maxWidth int
+}
+
+func (i *dialogItemList) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.list.Focus(gtx)
+		return true
+	}
+	return false
 }
 
 func (i *dialogItemList) getName() (string, bool) {
@@ -864,6 +909,14 @@ type dialogItemDropdown struct {
 	chooser *controls.Chooser[string]
 }
 
+func (i *dialogItemDropdown) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.chooser.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
 func (i *dialogItemDropdown) getName() (string, bool) {
 	return i.name, true
 }
@@ -919,6 +972,31 @@ type dialogItemRadio struct {
 	horizontal bool
 }
 
+func (i *dialogItemRadio) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		if len(i.radios) > 0 {
+			// need to lay the radios out so they can receive focus...
+			macro := op.Record(gtx.Ops)
+			for _, radio := range i.radios {
+				radio.Layout(gtx)
+			}
+			_ = macro.Stop()
+			if curr := i.enum.Value; curr != "" {
+				for _, radio := range i.radios {
+					if radio.Key == curr {
+						radio.SetFocused(gtx)
+						break
+					}
+				}
+			} else {
+				i.radios[0].SetFocused(gtx)
+			}
+		}
+		return true
+	}
+	return false
+}
+
 func (i *dialogItemRadio) getName() (string, bool) {
 	return i.name, true
 }
@@ -960,6 +1038,7 @@ func (i *dialogItemRadio) layout(gtx layout.Context, _ *shortcutPromptDialog, _ 
 	for n, r := range i.radios {
 		items[n] = rigid(r.Layout)
 	}
+	controls.HandleRadioKeys(gtx, i.radios...)
 	switch {
 	case len(i.label) > 0 && i.horizontal:
 		return flexHorizontal(10,
@@ -990,6 +1069,16 @@ type dialogItemCheck struct {
 	label      string
 	checks     []*controls.Checkbox
 	horizontal bool
+}
+
+func (i *dialogItemCheck) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		if len(i.checks) > 0 {
+			i.checks[0].SetFocused(gtx)
+		}
+		return true
+	}
+	return false
 }
 
 func (i *dialogItemCheck) getName() (string, bool) {
@@ -1139,6 +1228,14 @@ type dialogItemString struct {
 	input *controls.Input
 }
 
+func (i *dialogItemString) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.input.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
 func (i *dialogItemString) getName() (string, bool) {
 	return i.name, true
 }
@@ -1187,6 +1284,14 @@ type dialogItemInt struct {
 	name  string
 	label string
 	input *controls.NumberInput[int]
+}
+
+func (i *dialogItemInt) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.input.SetFocused(gtx)
+		return true
+	}
+	return false
 }
 
 func (i *dialogItemInt) getName() (string, bool) {
@@ -1249,6 +1354,14 @@ type dialogItemText struct {
 	input    *controls.Editor
 	maxLines int
 	maxWidth int
+}
+
+func (i *dialogItemText) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.input.SetFocused(gtx)
+		return true
+	}
+	return false
 }
 
 func (i *dialogItemText) getName() (string, bool) {
@@ -1327,6 +1440,14 @@ type dialogItemButton struct {
 	flatButton *controls.FlatButton
 }
 
+func (i *dialogItemButton) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.button.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
 func (i *dialogItemButton) getName() (string, bool) {
 	return i.name, true
 }
@@ -1369,6 +1490,19 @@ type dialogItemButtons struct {
 	buttons     []*controls.Button
 	flatButtons []*controls.FlatButton
 	gap         int
+}
+
+func (i *dialogItemButtons) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		if len(i.buttons) > 0 {
+			i.buttons[0].SetFocused(gtx)
+		}
+		if len(i.flatButtons) > 0 {
+			i.flatButtons[0].SetFocused(gtx)
+		}
+		return true
+	}
+	return false
 }
 
 func (i *dialogItemButtons) getName() (string, bool) {
@@ -1442,6 +1576,24 @@ type dialogItemGroup struct {
 	gap        unit.Dp
 	border     bool
 	padding    unit.Dp
+}
+
+func (i *dialogItemGroup) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		for _, item := range i.items {
+			if iName, ok := item.getName(); ok && name == iName {
+				item.setFocused(gtx, iName)
+				return true
+			}
+		}
+		return true
+	}
+	for _, item := range i.items {
+		if ok := item.setFocused(gtx, name); ok {
+			return true
+		}
+	}
+	return false
 }
 
 func (i *dialogItemGroup) getName() (string, bool) {
@@ -1518,12 +1670,20 @@ func (i *dialogItemGroup) layout(gtx layout.Context, dlg *shortcutPromptDialog, 
 
 type dialogItemFile struct {
 	dialogItemCommon
-	name       string
-	label      string
-	input      *controls.Input
-	allowExts  []string
-	allowDirs  bool
-	setFocused bool
+	name      string
+	label     string
+	input     *controls.Input
+	allowExts []string
+	allowDirs bool
+	focused   bool
+}
+
+func (i *dialogItemFile) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.input.SetFocused(gtx)
+		return true
+	}
+	return false
 }
 
 func (i *dialogItemFile) getName() (string, bool) {
@@ -1561,16 +1721,16 @@ func (i *dialogItemFile) response(res map[string]any) {
 func (i *dialogItemFile) ellipsisClicked() {
 	i.parent.core.showFileFinder("Select File", i.allowExts, i.allowDirs, func(path string) {
 		i.input.SetText(path)
-		i.setFocused = true
+		i.focused = true
 	}, func() {
-		i.setFocused = true
+		i.focused = true
 	})
 }
 
 func (i *dialogItemFile) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
-	if i.setFocused {
+	if i.focused {
 		i.input.SetFocused(gtx)
-		i.setFocused = false
+		i.focused = false
 	}
 	if len(i.label) > 0 {
 		return flexHorizontal(10,
@@ -1592,6 +1752,10 @@ type dialogItemProgress struct {
 	label   string
 	control controls.ProgressBar
 	width   int
+}
+
+func (i *dialogItemProgress) setFocused(gtx layout.Context, name string) bool {
+	return name == i.name
 }
 
 func (i *dialogItemProgress) getName() (string, bool) {
@@ -1664,6 +1828,10 @@ type dialogItemSlider struct {
 	control material.SliderStyle
 	width   int
 	height  unit.Dp
+}
+
+func (i *dialogItemSlider) setFocused(gtx layout.Context, name string) bool {
+	return name == i.name
 }
 
 func (i *dialogItemSlider) getName() (string, bool) {
@@ -1758,6 +1926,14 @@ type dialogItemSwitch struct {
 	control material.SwitchStyle
 }
 
+func (i *dialogItemSwitch) setFocused(gtx layout.Context, name string) bool {
+	if i.name == name {
+		gtx.Execute(key.FocusCmd{Tag: &i.value})
+		return true
+	}
+	return false
+}
+
 func (i *dialogItemSwitch) getName() (string, bool) {
 	if i.name != "" {
 		return i.name, true
@@ -1823,6 +1999,19 @@ type dialogItemTabbed struct {
 	tabs     []*dialogItemGroup
 }
 
+func (i *dialogItemTabbed) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		if i.selected < len(i.buttons)-1 {
+			i.buttons[i.selected].SetFocused(gtx)
+		}
+		return true
+	}
+	if i.selected < len(i.tabs)-1 {
+		return i.tabs[i.selected].setFocused(gtx, name)
+	}
+	return false
+}
+
 func (i *dialogItemTabbed) getName() (string, bool) {
 	return i.name, true
 }
@@ -1875,19 +2064,33 @@ func (i *dialogItemTabbed) layout(gtx layout.Context, dlg *shortcutPromptDialog,
 		}
 	}
 	if len(visibleTabs) == 0 {
-		// no visible tabs - show notghing...
+		// no visible tabs - show nothing...
 		return layout.Dimensions{}
 	}
 	// handle tab button clicks...
 	for _, tabNo := range visibleTabs {
 		if i.buttons[tabNo].Clicked(gtx) {
-			changed := tabNo != i.selected
-			i.selected = tabNo
-			if changed && dlg.onChangeCallback != nil && i.name != "" {
-				dlg.jsCall(dlg.onChangeCallback, map[string]any{"name": i.name, "value": i.selected})
+			if tabNo != i.selected {
+				i.selected = tabNo
+				focused := false
+				tab := i.tabs[tabNo]
+				for _, item := range tab.items {
+					if name, ok := item.getName(); ok {
+						if focused = item.setFocused(gtx, name); focused {
+							break
+						}
+					}
+				}
+				i.buttons[tabNo].Focusable(true)
+				if !focused {
+					i.buttons[tabNo].SetFocused(gtx)
+				}
+			} else {
+				i.buttons[tabNo].Focusable(true)
+				i.buttons[tabNo].SetFocused(gtx)
 			}
-			i.buttons[tabNo].SetFocused(gtx)
 			gtx.Execute(op.InvalidateCmd{})
+			break
 		}
 	}
 	// handle tab button keys...
@@ -1914,6 +2117,7 @@ func (i *dialogItemTabbed) layout(gtx layout.Context, dlg *shortcutPromptDialog,
 					if dlg.onChangeCallback != nil && i.name != "" {
 						dlg.jsCall(dlg.onChangeCallback, map[string]any{"name": i.name, "value": i.selected})
 					}
+					i.buttons[i.selected].Focusable(true)
 					i.buttons[i.selected].SetFocused(gtx)
 					gtx.Execute(op.InvalidateCmd{})
 				}, key.NameLeftArrow, key.NameRightArrow)
@@ -1926,6 +2130,7 @@ func (i *dialogItemTabbed) layout(gtx layout.Context, dlg *shortcutPromptDialog,
 		btn := i.buttons[n]
 		btn.Inset(layout.Inset{Left: 6, Right: 6, Top: 3, Bottom: 8})
 		btn.Colors(foregroundColor, nil)
+		btn.Focusable(false)
 		if n == i.selected {
 			selectedVisible = true
 		}
@@ -1934,6 +2139,7 @@ func (i *dialogItemTabbed) layout(gtx layout.Context, dlg *shortcutPromptDialog,
 		i.selected = visibleTabs[0]
 	}
 	i.buttons[i.selected].Colors(foregroundColor, &selectedFocusedColor)
+	i.buttons[i.selected].Focusable(true)
 	// build the controls for the selected tab...
 	showControls := make([]layout.FlexChild, 0)
 	tab := i.tabs[i.selected]
