@@ -1322,10 +1322,14 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 			if path, err = resolvePath(path); err == nil {
 				var fi os.FileInfo
 				if fi, err = os.Stat(path); err == nil {
+					size := fi.Size()
+					if fi.IsDir() {
+						size = 0
+					}
 					return map[string]any{
 						"name":    fi.Name(),
 						"path":    filepath.Dir(path),
-						"size":    fi.Size(),
+						"size":    size,
 						"isDir":   fi.IsDir(),
 						"modTime": fi.ModTime().Format(time.RFC3339),
 					}, nil
@@ -1377,7 +1381,51 @@ func (c *Core) registerJavascriptFunctions(rt *goja.Runtime, ah shortcuts.Action
 		}
 	}
 	for k, v := range objs {
+		if k == "files" {
+			_ = v.Set("select", c.wrapJavascriptFileSelect(rt, ah))
+		}
 		_ = rt.Set(k, v)
+	}
+}
+
+func (c *Core) wrapJavascriptFileSelect(rt *goja.Runtime, ah shortcuts.ActionHolder) func(goja.FunctionCall) goja.Value {
+	return func(call goja.FunctionCall) goja.Value {
+		if !c.shortcutRunning {
+			rt.Interrupt(nil)
+			return nil
+		}
+		reply := make(chan string)
+		title := "Select File"
+		var allowExts []string
+		allowDir := false
+		if len(call.Arguments) > 0 {
+			if s := call.Arguments[0].ToString().String(); s != "" {
+				title = s
+			}
+			if len(call.Arguments) > 1 {
+				allowDir = call.Arguments[1].ToBoolean()
+				for a := 2; a < len(call.Arguments); a++ {
+					allowExts = append(allowExts, call.Arguments[a].ToString().String())
+				}
+			}
+		}
+		c.showFileFinder(title, allowExts, allowDir,
+			func(path string) {
+				reply <- path
+			},
+			func() {
+				close(reply)
+			})
+		for {
+			select {
+			case path, ok := <-reply:
+				if ok {
+					return rt.ToValue(path)
+				} else {
+					return goja.Undefined()
+				}
+			}
+		}
 	}
 }
 

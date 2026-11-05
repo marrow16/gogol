@@ -704,6 +704,10 @@ var contentShortCutsJsRef = content{
 					"Reads the contents of the file specified by ", boldItalic("path"), " as a string.",
 					"\nReturns: ", code(`string`), " - file contents (or ", code(`undefined`), " if path does not exist or error)",
 				}},
+				{{codeCopyable(`files.select(title:string[,dirs:bool[,exts:string...]])`)}, {
+					"Allows the user to select a filepath using ", FileFinder.link("file finder"), ".",
+					"\nReturns: ", code(`string`), " - selected filepath (or ", code(`undefined`), " if no file selected)",
+				}},
 				{{codeCopyable(`files.walk(path:string, cb:func [,bool])`)}, {
 					"Walks the directory specified by ", boldItalic("path"), ".",
 					"\nThe ", boldItalic("cb"), " arg is a callback function that receives an ", code(`object`), " arg as the directory entry information.",
@@ -916,6 +920,7 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"maxWidth": 18, // optional - max display width for input
 	"extensions": [".rle"], // optional - allowed file extensions
 	"allowDirs": true, // optional - allow directories to be selected
+	"title": "Select a file", // optional - title for filefinder
 	"initial": "glider.rle" // optional - initial value
 }`},
 	}},
@@ -1236,6 +1241,10 @@ const dialog = [
 		]
 	},
 	{
+		"when"": function (res) {
+			// only show when useMetadata is checked...
+			return res["useMetadata"];
+		},
 		"when": "useMetadata=true", // only show when useMetadata is checked
 		"type": "text",
 		"label": " ", // blank label gives indent

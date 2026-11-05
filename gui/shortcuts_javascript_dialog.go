@@ -131,6 +131,7 @@ type shortcutPromptDialog struct {
 	labels           []string
 	hidden           map[string]bool
 	setValues        map[string]any
+	clickable        controls.Clickable
 	focused          string
 	mutex            sync.RWMutex
 }
@@ -319,7 +320,7 @@ func (p *shortcutPromptDialog) layoutDialog(gtx layout.Context) layout.Dimension
 		}
 	}
 	rows = append(rows, rigid(inset(8, 0, 0, 0, flexHorizontal(10, rigid(p.btnOk.Layout), rigid(p.btnCancel.Layout)))))
-	return flexVertical(10, rows...)(gtx)
+	return p.clickable.Layout(gtx, flexVertical(10, rows...))
 }
 
 func (p *shortcutPromptDialog) isHidden(item dialogItem) bool {
@@ -348,7 +349,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		input.SetText(item.string("initial"))
 		result = &dialogItemString{
 			parent: parent,
-			whenFn: item.boolFunc("when"),
+			whenFn: item.whenFunc(parent.core, rt),
 			name:   name,
 			label:  lbl,
 			input:  input,
@@ -364,7 +365,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		input.SetValue(item.integer("initial", 0))
 		result = &dialogItemInt{
 			parent: parent,
-			whenFn: item.boolFunc("when"),
+			whenFn: item.whenFunc(parent.core, rt),
 			name:   name,
 			label:  lbl,
 			input:  input,
@@ -373,7 +374,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		addLabel = false
 		result = &dialogItemLabelLine{
 			name:   name,
-			whenFn: item.boolFunc("when"),
+			whenFn: item.whenFunc(parent.core, rt),
 			label:  lbl,
 			small:  item.bool("small", false),
 			bold:   item.bool("bold", false),
@@ -388,7 +389,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 				initial = options[v]
 			}
 			r := &dialogItemRadio{
-				whenFn:     item.boolFunc("when"),
+				whenFn:     item.whenFunc(parent.core, rt),
 				parent:     parent,
 				name:       name,
 				label:      lbl,
@@ -404,7 +405,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		if options, ok := item.arrayString("options"); ok {
 			r := &dialogItemCheck{
 				parent:     parent,
-				whenFn:     item.boolFunc("when"),
+				whenFn:     item.whenFunc(parent.core, rt),
 				name:       name,
 				label:      lbl,
 				horizontal: item.bool("horizontal", false),
@@ -420,7 +421,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		if options, ok := item.arrayString("options"); ok {
 			result = &dialogItemList{
 				parent: parent,
-				whenFn: item.boolFunc("when"),
+				whenFn: item.whenFunc(parent.core, rt),
 				name:   name,
 				label:  lbl,
 				list: controls.NewList[string](theme, options, true).RowRenderer(func(gtx layout.Context, index int, item string) layout.Dimensions {
@@ -446,7 +447,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			chooser.SetText(item.string("initial"))
 			return &dialogItemDropdown{
 				parent:  parent,
-				whenFn:  item.boolFunc("when"),
+				whenFn:  item.whenFunc(parent.core, rt),
 				name:    name,
 				label:   lbl,
 				chooser: chooser,
@@ -454,7 +455,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		}
 	case "text":
 		r := &dialogItemText{
-			whenFn: item.boolFunc("when"),
+			whenFn: item.whenFunc(parent.core, rt),
 			name:   name,
 			label:  lbl,
 			input: controls.NewEditor(theme, func(text string, gtx layout.Context) {
@@ -477,7 +478,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			bLabel = "Button"
 		}
 		r := &dialogItemButton{
-			whenFn: item.boolFunc("when"),
+			whenFn: item.whenFunc(parent.core, rt),
 			name:   name,
 			rt:     rt,
 			label:  bLabel,
@@ -493,7 +494,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		addLabel = false
 		if options, ok := item.arrayString("options"); ok {
 			r := &dialogItemButtons{
-				whenFn: item.boolFunc("when"),
+				whenFn: item.whenFunc(parent.core, rt),
 				rt:     rt,
 				name:   name,
 				label:  lbl,
@@ -529,9 +530,10 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		}
 		r := &dialogItemFile{
 			parent:    parent,
-			whenFn:    item.boolFunc("when"),
+			whenFn:    item.whenFunc(parent.core, rt),
 			name:      name,
 			label:     lbl,
+			title:     item.string("title"),
 			input:     input,
 			allowExts: allowExts,
 			allowDirs: item.bool("allowDirs", false),
@@ -553,7 +555,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		}
 		r := &dialogItemProgress{
 			parent: parent,
-			whenFn: item.boolFunc("when"),
+			whenFn: item.whenFunc(parent.core, rt),
 			name:   name,
 			label:  lbl,
 			control: controls.ProgressBar{
@@ -574,30 +576,28 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		}
 		result = r
 	case "slider":
-		float := &widget.Float{}
-		float.Value = min(max(item.float("initial", 0), 0), 1)
-		r := &dialogItemSlider{
+		axis := layout.Horizontal
+		if !item.bool("horizontal", true) {
+			axis = layout.Vertical
+		}
+		initial := min(max(item.float("initial", 0), 0), 1)
+		result = &dialogItemSlider{
 			parent:  parent,
-			whenFn:  item.boolFunc("when"),
+			whenFn:  item.whenFunc(parent.core, rt),
 			name:    name,
 			label:   lbl,
-			control: material.Slider(theme, float),
+			control: controls.NewSlider(theme, axis, initial),
 			width:   max(item.integer("width", 16), 6),
-			height:  unit.Dp(max(item.integer("height", 0), 20)),
+			height:  unit.Dp(max(item.integer("height", 0), 32)),
 		}
-		if !item.bool("horizontal", true) {
-			r.control.Axis = layout.Vertical
-		}
-		result = r
 	case "switch":
 		r := &dialogItemSwitch{
-			parent: parent,
-			whenFn: item.boolFunc("when"),
-			name:   name,
-			label:  lbl,
+			parent:  parent,
+			whenFn:  item.whenFunc(parent.core, rt),
+			name:    name,
+			label:   lbl,
+			control: controls.NewSwitch(theme, item.bool("initial", false)),
 		}
-		r.control = material.Switch(theme, &r.value, "")
-		r.value.Value = item.bool("initial", false)
 		result = r
 	case "group":
 		if children, ok := item.arrayObject("items", true); ok {
@@ -617,7 +617,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			}
 			if len(items) > 0 {
 				result = &dialogItemGroup{
-					whenFn:     item.boolFunc("when"),
+					whenFn:     item.whenFunc(parent.core, rt),
 					name:       name,
 					label:      gLabel,
 					items:      items,
@@ -653,7 +653,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 					}
 					buttons = append(buttons, controls.NewFlatButton(theme, tabLabel))
 					tabs = append(tabs, &dialogItemGroup{
-						whenFn: itm.boolFunc("when"),
+						whenFn: itm.whenFunc(parent.core, rt),
 						parent: parent,
 						name:   itm.string("name"),
 						items:  actualItems,
@@ -663,7 +663,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			}
 			if len(tabs) > 0 {
 				r := &dialogItemTabbed{
-					whenFn:   item.boolFunc("when"),
+					whenFn:   item.whenFunc(parent.core, rt),
 					parent:   parent,
 					name:     name,
 					selected: item.integer("initial", 0),
@@ -1672,6 +1672,7 @@ type dialogItemFile struct {
 	dialogItemCommon
 	name      string
 	label     string
+	title     string
 	input     *controls.Input
 	allowExts []string
 	allowDirs bool
@@ -1719,7 +1720,11 @@ func (i *dialogItemFile) response(res map[string]any) {
 }
 
 func (i *dialogItemFile) ellipsisClicked() {
-	i.parent.core.showFileFinder("Select File", i.allowExts, i.allowDirs, func(path string) {
+	title := "Select File"
+	if i.title != "" {
+		title = i.title
+	}
+	i.parent.core.showFileFinder(title, i.allowExts, i.allowDirs, func(path string) {
 		i.input.SetText(path)
 		i.focused = true
 	}, func() {
@@ -1825,13 +1830,17 @@ type dialogItemSlider struct {
 	dialogItemCommon
 	name    string
 	label   string
-	control material.SliderStyle
+	control *controls.Slider
 	width   int
 	height  unit.Dp
 }
 
 func (i *dialogItemSlider) setFocused(gtx layout.Context, name string) bool {
-	return name == i.name
+	if name == i.name {
+		i.control.SetFocused(gtx)
+		return true
+	}
+	return false
 }
 
 func (i *dialogItemSlider) getName() (string, bool) {
@@ -1845,18 +1854,18 @@ func (i *dialogItemSlider) set(name string, value any) bool {
 	if i.name == name {
 		switch vt := value.(type) {
 		case nil:
-			i.control.Float.Value = 0
+			i.control.SetValue(0)
 		case int:
-			i.control.Float.Value = float32(vt)
+			i.control.SetValue(float32(vt))
 		case int64:
-			i.control.Float.Value = float32(vt)
+			i.control.SetValue(float32(vt))
 		case float64:
-			i.control.Float.Value = float32(vt)
+			i.control.SetValue(float32(vt))
 		case float32:
-			i.control.Float.Value = vt
+			i.control.SetValue(vt)
 		case string:
 			if n, err := strconv.ParseFloat(vt, 32); err == nil {
-				i.control.Float.Value = float32(n)
+				i.control.SetValue(float32(n))
 			}
 		}
 		return true
@@ -1866,14 +1875,14 @@ func (i *dialogItemSlider) set(name string, value any) bool {
 
 func (i *dialogItemSlider) get(name string) (any, bool) {
 	if i.name == name {
-		return i.control.Float.Value, true
+		return i.control.Value(), true
 	}
 	return nil, false
 }
 
 func (i *dialogItemSlider) response(res map[string]any) {
 	if len(i.name) > 0 {
-		res[i.name] = i.control.Float.Value
+		res[i.name] = i.control.Value()
 	}
 }
 
@@ -1889,10 +1898,10 @@ func (i *dialogItemSlider) layout(gtx layout.Context, dlg *shortcutPromptDialog,
 	} else {
 		ht = gtx.Dp(i.height)
 	}
-	if i.control.Float.Update(gtx) && i.name != "" && i.parent.onChangeCallback != nil {
+	if i.control.Update(gtx) && i.name != "" && i.parent.onChangeCallback != nil {
 		i.parent.jsCall(i.parent.onChangeCallback, map[string]any{
 			"name":  i.name,
-			"value": i.control.Float.Value,
+			"value": i.control.Value(),
 		})
 	}
 	if len(i.label) > 0 {
@@ -1905,6 +1914,7 @@ func (i *dialogItemSlider) layout(gtx layout.Context, dlg *shortcutPromptDialog,
 					gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
 					return verticalCenter(i.control.Layout)(gtx)
 				} else {
+					gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
 					return i.control.Layout(gtx)
 				}
 			}),
@@ -1922,13 +1932,12 @@ type dialogItemSwitch struct {
 	dialogItemCommon
 	name    string
 	label   string
-	value   widget.Bool
-	control material.SwitchStyle
+	control *controls.Switch
 }
 
 func (i *dialogItemSwitch) setFocused(gtx layout.Context, name string) bool {
 	if i.name == name {
-		gtx.Execute(key.FocusCmd{Tag: &i.value})
+		i.control.SetFocused(gtx)
 		return true
 	}
 	return false
@@ -1945,14 +1954,14 @@ func (i *dialogItemSwitch) set(name string, value any) bool {
 	if i.name == name {
 		switch vt := value.(type) {
 		case nil:
-			i.value.Value = false
+			i.control.SetChecked(false)
 		case int:
-			i.value.Value = vt != 0
+			i.control.SetChecked(vt != 0)
 		case int64:
-			i.value.Value = vt != 0
+			i.control.SetChecked(vt != 0)
 		case string:
 			if b, err := strconv.ParseBool(vt); err == nil {
-				i.value.Value = b
+				i.control.SetChecked(b)
 			}
 		}
 		return true
@@ -1962,22 +1971,22 @@ func (i *dialogItemSwitch) set(name string, value any) bool {
 
 func (i *dialogItemSwitch) get(name string) (any, bool) {
 	if i.name == name {
-		return i.value.Value, true
+		return i.control.Checked(), true
 	}
 	return nil, false
 }
 
 func (i *dialogItemSwitch) response(res map[string]any) {
 	if len(i.name) > 0 {
-		res[i.name] = i.value.Value
+		res[i.name] = i.control.Checked()
 	}
 }
 
 func (i *dialogItemSwitch) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
-	if i.value.Update(gtx) && i.name != "" && i.parent.onChangeCallback != nil {
+	if i.control.Update(gtx) && i.name != "" && i.parent.onChangeCallback != nil {
 		i.parent.jsCall(i.parent.onChangeCallback, map[string]any{
 			"name":  i.name,
-			"value": i.value.Value,
+			"value": i.control.Checked(),
 		})
 	}
 	if len(i.label) > 0 {
@@ -2342,10 +2351,29 @@ func (j jsItemDecoder) jsFunc(name string) (func(goja.FunctionCall) goja.Value, 
 	return nil, false
 }
 
-func (j jsItemDecoder) boolFunc(name string) func(data map[string]any) bool {
-	if rv, ok := j[name]; ok {
-		if vs, ok := rv.(string); ok {
-			if pts := strings.SplitN(vs, "=", 2); len(pts) == 2 {
+func (j jsItemDecoder) whenFunc(c *Core, rt *goja.Runtime) func(data map[string]any) bool {
+	if v, ok := j["when"]; ok {
+		switch vt := v.(type) {
+		case func(goja.FunctionCall) goja.Value:
+			return func(data map[string]any) (result bool) {
+				defer func() {
+					if r := recover(); r != nil {
+						result = false
+						if c.shortcutErrorLogger != nil {
+							c.shortcutErrorLogger.Error(fmt.Errorf("call js: %v", r), nil)
+						}
+					}
+				}()
+				val := vt(goja.FunctionCall{This: goja.Undefined(), Arguments: []goja.Value{rt.ToValue(data)}})
+				return val.ToBoolean()
+			}
+		case string:
+			if strings.HasPrefix(vt, "$") {
+				return func(_ map[string]any) bool {
+					return c.shortcutConditionEvaluate(vt, nil)
+				}
+			}
+			if pts := strings.SplitN(vt, "=", 2); len(pts) == 2 {
 				nm := pts[0]
 				not := false
 				if before, ok := strings.CutSuffix(nm, "!"); ok {

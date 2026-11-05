@@ -212,12 +212,31 @@ func (p *shortcutsPopout) layoutShortcut(gtx layout.Context, editorHt int) layou
 			gtx.Execute(op.InvalidateCmd{At: p.syntaxCheckAt})
 		}
 	}
+	var kbl strings.Builder
+	if canKey {
+		kbl.WriteString("Key: " + altKeyName + key)
+	}
+	if conflict {
+		if kbl.Len() > 0 {
+			kbl.WriteString("  ")
+		}
+		kbl.WriteString("(Overrides application key!)")
+	}
+	for k, v := range p.core.settings.ExtraButtons {
+		if v == key {
+			if kbl.Len() > 0 {
+				kbl.WriteString("  ")
+			}
+			kbl.WriteString("Button: " + k)
+			break
+		}
+	}
+	keyLabel := kbl.String()
 	return flexVertical(10,
 		rigidLeftRight(0,
 			flexHorizontal(20,
 				rigid(p.btnRun.Layout),
-				conditionalRigid(canKey, label("Key: "+altKeyName+key), nil),
-				conditionalRigid(canKey && conflict, label("(Overrides application key!)"), nil),
+				rigid(label(keyLabel)),
 			),
 			p.btnDelete.Layout,
 		),
