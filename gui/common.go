@@ -2,6 +2,7 @@ package gui
 
 import (
 	"errors"
+	"gioui.org/io/key"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -13,6 +14,12 @@ var modKeyName = func() string {
 		return "⌥" //"⌘"
 	}
 	return "Ctrl+"
+}()
+var modKey = func() key.Modifiers {
+	if runtime.GOOS == "darwin" {
+		return key.ModCommand
+	}
+	return key.ModCtrl
 }()
 var altKeyName = func() string {
 	if runtime.GOOS == "darwin" {

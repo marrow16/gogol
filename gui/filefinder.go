@@ -18,6 +18,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/marrow16/gogol/gui/controls"
+	"github.com/marrow16/gogol/gui/help"
 	"github.com/marrow16/gogol/gui/icons"
 	"github.com/marrow16/gogol/imaging"
 	"github.com/marrow16/gogol/patterns"
@@ -67,6 +68,7 @@ func newFileFinder(core *Core) *fileFinder {
 	result.keyCtrlFilters = []event.Filter{
 		key.Filter{Name: key.NameEscape},
 		key.Filter{Name: key.NameF1},
+		key.Filter{Required: modKey, Name: "R"},
 	}
 	result.keyFilters = []event.Filter{
 		key.Filter{Name: key.NameEscape},
@@ -74,6 +76,8 @@ func newFileFinder(core *Core) *fileFinder {
 		key.Filter{Name: key.NameDeleteBackward},
 		key.Filter{Name: key.NameLeftArrow},
 		key.Filter{Name: key.NameRightArrow},
+		key.Filter{Required: modKey, Name: "R"},
+		key.Filter{Required: modKey, Name: "F"},
 	}
 	for k := 'A'; k <= 'Z'; k++ {
 		result.keyFilters = append(result.keyFilters, key.Filter{Name: key.Name(k)})
@@ -96,6 +100,7 @@ func (f *fileFinder) show(title string, allowExts []string, allowDir bool, onSel
 	f.checkCurrent = true
 	f.searchClose()
 	f.showing = true
+	f.focus = true
 }
 
 func isHidden(name string) bool {
@@ -105,6 +110,7 @@ func isHidden(name string) bool {
 type fileFinder struct {
 	core              *Core
 	showing           bool
+	focus             bool
 	allowExts         map[string]struct{}
 	allowDir          bool
 	result            *dirEntry
@@ -131,6 +137,7 @@ type fileFinder struct {
 	// searching...
 	search            string
 	searchShowing     bool
+	searchFocus       bool
 	searchActive      bool
 	searchInput       *controls.Input
 	btnRefresh        *controls.IconButton
@@ -239,8 +246,9 @@ func (f *fileFinder) canSelectPath(path string) bool {
 
 func (f *fileFinder) layout(gtx layout.Context) {
 	f.setCurrentDir()
-	if !f.searchShowing {
+	if f.focus {
 		f.list.Focus(gtx)
+		f.focus = false
 	}
 	layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		f.header(gtx),
@@ -275,6 +283,10 @@ func (f *fileFinder) header(gtx layout.Context) layout.FlexChild {
 	if f.btnSearchClose.Clicked(gtx) {
 		f.searchClose()
 	}
+	if f.searchFocus {
+		f.searchFocus = false
+		f.searchInput.SetFocused(gtx)
+	}
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Inset{Top: 8, Left: 8, Bottom: 8, Right: 8}.Layout(gtx,
 			flexHorizontal(0, rigidLeftRight(0,
@@ -303,13 +315,17 @@ func (f *fileFinder) header(gtx layout.Context) layout.FlexChild {
 	})
 }
 
+func (f *fileFinder) refresh() {
+	f.searchShowing = false
+	f.searchActive = false
+	f.scannedDir = nil
+	f.backTo = f.result
+	f.result = nil
+}
+
 func (f *fileFinder) breadcrumbs(gtx layout.Context) layout.FlexChild {
 	if f.btnRefresh.Clicked(gtx) {
-		f.searchShowing = false
-		f.searchActive = false
-		f.scannedDir = nil
-		f.backTo = f.result
-		f.result = nil
+		f.refresh()
 	}
 	for i, d := range f.currentPath {
 		if d.clickable.Clicked(gtx) {
@@ -375,13 +391,17 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 		if kev, ok := ev.(key.Event); ok && kev.State == key.Press {
 			switch kev.Name {
 			case key.NameEscape:
-				f.showing = false
-				if f.onCancel != nil {
-					f.onCancel()
+				if f.searchShowing && f.searchInput.IsFocused(gtx) {
+					f.searchClose()
+				} else {
+					f.showing = false
+					if f.onCancel != nil {
+						f.onCancel()
+					}
+					window.Invalidate()
 				}
-				window.Invalidate()
 			case key.NameF1:
-				f.core.showHelp(-1)
+				f.core.showHelp(help.FileFinder)
 			case key.NameDeleteBackward:
 				if f.result != nil && f.result.isFile {
 					f.deleteFile(f.result)
@@ -401,6 +421,22 @@ func (f *fileFinder) filesList(gtx layout.Context) layout.FlexChild {
 					f.currentPath = append(f.currentPath, f.list.Items[idx])
 					f.currentDir = f.list.Items[idx]
 					window.Invalidate()
+				}
+			case "R":
+				if (kev.Modifiers&key.ModCtrl == key.ModCtrl) || (kev.Modifiers&key.ModCommand == key.ModCommand) {
+					f.refresh()
+				} else {
+					f.handleNavKeys(strings.ToUpper(string(kev.Name)))
+				}
+			case "F":
+				if (kev.Modifiers&key.ModCtrl == key.ModCtrl) || (kev.Modifiers&key.ModCommand == key.ModCommand) {
+					if !f.searchShowing {
+						f.searchShowing = true
+						f.searchFocus = true
+						window.Invalidate()
+					}
+				} else {
+					f.handleNavKeys(strings.ToUpper(string(kev.Name)))
 				}
 			default:
 				f.handleNavKeys(strings.ToUpper(string(kev.Name)))

@@ -6,7 +6,6 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
-	"gioui.org/widget"
 	"image"
 )
 
@@ -18,7 +17,7 @@ func NewIconButton(img image.Image, size unit.Sp) *IconButton {
 }
 
 type IconButton struct {
-	clickable widget.Clickable
+	clickable Clickable
 	image     image.Image
 	size      unit.Sp
 }
