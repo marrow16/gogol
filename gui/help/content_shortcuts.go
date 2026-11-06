@@ -925,6 +925,16 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 }`},
 	}},
 	indent{indent: 8, content: content{
+		h4("• Color"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "color",
+	"name": "clr", // used as key in response object
+	"label": "Color:", // optional
+	"initial": "#FF0000" // optional - initial value
+}`},
+	}},
+	indent{indent: 8, content: content{
 		h4("• Label"),
 		"Example:",
 		codeBlock{code: `{
