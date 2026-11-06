@@ -131,7 +131,6 @@ type shortcutPromptDialog struct {
 	labels           []string
 	hidden           map[string]bool
 	setValues        map[string]any
-	clickable        controls.Clickable
 	focused          string
 	mutex            sync.RWMutex
 }
@@ -320,7 +319,7 @@ func (p *shortcutPromptDialog) layoutDialog(gtx layout.Context) layout.Dimension
 		}
 	}
 	rows = append(rows, rigid(inset(8, 0, 0, 0, flexHorizontal(10, rigid(p.btnOk.Layout), rigid(p.btnCancel.Layout)))))
-	return p.clickable.Layout(gtx, flexVertical(10, rows...))
+	return flexVertical(10, rows...)(gtx)
 }
 
 func (p *shortcutPromptDialog) isHidden(item dialogItem) bool {
@@ -445,13 +444,13 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 				window.Invalidate()
 			}, nil).MaxRows(item.integer("maxLen", 10)).Direction(!item.bool("down", false))
 			chooser.SetText(item.string("initial"))
-			return &dialogItemDropdown{
+			result = &dialogItemDropdown{
 				parent:  parent,
 				whenFn:  item.whenFunc(parent.core, rt),
 				name:    name,
 				label:   lbl,
 				chooser: chooser,
-			}, true
+			}
 		}
 	case "text":
 		r := &dialogItemText{
@@ -543,6 +542,27 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			r.input.SetText(initial)
 		}
 		result = r
+	case "color":
+		clr := color.NRGBA{R: 0, G: 0, B: 0, A: 255}
+		if cs, ok := item.isString("initial"); ok {
+			if c, ok := parseColor(cs); ok {
+				clr = c
+			}
+		}
+		picker := controls.NewColorPicker(theme, clr, func(c color.NRGBA) {
+			if parent.onChangeCallback != nil && name != "" {
+				cs := fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
+				parent.jsCall(parent.onChangeCallback, map[string]any{"value": cs, "name": name})
+			}
+			window.Invalidate()
+		}).Direction(!item.bool("down", false))
+		result = &dialogItemColor{
+			parent: parent,
+			whenFn: item.whenFunc(parent.core, rt),
+			name:   name,
+			label:  lbl,
+			picker: picker,
+		}
 	case "progress", "progressbar":
 		initial := min(max(item.integer("initial", 0), 0), 100)
 		initF := float32(initial) / 100
@@ -1746,6 +1766,73 @@ func (i *dialogItemFile) layout(gtx layout.Context, dlg *shortcutPromptDialog, r
 		return flexHorizontal(0,
 			rigid(func(gtx layout.Context) layout.Dimensions {
 				return i.input.Layout(gtx)
+			}),
+		)(gtx)
+	}
+}
+
+type dialogItemColor struct {
+	dialogItemCommon
+	name   string
+	label  string
+	picker *controls.ColorPicker
+}
+
+func (i *dialogItemColor) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.picker.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemColor) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemColor) set(name string, value any) bool {
+	if name == i.name {
+		if s, ok := value.(string); ok {
+			if clr, ok := parseColor(s); ok {
+				i.picker.SetValue(clr)
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemColor) get(name string) (any, bool) {
+	if i.name == name {
+		clr := i.picker.Value()
+		return fmt.Sprintf("#%02X%02X%02X", clr.R, clr.G, clr.B), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemColor) response(res map[string]any) {
+	if len(i.name) > 0 {
+		clr := i.picker.Value()
+		res[i.name] = fmt.Sprintf("#%02X%02X%02X", clr.R, clr.G, clr.B)
+	}
+}
+
+func (i *dialogItemColor) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				dims := i.picker.Layout(gtx)
+				i.picker.LayoutDropdown(gtx)
+				return dims
+			}),
+		)(gtx)
+	} else {
+		return flexHorizontal(0,
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				dims := i.picker.Layout(gtx)
+				i.picker.LayoutDropdown(gtx)
+				return dims
 			}),
 		)(gtx)
 	}

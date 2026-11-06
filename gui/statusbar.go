@@ -73,7 +73,7 @@ func isValidButton(btn string) bool {
 type popup int
 
 const (
-	popupNone = iota
+	popupNone popup = iota
 	popupRule
 	popupMenu
 )
@@ -219,6 +219,13 @@ func (sb *statusBar) extendedMinus() {
 	if scn, ok := sb.core.settings.ExtraButtons["-"]; ok {
 		sb.core.runShortcut(scn)
 	}
+}
+
+func (sb *statusBar) popupShowing() bool {
+	if sb.showingPopup == popupNone {
+		return false
+	}
+	return true
 }
 
 func (sb *statusBar) showHidePopup(p popup) {

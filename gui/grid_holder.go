@@ -95,80 +95,87 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 	canvasRect := image.Rectangle{
 		Min: image.Point{X: int(g.pan.X), Y: int(g.pan.Y)},
 		Max: image.Point{X: int(g.pan.X) + canvasSize.X, Y: int(g.pan.Y) + canvasSize.Y}}
-	var eventTarget any
+
 	focusable := g.isFocusable()
-	if focusable {
+	var eventTarget any
+	var clickable func(layout.Context, layout.Widget) layout.Dimensions
+	switch {
+	case focusable:
 		eventTarget = &g.clickable
-	} else {
+		clickable = g.clickable.Layout
+	case !g.isOverlayed():
 		eventTarget = &g.nonFocused
+		clickable = g.nonFocused.Layout
 	}
-	eventFilters := []event.Filter{
-		pointer.Filter{
-			Target:  eventTarget,
-			Kinds:   pointer.Press | pointer.Drag | pointer.Release | pointer.Cancel | pointer.Scroll,
-			ScrollX: pointer.ScrollRange{Min: -canvasSize.X, Max: canvasSize.X},
-			ScrollY: pointer.ScrollRange{Min: -canvasSize.Y, Max: canvasSize.Y},
-		},
-	}
-	if focusable {
-		gtx.Execute(key.FocusCmd{Tag: eventTarget})
-		eventFilters = append(eventFilters,
-			key.Filter{Focus: eventTarget, Optional: key.ModShift | key.ModCtrl | key.ModAlt | key.ModShortcut},
-		)
-		if g.editor.active {
-			eventFilters = append(eventFilters, transfer.TargetFilter{
-				Target: &g.editor.clipboardTag,
-				Type:   clipboardReadType,
-			})
+	if eventTarget != nil {
+		eventFilters := []event.Filter{
+			pointer.Filter{
+				Target:  eventTarget,
+				Kinds:   pointer.Press | pointer.Drag | pointer.Release | pointer.Cancel | pointer.Scroll,
+				ScrollX: pointer.ScrollRange{Min: -canvasSize.X, Max: canvasSize.X},
+				ScrollY: pointer.ScrollRange{Min: -canvasSize.Y, Max: canvasSize.Y},
+			},
 		}
-	}
-	for {
-		ev, ok := gtx.Event(eventFilters...)
-		if !ok {
-			break
+		if focusable {
+			gtx.Execute(key.FocusCmd{Tag: eventTarget})
+			eventFilters = append(eventFilters,
+				key.Filter{Focus: eventTarget, Optional: key.ModShift | key.ModCtrl | key.ModAlt | key.ModShortcut},
+			)
+			if g.editor.active {
+				eventFilters = append(eventFilters, transfer.TargetFilter{
+					Target: &g.editor.clipboardTag,
+					Type:   clipboardReadType,
+				})
+			}
 		}
-		switch evt := ev.(type) {
-		case transfer.DataEvent:
-			g.editor.handlePaste(evt)
-		case key.Event:
-			g.handleKeys(gtx, evt)
-		case pointer.Event:
-			switch evt.Kind {
-			case pointer.Scroll:
-				if canvasSize.X > size.X {
-					g.pan.X += evt.Scroll.X
-				}
-				if canvasSize.Y > size.Y {
-					g.pan.Y += evt.Scroll.Y
-				}
-				g.pan = clampPan(g.pan, canvasSize, size)
-				gtx.Execute(op.InvalidateCmd{})
-			case pointer.Press:
-				if g.core.isShortcutsInteractive() {
-					g.core.stopShortcuts()
-				}
-				g.core.statusBar.showHidePopup(popupNone)
-				gtx.Execute(key.FocusCmd{Tag: eventTarget})
-				if g.overlay != nil && evt.Buttons == pointer.ButtonPrimary {
-					if r, c, ok := g.mouseToGrid(evt.Position); ok {
-						g.overlay.row, g.overlay.col = r, c
-						g.overlay.moved = true
+		for {
+			ev, ok := gtx.Event(eventFilters...)
+			if !ok {
+				break
+			}
+			switch evt := ev.(type) {
+			case transfer.DataEvent:
+				g.editor.handlePaste(evt)
+			case key.Event:
+				g.handleKeys(gtx, evt)
+			case pointer.Event:
+				switch evt.Kind {
+				case pointer.Scroll:
+					if canvasSize.X > size.X {
+						g.pan.X += evt.Scroll.X
 					}
-				}
-				if g.editor.active && evt.Buttons == pointer.ButtonPrimary {
-					if r, c, ok := g.mouseToGrid(evt.Position); ok {
-						g.editor.setPosition(r, c, true)
+					if canvasSize.Y > size.Y {
+						g.pan.Y += evt.Scroll.Y
 					}
-				}
-			case pointer.Drag:
-				if g.editor.active {
-					if r, c, ok := g.mouseToGrid(evt.Position); ok {
-						g.editor.markArea(r, c)
-						g.editor.setPosition(r, c, false)
+					g.pan = clampPan(g.pan, canvasSize, size)
+					gtx.Execute(op.InvalidateCmd{})
+				case pointer.Press:
+					if g.core.isShortcutsInteractive() {
+						g.core.stopShortcuts()
 					}
+					g.core.statusBar.showHidePopup(popupNone)
+					gtx.Execute(key.FocusCmd{Tag: eventTarget})
+					if g.overlay != nil && evt.Buttons == pointer.ButtonPrimary {
+						if r, c, ok := g.mouseToGrid(evt.Position); ok {
+							g.overlay.row, g.overlay.col = r, c
+							g.overlay.moved = true
+						}
+					}
+					if g.editor.active && evt.Buttons == pointer.ButtonPrimary {
+						if r, c, ok := g.mouseToGrid(evt.Position); ok {
+							g.editor.setPosition(r, c, true)
+						}
+					}
+				case pointer.Drag:
+					if g.editor.active {
+						if r, c, ok := g.mouseToGrid(evt.Position); ok {
+							g.editor.markArea(r, c)
+							g.editor.setPosition(r, c, false)
+						}
+					}
+				case pointer.Release, pointer.Cancel:
+					// anything to do?
 				}
-			case pointer.Release, pointer.Cancel:
-				// anything to do?
 			}
 		}
 	}
@@ -176,8 +183,8 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 	defer gridClip.Pop()
 	defer op.Offset(canvasRect.Min).Push(gtx.Ops).Pop()
 	gtx.Constraints = layout.Exact(canvasRect.Size())
-	if g.isFocusable() {
-		g.clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	if clickable != nil {
+		clickable(gtx, func(gtx layout.Context) layout.Dimensions {
 			imgOp := g.imageOp()
 			zoom := op.Affine(
 				f32.Affine2D{}.Scale(f32.Point{X: 0, Y: 0}, f32.Point{X: g.zoom, Y: g.zoom}),
@@ -188,18 +195,20 @@ func (g *gridHolder) layout(gtx layout.Context) layout.Dimensions {
 			return layout.Dimensions{Size: canvasRect.Size()}
 		})
 	} else {
-		g.nonFocused.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			imgOp := g.imageOp()
-			zoom := op.Affine(
-				f32.Affine2D{}.Scale(f32.Point{X: 0, Y: 0}, f32.Point{X: g.zoom, Y: g.zoom}),
-			).Push(gtx.Ops)
-			imgOp.Add(gtx.Ops)
-			paint.PaintOp{}.Add(gtx.Ops)
-			zoom.Pop()
-			return layout.Dimensions{Size: canvasRect.Size()}
-		})
+		imgOp := g.imageOp()
+		zoom := op.Affine(
+			f32.Affine2D{}.Scale(f32.Point{X: 0, Y: 0}, f32.Point{X: g.zoom, Y: g.zoom}),
+		).Push(gtx.Ops)
+		imgOp.Add(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
+		zoom.Pop()
 	}
 	return layout.Dimensions{Size: size}
+}
+
+func (g *gridHolder) isOverlayed() bool {
+	return g.core.statusBar.popupShowing() ||
+		(g.core.shortcutRunning && (g.core.shortcutPromptDialog != nil || g.core.shortcutPromptMenu != nil))
 }
 
 func (g *gridHolder) isFocusable() bool {

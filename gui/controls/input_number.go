@@ -42,6 +42,11 @@ func NewNumberInput[T int | uint | float64](theme *material.Theme, maxLen int, m
 	return result
 }
 
+func (n *NumberInput[T]) OnSubmit(fn func(string)) *NumberInput[T] {
+	n.input.OnSubmit(fn)
+	return n
+}
+
 func (n *NumberInput[T]) WithSpinner(on bool) *NumberInput[T] {
 	if on {
 		n.input.decorator = n.upDownSpinner
