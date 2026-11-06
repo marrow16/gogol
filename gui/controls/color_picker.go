@@ -32,6 +32,7 @@ type ColorPicker struct {
 	squareClickable Clickable
 	bandClickable   Clickable
 	opened          bool
+	opening         bool
 	dropdownUp      bool
 	colorBand       *image.RGBA
 	redLabel        material.LabelStyle
@@ -140,6 +141,10 @@ func (i *ColorPicker) LayoutDropdown(gtx layout.Context) {
 }
 
 func (i *ColorPicker) layoutDropdown(gtx layout.Context) {
+	if i.opening {
+		i.redInput.SetFocused(gtx)
+		i.opening = false
+	}
 	macro := op.Record(gtx.Ops)
 	dims := i.layoutDropdownControls(gtx)
 	call := macro.Stop()
@@ -207,24 +212,27 @@ func (i *ColorPicker) layoutColorSquare(gtx layout.Context) layout.Dimensions {
 	dims := image.Point{X: size.X, Y: size.Y}
 	margin := gtx.Dp(squareMargin)
 	for {
-		ev, ok := gtx.Event(pointer.Filter{Target: &i.squareClickable, Kinds: pointer.Press})
+		ev, ok := gtx.Event(pointer.Filter{Target: &i.squareClickable, Kinds: pointer.Press | pointer.Drag})
 		if !ok {
 			break
 		}
-		if pev, ok := ev.(pointer.Event); ok && pev.Kind == pointer.Press {
-			px := int(pev.Position.X - float32(margin))
-			py := int(pev.Position.Y - float32(margin))
-			maxW := size.X - (margin * 2)
-			maxH := size.Y - (margin * 2)
-			px = max(0, min(px, maxW))
-			py = max(0, min(py, maxH))
-			c := img.RGBAAt(px, py)
-			i.current = color.NRGBA{R: c.R, G: c.G, B: c.B, A: 255}
-			i.updateControls()
-			if i.onChangeFn != nil {
-				i.onChangeFn(i.current)
+		if pev, ok := ev.(pointer.Event); ok {
+			switch pev.Kind {
+			case pointer.Press, pointer.Drag:
+				px := int(pev.Position.X - float32(margin))
+				py := int(pev.Position.Y - float32(margin) + 1)
+				maxW := size.X - (margin * 2)
+				maxH := size.Y - (margin * 2)
+				px = max(margin, min(px, maxW))
+				py = max(margin, min(py, maxH))
+				c := img.RGBAAt(px, py)
+				i.current = color.NRGBA{R: c.R, G: c.G, B: c.B, A: 255}
+				i.updateControls()
+				if i.onChangeFn != nil {
+					i.onChangeFn(i.current)
+				}
+				gtx.Execute(op.InvalidateCmd{})
 			}
-			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
 	return i.squareClickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -298,22 +306,25 @@ func (i *ColorPicker) layoutColorsBand(gtx layout.Context) layout.Dimensions {
 	img := i.colorBandImage(gtx)
 	size := img.Bounds().Size()
 	for {
-		ev, ok := gtx.Event(pointer.Filter{Target: &i.bandClickable, Kinds: pointer.Press})
+		ev, ok := gtx.Event(pointer.Filter{Target: &i.bandClickable, Kinds: pointer.Press | pointer.Drag})
 		if !ok {
 			break
 		}
-		if pev, ok := ev.(pointer.Event); ok && pev.Kind == pointer.Press {
-			px := int(pev.Position.X)
-			py := int(pev.Position.Y)
-			px = max(0, min(px, size.X))
-			py = max(0, min(py, size.Y))
-			c := img.RGBAAt(px, py)
-			i.current = color.NRGBA{R: c.R, G: c.G, B: c.B, A: 255}
-			i.updateControls()
-			if i.onChangeFn != nil {
-				i.onChangeFn(i.current)
+		if pev, ok := ev.(pointer.Event); ok {
+			switch pev.Kind {
+			case pointer.Press, pointer.Drag:
+				px := int(pev.Position.X)
+				py := int(pev.Position.Y)
+				px = max(0, min(px, size.X))
+				py = max(0, min(py, size.Y))
+				c := img.RGBAAt(px, py)
+				i.current = color.NRGBA{R: c.R, G: c.G, B: c.B, A: 255}
+				i.updateControls()
+				if i.onChangeFn != nil {
+					i.onChangeFn(i.current)
+				}
+				gtx.Execute(op.InvalidateCmd{})
 			}
-			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
 	return i.bandClickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -342,12 +353,12 @@ func (i *ColorPicker) colorBandImage(gtx layout.Context) *image.RGBA {
 
 func (i *ColorPicker) update(gtx layout.Context) {
 	if i.button.Clicked(gtx) {
-		i.opened = !i.opened
-		i.updateControls()
-		if i.opened {
-			i.redInput.SetFocused(gtx)
-		} else {
+		if i.opened || !gtx.Focused(&i.editor) {
+			i.opened = false
 			gtx.Execute(key.FocusCmd{Tag: &i.editor})
+		} else {
+			i.opened = true
+			i.opening = true
 		}
 	}
 	for {
