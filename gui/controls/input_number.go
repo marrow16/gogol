@@ -2,6 +2,7 @@ package controls
 
 import (
 	"gioui.org/f32"
+	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
@@ -150,6 +151,10 @@ func (n *NumberInput[T]) SetText(v string) *NumberInput[T] {
 
 func (n *NumberInput[T]) SetFocused(gtx layout.Context) {
 	n.input.SetFocused(gtx)
+}
+
+func (n *NumberInput[T]) tag() event.Tag {
+	return &n.input.editor
 }
 
 func (n *NumberInput[T]) IsFocused(gtx layout.Context) bool {

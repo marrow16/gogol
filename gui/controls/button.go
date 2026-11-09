@@ -20,18 +20,21 @@ func NewButton(theme *material.Theme, label string) *Button {
 }
 
 type Button struct {
-	theme     *material.Theme
-	clickable widget.Clickable
-	style     material.ButtonStyle
+	theme              *material.Theme
+	clickable          widget.Clickable
+	style              material.ButtonStyle
+	backgroundOverride bool
 }
 
 func (b *Button) Layout(gtx layout.Context) layout.Dimensions {
-	if b.IsFocused(gtx) || b.clickable.Hovered() {
-		b.style.Color = b.theme.ContrastFg
-		b.style.Background = b.theme.ContrastBg
-	} else {
-		b.style.Color = Style.BackgroundColor
-		b.style.Background = Style.ButtonColor
+	if !b.backgroundOverride {
+		if b.IsFocused(gtx) || b.clickable.Hovered() {
+			b.style.Color = b.theme.ContrastFg
+			b.style.Background = b.theme.ContrastBg
+		} else {
+			b.style.Color = Style.BackgroundColor
+			b.style.Background = Style.ButtonColor
+		}
 	}
 	return b.style.Layout(gtx)
 }
@@ -50,6 +53,7 @@ func (b *Button) SetFocused(gtx layout.Context) {
 }
 
 func (b *Button) BackgroundColor(c color.NRGBA) *Button {
+	b.backgroundOverride = true
 	b.style.Background = c
 	return b
 }
