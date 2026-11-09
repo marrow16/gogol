@@ -8,6 +8,7 @@ import (
 	"gioui.org/widget/material"
 	"image"
 	"image/color"
+	"strings"
 )
 
 var Style = Styling{
@@ -51,4 +52,15 @@ func measureText(gtx layout.Context, theme *material.Theme, text string) layout.
 	dims := material.Label(theme, theme.TextSize, text).Layout(gtx)
 	_ = macro.Stop()
 	return dims
+}
+
+func measureMaxText(gtx layout.Context, theme *material.Theme, texts ...string) int {
+	gtx.Constraints.Min = image.Point{}
+	gtx.Constraints.Max = image.Point{X: 1e6, Y: 1e6}
+	macro := op.Record(gtx.Ops)
+	// join all the texts as multi-line - the width will be the widest line...
+	lbl := material.Label(theme, theme.TextSize, strings.Join(texts, "\n"))
+	dims := lbl.Layout(gtx)
+	_ = macro.Stop()
+	return dims.Size.X
 }

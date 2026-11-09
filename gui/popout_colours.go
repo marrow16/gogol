@@ -24,19 +24,29 @@ func newColorsPopout(p *menuPopup, c *Core) *colorsPopout {
 		chkBorders: controls.NewCheckBox(theme, "Show Borders", c.settings.CellBorders),
 	}
 	result.alive = controls.NewColorPicker(theme, c.settings.CellAliveColor, func(c color.NRGBA) {
-		p.core.settings.CellAliveColor = c
-		p.core.gridHolder.grid.Draw()
+		if !colorEqual(p.core.settings.CellAliveColor, c) {
+			p.core.settings.CellAliveColor = c
+			p.core.gridHolder.grid.Draw()
+		}
 	}).Direction(true)
 	result.dead = controls.NewColorPicker(theme, c.settings.CellDeadColor, func(c color.NRGBA) {
-		p.core.settings.CellDeadColor = c
-		p.core.gridHolder.grid.Draw()
+		if !colorEqual(p.core.settings.CellDeadColor, c) {
+			p.core.settings.CellDeadColor = c
+			p.core.gridHolder.grid.Draw()
+		}
 	}).Direction(true)
 	result.border = controls.NewColorPicker(theme, c.settings.CellBorderColor, func(c color.NRGBA) {
-		p.core.settings.CellBorderColor = c
-		p.core.gridHolder.rebuild()
+		if !colorEqual(p.core.settings.CellBorderColor, c) {
+			p.core.settings.CellBorderColor = c
+			p.core.gridHolder.rebuild()
+		}
 	}).Direction(true)
 	c.settingsChangeListen(result.reset)
 	return result
+}
+
+func colorEqual(a, b color.NRGBA) bool {
+	return a.R == b.R && a.G == b.G && a.B == b.B
 }
 
 func (p *colorsPopout) reset() {

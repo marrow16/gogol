@@ -17,19 +17,43 @@ import (
 func NewSlider(theme *material.Theme, axis layout.Axis, initial float32) *Slider {
 	float := &widget.Float{Value: initial}
 	return &Slider{
-		theme:      theme,
-		value:      float,
-		Axis:       axis,
-		fingerSize: theme.FingerSize,
+		theme:         theme,
+		value:         float,
+		Axis:          axis,
+		fingerSize:    theme.FingerSize,
+		increment:     0.01,
+		pageIncrement: 0.1,
 	}
 }
 
 type Slider struct {
-	theme      *material.Theme
-	value      *widget.Float
-	Axis       layout.Axis
-	fingerSize unit.Dp
-	focused    bool
+	theme         *material.Theme
+	value         *widget.Float
+	Axis          layout.Axis
+	fingerSize    unit.Dp
+	square        bool
+	focused       bool
+	onSubmitFn    func(float32)
+	next          event.Tag
+	increment     float32
+	pageIncrement float32
+	bgDrawer      func(gtx layout.Context, dims image.Rectangle) image.Image
+	bgImage       image.Image
+}
+
+func (s *Slider) OnSubmit(fn func(float32)) *Slider {
+	s.onSubmitFn = fn
+	return s
+}
+
+func (s *Slider) Square() *Slider {
+	s.square = true
+	return s
+}
+
+func (s *Slider) Increments(i, pg float32) *Slider {
+	s.increment, s.pageIncrement = i, pg
+	return s
 }
 
 func (s *Slider) Layout(gtx layout.Context) layout.Dimensions {
@@ -55,15 +79,6 @@ func (s *Slider) Layout(gtx layout.Context) layout.Dimensions {
 	gtx.Constraints.Min = gtx.Constraints.Min.Add(axis.Convert(image.Pt(0, sizeCross)))
 	thumbPos := tr + int(s.value.Value*float32(axis.Convert(dims.Size).X))
 	trans.Pop()
-
-	if s.focused {
-		// draw focus rect...
-		bc, bt := Style.bordering(true)
-		widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Dimensions{Size: size}
-		})
-	}
-
 	rect := func(minx, miny, maxx, maxy int) image.Rectangle {
 		r := image.Rect(minx, miny, maxx, maxy)
 		if axis == layout.Vertical {
@@ -73,60 +88,123 @@ func (s *Slider) Layout(gtx layout.Context) layout.Dimensions {
 		r.Max = axis.Convert(r.Max)
 		return r
 	}
-	// draw track before thumb...
-	track := rect(
-		tr, sizeCross/2-trackWidth/2,
-		thumbPos, sizeCross/2+trackWidth/2,
-	)
 	clr := Style.ButtonColor
 	if s.focused {
 		clr = s.theme.Palette.ContrastBg
 	}
-	paint.FillShape(gtx.Ops, clr, clip.Rect(track).Op())
-	// draw track after thumb....
-	track = rect(
-		thumbPos, axis.Convert(track.Min).Y,
-		sizeMain-tr, axis.Convert(track.Max).Y,
-	)
-	paint.FillShape(gtx.Ops, Style.BorderColor, clip.Rect(track).Op())
+	if s.bgDrawer != nil {
+		if s.bgImage == nil || s.bgImage.Bounds().Dx() != size.X || s.bgImage.Bounds().Dy() != size.Y {
+			s.bgImage = s.bgDrawer(gtx, image.Rectangle{Max: size})
+		}
+		if s.bgImage != nil {
+			paint.NewImageOp(s.bgImage).Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
+		}
+	} else {
+		// draw track before thumb...
+		track := rect(
+			tr, sizeCross/2-trackWidth/2,
+			thumbPos, sizeCross/2+trackWidth/2,
+		)
+		paint.FillShape(gtx.Ops, clr, clip.Rect(track).Op())
+		// draw track after thumb....
+		track = rect(
+			thumbPos, axis.Convert(track.Min).Y,
+			sizeMain-tr, axis.Convert(track.Max).Y,
+		)
+		paint.FillShape(gtx.Ops, Style.BorderColor, clip.Rect(track).Op())
+	}
 	// draw thumb...
 	pt := image.Pt(thumbPos, sizeCross/2)
-	thumb := rect(
-		pt.X-tr, pt.Y-tr,
-		pt.X+tr, pt.Y+tr,
-	)
-	paint.FillShape(gtx.Ops, clr, clip.Ellipse(thumb).Op(gtx.Ops))
+	if s.square {
+		wrr := gtx.Dp(2)
+		thumb := rect(
+			pt.X-4, pt.Y-tr,
+			pt.X+4, pt.Y+tr,
+		)
+		paint.FillShape(gtx.Ops,
+			Style.BorderColor,
+			clip.Stroke{
+				Path:  clip.UniformRRect(thumb, wrr).Path(gtx.Ops),
+				Width: float32(wrr),
+			}.Op(),
+		)
+	} else {
+		thumb := rect(
+			pt.X-tr, pt.Y-tr,
+			pt.X+tr, pt.Y+tr,
+		)
+		paint.FillShape(gtx.Ops, clr, clip.Ellipse(thumb).Op(gtx.Ops))
+	}
+	if s.focused {
+		// draw focus rect...
+		bc, bt := Style.bordering(true)
+		widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Dimensions{Size: size}
+		})
+	}
 	// end...
+	pointer.CursorPointer.Add(gtx.Ops)
 	stack.Pop()
 	return layout.Dimensions{Size: size}
 }
 
 func (s *Slider) Update(gtx layout.Context) bool {
 	changed := s.value.Update(gtx)
-	minus := key.NameLeftArrow
-	plus := key.NameRightArrow
-	if s.Axis == layout.Vertical {
-		minus = key.NameDownArrow
-		plus = key.NameUpArrow
+	scroll := int(1 / s.increment)
+	filters := []event.Filter{
+		key.FocusFilter{Target: s},
+		pointer.Filter{Target: s, Kinds: pointer.Press | pointer.Scroll,
+			ScrollX: pointer.ScrollRange{Min: -scroll, Max: scroll},
+			ScrollY: pointer.ScrollRange{Min: -scroll, Max: scroll},
+		},
 	}
-	for {
-		ev, ok := gtx.Event(
-			pointer.Filter{Target: s, Kinds: pointer.Press},
-			key.FocusFilter{Target: s},
+	if s.focused {
+		filters = append(filters,
+			key.Filter{Focus: s, Name: key.NameUpArrow},
+			key.Filter{Focus: s, Name: key.NameLeftArrow},
+			key.Filter{Focus: s, Name: key.NameDownArrow},
+			key.Filter{Focus: s, Name: key.NameRightArrow},
+			key.Filter{Focus: s, Name: "-"},
+			key.Filter{Focus: s, Name: "+", Optional: key.ModShift},
 			key.Filter{Focus: s, Name: key.NameHome},
 			key.Filter{Focus: s, Name: key.NameEnd},
 			key.Filter{Focus: s, Name: key.NamePageUp},
 			key.Filter{Focus: s, Name: key.NamePageDown},
-			key.Filter{Focus: s, Name: minus},
-			key.Filter{Focus: s, Name: plus},
+			key.Filter{Focus: s, Name: key.NameReturn},
+			key.Filter{Focus: s, Name: key.NameEnter},
 		)
+		if s.next != nil {
+			filters = append(filters, key.Filter{Focus: s, Name: key.NameTab})
+		}
+	}
+	for {
+		ev, ok := gtx.Event(filters...)
 		if !ok {
 			break
 		}
 		switch ev := ev.(type) {
 		case pointer.Event:
-			if ev.Kind == pointer.Press {
+			switch ev.Kind {
+			case pointer.Press:
 				gtx.Execute(key.FocusCmd{Tag: s})
+			case pointer.Scroll:
+				switch {
+				case s.Axis == layout.Horizontal && int(ev.Scroll.Y) == 0:
+					changed = true
+					if ev.Scroll.X < 0 {
+						s.value.Value = max(0, s.value.Value-s.increment)
+					} else {
+						s.value.Value = min(1, s.value.Value+s.increment)
+					}
+				case s.Axis == layout.Vertical && int(ev.Scroll.X) == 0:
+					changed = true
+					if ev.Scroll.Y < 0 {
+						s.value.Value = min(1, s.value.Value+s.increment)
+					} else {
+						s.value.Value = max(0, s.value.Value-s.increment)
+					}
+				}
 			}
 		case key.FocusEvent:
 			s.focused = ev.Focus
@@ -135,17 +213,17 @@ func (s *Slider) Update(gtx layout.Context) bool {
 				continue
 			}
 			switch ev.Name {
-			case minus:
-				s.value.Value = max(0, s.value.Value-0.01)
+			case key.NameDownArrow, key.NameLeftArrow, "-":
+				s.value.Value = max(0, s.value.Value-s.increment)
 				changed = true
-			case plus:
-				s.value.Value = min(1, s.value.Value+0.01)
+			case key.NameUpArrow, key.NameRightArrow, "+":
+				s.value.Value = min(1, s.value.Value+s.increment)
 				changed = true
 			case key.NamePageUp:
-				s.value.Value = min(1, s.value.Value+0.1)
+				s.value.Value = min(1, s.value.Value+s.pageIncrement)
 				changed = true
 			case key.NamePageDown:
-				s.value.Value = max(0, s.value.Value-0.1)
+				s.value.Value = max(0, s.value.Value-s.pageIncrement)
 				changed = true
 			case key.NameHome:
 				s.value.Value = 0
@@ -153,6 +231,14 @@ func (s *Slider) Update(gtx layout.Context) bool {
 			case key.NameEnd:
 				s.value.Value = 1
 				changed = true
+			case key.NameEnter, key.NameReturn:
+				if s.onSubmitFn != nil {
+					s.onSubmitFn(s.value.Value)
+				}
+			case key.NameTab:
+				if s.next != nil {
+					gtx.Execute(key.FocusCmd{Tag: s.next})
+				}
 			}
 		}
 	}
@@ -164,7 +250,7 @@ func (s *Slider) Value() float32 {
 }
 
 func (s *Slider) SetValue(v float32) {
-	s.value.Value = max(0, min(1, v))
+	s.value.Value = min(1, v)
 }
 
 func (s *Slider) IsFocused(gtx layout.Context) bool {
