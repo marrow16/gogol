@@ -23,24 +23,29 @@ func newColorsPopout(p *menuPopup, c *Core) *colorsPopout {
 		core:       c,
 		chkBorders: controls.NewCheckBox(theme, "Show Borders", c.settings.CellBorders),
 	}
+	favourites := controls.NewFavouriteColors(
+		&p.core.settings.CellAliveColor,
+		&p.core.settings.CellDeadColor,
+		&p.core.settings.CellBorderColor,
+	)
 	result.alive = controls.NewColorPicker(theme, c.settings.CellAliveColor, func(c color.NRGBA) {
 		if !colorEqual(p.core.settings.CellAliveColor, c) {
 			p.core.settings.CellAliveColor = c
 			p.core.gridHolder.grid.Draw()
 		}
-	}).Direction(true)
+	}).Direction(true).WithFavourites(favourites)
 	result.dead = controls.NewColorPicker(theme, c.settings.CellDeadColor, func(c color.NRGBA) {
 		if !colorEqual(p.core.settings.CellDeadColor, c) {
 			p.core.settings.CellDeadColor = c
 			p.core.gridHolder.grid.Draw()
 		}
-	}).Direction(true)
+	}).Direction(true).WithFavourites(favourites)
 	result.border = controls.NewColorPicker(theme, c.settings.CellBorderColor, func(c color.NRGBA) {
 		if !colorEqual(p.core.settings.CellBorderColor, c) {
 			p.core.settings.CellBorderColor = c
 			p.core.gridHolder.rebuild()
 		}
-	}).Direction(true)
+	}).Direction(true).WithFavourites(favourites)
 	c.settingsChangeListen(result.reset)
 	return result
 }

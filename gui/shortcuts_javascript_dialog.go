@@ -401,7 +401,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			result = r
 		}
 	case "check":
-		if options, ok := item.arrayString("options"); ok {
+		if options, ok := item.arrayString("options"); ok && len(options) > 0 {
 			r := &dialogItemCheck{
 				parent:     parent,
 				whenFn:     item.whenFunc(parent.core, rt),
@@ -409,10 +409,15 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 				label:      lbl,
 				horizontal: item.bool("horizontal", false),
 			}
-			initial := item.integer("initial", 0)
-			for i, o := range options {
-				idx := 1 << i
-				r.checks = append(r.checks, controls.NewCheckBox(theme, o, idx&initial != 0))
+			if len(options) == 1 {
+				initial := item.bool("initial", false)
+				r.checks = append(r.checks, controls.NewCheckBox(theme, options[0], initial))
+			} else {
+				initial := item.integer("initial", 0)
+				for i, o := range options {
+					idx := 1 << i
+					r.checks = append(r.checks, controls.NewCheckBox(theme, o, idx&initial != 0))
+				}
 			}
 			result = r
 		}
@@ -556,6 +561,19 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			}
 			window.Invalidate()
 		}).Direction(!item.bool("down", false))
+		if favs, ok := item.arrayString("favourites"); ok {
+			fcs := make([]*color.NRGBA, 0, len(favs))
+			for _, fav := range favs {
+				if c, ok := parseColor(fav); ok {
+					fcs = append(fcs, &c)
+				}
+			}
+			if len(fcs) > 0 {
+				fc := controls.NewFavouriteColors(fcs...)
+				fc.NoAdd = true
+				picker.WithFavourites(fc)
+			}
+		}
 		result = &dialogItemColor{
 			parent: parent,
 			whenFn: item.whenFunc(parent.core, rt),

@@ -11,6 +11,7 @@ import (
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/marrow16/gogol/gui/icons"
 	"image"
 	"image/color"
 	"image/draw"
@@ -29,6 +30,8 @@ type ColorPicker struct {
 	editorStyle      material.EditorStyle
 	current          color.NRGBA
 	undo             color.NRGBA
+	cachedSquare     *image.RGBA
+	cachedHue        float32
 	hue              float32
 	saturation       float32
 	brightness       float32
@@ -51,6 +54,7 @@ type ColorPicker struct {
 	saturationLabel  material.LabelStyle
 	brightnessSlider *Slider
 	brightnessLabel  material.LabelStyle
+	favourites       *FavouriteColors
 }
 
 type colorComponent int
@@ -136,6 +140,7 @@ func NewColorPicker(theme *material.Theme, clr color.NRGBA, fn func(color.NRGBA)
 		}
 		return img
 	}
+	result.hueSlider.wrapAround = true
 	result.saturationSlider = NewSlider(theme, layout.Horizontal, s).
 		OnSubmit(func(_ float32) {
 			result.dropdownFocus = result.saturationSlider.SetFocused
@@ -148,12 +153,16 @@ func NewColorPicker(theme *material.Theme, clr color.NRGBA, fn func(color.NRGBA)
 			result.focus = true
 			result.opened = false
 		}).Square().Increments(0.0039, 0.0624)
-	result.brightnessSlider.next = &result.editor
 	return result
 }
 
 func (i *ColorPicker) Direction(up bool) *ColorPicker {
 	i.dropdownUp = up
+	return i
+}
+
+func (i *ColorPicker) WithFavourites(favs *FavouriteColors) *ColorPicker {
+	i.favourites = favs
 	return i
 }
 
@@ -186,11 +195,7 @@ func (i *ColorPicker) Layout(gtx layout.Context) layout.Dimensions {
 						dims := layout.Dimensions{Size: image.Point{X: txtDims.Size.Y, Y: txtDims.Size.Y}}
 						paint.FillShape(gtx.Ops, i.current, clip.Rect{Max: dims.Size}.Op())
 						borders(gtx, dims, Style.ForegroundColor, true, true, true, true)
-						if focused || dropFocused {
-							pointer.CursorPointer.Add(gtx.Ops)
-						} else {
-							pointer.CursorText.Add(gtx.Ops)
-						}
+						pointer.CursorPointer.Add(gtx.Ops)
 						dims.Size.X += 10
 						return dims
 					})
@@ -209,6 +214,7 @@ func (i *ColorPicker) LayoutDropdown(gtx layout.Context) {
 	focused := i.isFocused(gtx)
 	if !focused && i.opened {
 		i.opened = false
+		gtx.Execute(key.FocusCmd{Tag: &i.editor})
 	}
 	if i.opened && focused {
 		i.layoutDropdown(gtx)
@@ -238,72 +244,11 @@ func (i *ColorPicker) layoutDropdown(gtx layout.Context) {
 }
 
 func (i *ColorPicker) layoutDropdownControls(gtx layout.Context) layout.Dimensions {
+	i.updateSliders(gtx)
 	gtx.Constraints.Max.Y = 1e6 // no effective max Y
 	txtDims := measureText(gtx, i.theme, "\u2003")
 	maxLabel := measureMaxText(gtx, i.theme, "S%:", "V%:", "Hue:")
 	width := txtDims.Size.X * 20
-	if i.hueSlider.Update(gtx) {
-		if i.hue <= 0 {
-			i.hue = i.hueSlider.Value() * 360
-			_, _, v := toHsv(i.current)
-			i.current = toRgb(i.hue, 1-v, v)
-			_, i.saturation, i.brightness = toHsv(i.current)
-		} else {
-			i.hue = i.hueSlider.Value() * 360
-			i.current = toRgb(i.hue, i.saturation, i.brightness)
-		}
-		if max(i.current.R, i.current.G, i.current.B) == 0 {
-			// black - set max saturation & min brightness...
-			i.current = toRgb(i.hue, 1, 0.005)
-			_, i.saturation, i.brightness = toHsv(i.current)
-		} else if min(i.current.R, i.current.G, i.current.B) == 255 {
-			i.current = toRgb(i.hue, 1, 0.995)
-			_, i.saturation, i.brightness = toHsv(i.current)
-		}
-		i.editor.SetText(hexColor(i.current))
-		i.saturationSlider.SetValue(i.saturation)
-		i.brightnessSlider.SetValue(i.brightness)
-		i.redInput.SetValue(int(i.current.R))
-		i.greenInput.SetValue(int(i.current.G))
-		i.blueInput.SetValue(int(i.current.B))
-		if i.onChangeFn != nil {
-			i.onChangeFn(i.current)
-		}
-	}
-	if i.saturationSlider.Update(gtx) {
-		i.saturation = i.saturationSlider.Value()
-		i.current = toRgb(i.hue, i.saturation, i.brightness)
-		i.editor.SetText(hexColor(i.current))
-		i.redInput.SetValue(int(i.current.R))
-		i.greenInput.SetValue(int(i.current.G))
-		i.blueInput.SetValue(int(i.current.B))
-		h, _, v := toHsv(i.current)
-		i.hueSlider.SetValue(h / 360)
-		i.brightnessSlider.SetValue(v)
-		if i.onChangeFn != nil {
-			i.onChangeFn(i.current)
-		}
-	}
-	if i.brightnessSlider.Update(gtx) {
-		v := i.brightnessSlider.Value()
-		if i.hue < 0 {
-			// retain greyscale...
-			level := uint8(math.Round(float64(v) * 255))
-			i.current = color.NRGBA{R: level, G: level, B: level, A: 255}
-		} else {
-			i.brightness = v
-			i.current = toRgb(i.hue, i.saturation, i.brightness)
-		}
-		i.editor.SetText(hexColor(i.current))
-		i.redInput.SetValue(int(i.current.R))
-		i.greenInput.SetValue(int(i.current.G))
-		i.blueInput.SetValue(int(i.current.B))
-		h, _, _ := toHsv(i.current)
-		i.hueSlider.SetValue(h / 360)
-		if i.onChangeFn != nil {
-			i.onChangeFn(i.current)
-		}
-	}
 	return i.dropdown.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -387,11 +332,76 @@ func (i *ColorPicker) layoutDropdownControls(gtx layout.Context) layout.Dimensio
 								}),
 							)
 						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if i.favourites != nil {
+								return i.favourites.layout(gtx, i, innerWidth)
+							}
+							return layout.Dimensions{Size: image.Point{Y: -10}}
+						}),
 					)
 				})
 			}),
 		)
 	})
+}
+
+func (i *ColorPicker) updateSliders(gtx layout.Context) {
+	if i.hueSlider.Update(gtx) {
+		if i.hue <= 0 {
+			i.hue = i.hueSlider.Value() * 360
+			_, _, v := toHsv(i.current)
+			i.current = toRgb(i.hue, 1-v, v)
+			_, i.saturation, i.brightness = toHsv(i.current)
+		} else {
+			i.hue = i.hueSlider.Value() * 360
+			i.current = toRgb(i.hue, i.saturation, i.brightness)
+		}
+		if max(i.current.R, i.current.G, i.current.B) == 0 {
+			// black - set max saturation & min brightness...
+			i.current = toRgb(i.hue, 1, 0.005)
+			_, i.saturation, i.brightness = toHsv(i.current)
+		} else if min(i.current.R, i.current.G, i.current.B) == 255 {
+			i.current = toRgb(i.hue, 1, 0.995)
+			_, i.saturation, i.brightness = toHsv(i.current)
+		}
+		i.editor.SetText(hexColor(i.current))
+		i.saturationSlider.SetValue(i.saturation)
+		i.brightnessSlider.SetValue(i.brightness)
+		i.redInput.SetValue(int(i.current.R))
+		i.greenInput.SetValue(int(i.current.G))
+		i.blueInput.SetValue(int(i.current.B))
+		i.notifyChanges()
+	}
+	if i.saturationSlider.Update(gtx) {
+		i.saturation = i.saturationSlider.Value()
+		i.current = toRgb(i.hue, i.saturation, i.brightness)
+		i.editor.SetText(hexColor(i.current))
+		i.redInput.SetValue(int(i.current.R))
+		i.greenInput.SetValue(int(i.current.G))
+		i.blueInput.SetValue(int(i.current.B))
+		h, _, v := toHsv(i.current)
+		i.hueSlider.SetValue(h / 360)
+		i.brightnessSlider.SetValue(v)
+		i.notifyChanges()
+	}
+	if i.brightnessSlider.Update(gtx) {
+		v := i.brightnessSlider.Value()
+		if i.hue < 0 {
+			// retain greyscale...
+			level := uint8(math.Round(float64(v) * 255))
+			i.current = color.NRGBA{R: level, G: level, B: level, A: 255}
+		} else {
+			i.brightness = v
+			i.current = toRgb(i.hue, i.saturation, i.brightness)
+		}
+		i.editor.SetText(hexColor(i.current))
+		i.redInput.SetValue(int(i.current.R))
+		i.greenInput.SetValue(int(i.current.G))
+		i.blueInput.SetValue(int(i.current.B))
+		h, _, _ := toHsv(i.current)
+		i.hueSlider.SetValue(h / 360)
+		i.notifyChanges()
+	}
 }
 
 func (i *ColorPicker) layoutColorSquare(gtx layout.Context) layout.Dimensions {
@@ -425,9 +435,7 @@ func (i *ColorPicker) layoutColorSquare(gtx layout.Context) layout.Dimensions {
 					i.hue, i.saturation, i.brightness = toHsv(i.current)
 					i.editor.SetText(hexColor(i.current))
 					i.updateControls()
-					if i.onChangeFn != nil {
-						i.onChangeFn(i.current)
-					}
+					i.notifyChanges()
 					gtx.Execute(op.InvalidateCmd{})
 				}
 			case pointer.Scroll:
@@ -437,33 +445,25 @@ func (i *ColorPicker) layoutColorSquare(gtx layout.Context) layout.Dimensions {
 					i.current = toRgb(i.hue, i.saturation, i.brightness)
 					i.updateControls()
 					i.editor.SetText(hexColor(i.current))
-					if i.onChangeFn != nil {
-						i.onChangeFn(i.current)
-					}
+					i.notifyChanges()
 				case pev.Scroll.X > 0:
 					i.saturation = min(1, i.saturation+0.005)
 					i.current = toRgb(i.hue, i.saturation, i.brightness)
 					i.updateControls()
 					i.editor.SetText(hexColor(i.current))
-					if i.onChangeFn != nil {
-						i.onChangeFn(i.current)
-					}
+					i.notifyChanges()
 				case pev.Scroll.Y < 0:
 					i.brightness = min(1, i.brightness+0.005)
 					i.current = toRgb(i.hue, i.saturation, i.brightness)
 					i.updateControls()
 					i.editor.SetText(hexColor(i.current))
-					if i.onChangeFn != nil {
-						i.onChangeFn(i.current)
-					}
+					i.notifyChanges()
 				case pev.Scroll.Y > 0:
 					i.brightness = max(0, i.brightness-0.005)
 					i.current = toRgb(i.hue, i.saturation, i.brightness)
 					i.updateControls()
 					i.editor.SetText(hexColor(i.current))
-					if i.onChangeFn != nil {
-						i.onChangeFn(i.current)
-					}
+					i.notifyChanges()
 				}
 			}
 		}
@@ -518,39 +518,52 @@ func drawMarker(gtx layout.Context, x, y int, light bool) {
 }
 
 func (i *ColorPicker) colorSquareImage(gtx layout.Context) *image.RGBA {
-	size := image.Point{X: gtx.Constraints.Max.X, Y: gtx.Constraints.Max.X / 2}
-	r := image.Rectangle{Max: size}
-	img := image.NewRGBA(r)
-	draw.Draw(img, r, &image.Uniform{C: color.NRGBA{}}, image.Point{}, draw.Src)
-	margin := gtx.Dp(squareMargin)
-	wd := size.X - (margin * 2)
-	ht := size.Y - (margin * 2)
 	h, _, _ := toHsv(i.current)
-	for y := range ht {
-		v := 1 - float32(y)/float32(ht-1)
-		for x := range wd {
-			s := float32(x) / float32(wd-1)
-			var c color.NRGBA
-			if h < 0 {
-				// achromatic - saturation has no effect...
-				c = toRgb(0, 0, v)
-			} else {
-				c = toRgb(h, s, v)
+	deltaHue := math.Abs(float64(i.cachedHue - h))
+	deltaHue = min(deltaHue, 360-deltaHue)
+	if i.cachedSquare == nil || i.cachedSquare.Bounds().Dx() != gtx.Constraints.Max.X || deltaHue >= 1.0 {
+		size := image.Point{X: gtx.Constraints.Max.X, Y: gtx.Constraints.Max.X / 2}
+		r := image.Rectangle{Max: size}
+		i.cachedSquare = image.NewRGBA(r)
+		i.cachedHue = h
+		draw.Draw(i.cachedSquare, r, &image.Uniform{C: color.NRGBA{}}, image.Point{}, draw.Src)
+		margin := gtx.Dp(squareMargin)
+		wd := size.X - (margin * 2)
+		ht := size.Y - (margin * 2)
+		if h < 0 {
+			for y := range ht {
+				v := 1 - float32(y)/float32(ht-1)
+				c := toRgb(0, 0, v)
+				for x := range wd {
+					i.cachedSquare.Set(x+margin, y+margin, c)
+				}
 			}
-			img.Set(x+margin, y+margin, c)
+		} else {
+			for y := range ht {
+				v := 1 - float32(y)/float32(ht-1)
+				for x := range wd {
+					s := float32(x) / float32(wd-1)
+					i.cachedSquare.Set(x+margin, y+margin, toRgb(h, s, v))
+				}
+			}
 		}
 	}
-	return img
+	return i.cachedSquare
 }
 
 func (i *ColorPicker) update(gtx layout.Context) {
 	if i.button.Clicked(gtx) {
-		if i.opened || !gtx.Focused(&i.editor) {
+		if i.opened {
 			i.opened = false
-			gtx.Execute(key.FocusCmd{Tag: &i.editor})
+			if i.isFocused(gtx) {
+				gtx.Execute(key.FocusCmd{Tag: &i.editor})
+			}
 		} else {
 			i.opened = true
 			i.opening = true
+			if !i.isFocused(gtx) {
+				gtx.Execute(key.FocusCmd{Tag: &i.editor})
+			}
 		}
 	}
 	i.handleUndoKeys(gtx, &i.editor)
@@ -592,6 +605,7 @@ func (i *ColorPicker) handleUndoKeys(gtx layout.Context, tags ...any) {
 				i.updateControls()
 				i.editor.SetText(hexColor(i.current))
 				gtx.Execute(op.InvalidateCmd{})
+				i.notifyChanges()
 				seen = true
 				break
 			}
@@ -649,9 +663,7 @@ func (i *ColorPicker) handleUpDownKeys(gtx layout.Context) {
 				}
 				i.hue, i.saturation, i.brightness = toHsv(i.current)
 				i.updateControls()
-				if i.onChangeFn != nil {
-					i.onChangeFn(i.current)
-				}
+				i.notifyChanges()
 			case key.NameDownArrow:
 				v, _ := strconv.ParseInt(curr[start:end], 16, 64)
 				cv := int(v)
@@ -674,9 +686,7 @@ func (i *ColorPicker) handleUpDownKeys(gtx layout.Context) {
 				}
 				i.hue, i.saturation, i.brightness = toHsv(i.current)
 				i.updateControls()
-				if i.onChangeFn != nil {
-					i.onChangeFn(i.current)
-				}
+				i.notifyChanges()
 			}
 		}
 	}
@@ -717,9 +727,13 @@ func (i *ColorPicker) changed() {
 	if actualChange {
 		i.hue, i.saturation, i.brightness = toHsv(i.current)
 		i.updateControls()
-		if i.onChangeFn != nil {
-			i.onChangeFn(i.current)
-		}
+		i.notifyChanges()
+	}
+}
+
+func (i *ColorPicker) notifyChanges() {
+	if i.onChangeFn != nil {
+		i.onChangeFn(i.current)
 	}
 }
 
@@ -750,9 +764,7 @@ func (i *ColorPicker) componentChanged(c colorComponent, v int) {
 		i.saturationSlider.SetValue(i.saturation)
 		i.brightnessSlider.SetValue(i.brightness)
 		i.editor.SetText(hexColor(i.current))
-		if i.onChangeFn != nil {
-			i.onChangeFn(i.current)
-		}
+		i.notifyChanges()
 	}
 }
 
@@ -870,4 +882,102 @@ func hexColor(c color.NRGBA) string {
 		hex[c.G>>4], hex[c.G&0x0F],
 		hex[c.B>>4], hex[c.B&0x0F],
 	})
+}
+
+type FavouriteColors struct {
+	colors      []*color.NRGBA
+	initalCount int
+	clickables  []*Clickable
+	plusBtn     *IconButton
+	NoAdd       bool
+}
+
+const maxFavourites = 10
+
+func NewFavouriteColors(favs ...*color.NRGBA) *FavouriteColors {
+	result := &FavouriteColors{
+		colors:     make([]*color.NRGBA, 0),
+		clickables: make([]*Clickable, maxFavourites+1),
+		plusBtn:    NewIconButton(icons.Plus, 0),
+	}
+	for c := range maxFavourites + 1 {
+		result.clickables[c] = &Clickable{}
+	}
+	for _, fav := range favs {
+		if result.initalCount < maxFavourites && fav != nil {
+			result.colors = append(result.colors, fav)
+			result.initalCount++
+		}
+	}
+	return result
+}
+
+func (fc *FavouriteColors) layout(gtx layout.Context, cp *ColorPicker, width int) layout.Dimensions {
+	if fc.plusBtn.Clicked(gtx) && len(fc.colors) < maxFavourites {
+		existing := false
+		clr := cp.current
+		for i := fc.initalCount; i < len(fc.colors); i++ {
+			fav := fc.colors[i]
+			if fav.R == clr.R && fav.G == clr.G && fav.B == clr.B {
+				existing = true
+				break
+			}
+		}
+		if !existing {
+			fc.colors = append(fc.colors, &clr)
+		}
+	}
+	btnSize := measureText(gtx, cp.theme, "\u2003").Size.Y
+	gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
+	gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = btnSize, btnSize
+	cols := make([]layout.FlexChild, len(fc.clickables))
+	added := fc.NoAdd
+	for i := range len(fc.clickables) {
+		clickable := fc.clickables[i]
+		var clr *color.NRGBA
+		if i == 0 {
+			clr = &cp.undo
+		} else if i-1 < len(fc.colors) {
+			clr = fc.colors[i-1]
+		}
+		if clickable.Clicked(gtx) {
+			if clr != nil {
+				cp.current = *clr
+				cp.hue, cp.saturation, cp.brightness = toHsv(cp.current)
+				cp.updateControls()
+				cp.editor.SetText(hexColor(cp.current))
+				cp.notifyChanges()
+			}
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		isAdd := clr == nil && len(fc.colors) < maxFavourites && !added
+		switch {
+		case clr != nil:
+			cols[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X, gtx.Constraints.Max.X = btnSize, btnSize
+				gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = btnSize, btnSize
+				return clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					paint.FillShape(gtx.Ops, *clr, clip.Rect{Max: gtx.Constraints.Max}.Op())
+					borders(gtx, layout.Dimensions{Size: image.Point{X: btnSize, Y: btnSize}}, Style.BorderColor, true, true, true, true)
+					pointer.CursorPointer.Add(gtx.Ops)
+					return layout.Dimensions{Size: image.Point{X: btnSize, Y: btnSize}}
+				})
+			})
+		case isAdd:
+			added = true
+			cols[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X, gtx.Constraints.Max.X = btnSize, btnSize
+				gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = btnSize, btnSize
+				pointer.CursorPointer.Add(gtx.Ops)
+				return fc.plusBtn.Layout(gtx)
+			})
+		default:
+			cols[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Dimensions{Size: image.Point{X: btnSize, Y: btnSize}}
+			})
+		}
+	}
+	dims := layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx, cols...)
+	dims.Size.X = width
+	return dims
 }
