@@ -216,7 +216,7 @@ func (e *editor) handleShortcutKeys(gtx layout.Context, kev key.Event) (handled 
 				for i := 0; i < len(cp.Cells); i++ {
 					cp.Cells[i] = false
 				}
-				e.clearMarking()
+				e.clearMarking(false)
 				cp.Draw(e.g.grid, sr, sc, patterns.Rotate0)
 			}
 		}
@@ -228,13 +228,12 @@ func (e *editor) handleShortcutKeys(gtx layout.Context, kev key.Event) (handled 
 	case "A":
 		// mark all
 		handled = true
-		e.clearMarking()
-		e.markStartRow = 0
-		e.markStartCol = 0
+		e.clearMarking(true)
+		e.row, e.col = 0, 0
 		h, w := e.g.grid.Height()-1, e.g.grid.Width()-1
 		e.markArea(h, w)
-		e.row, e.col = h, w
 		e.blink = true
+		e.row, e.col = h, w
 		e.dirty = true
 	}
 	return handled
@@ -345,8 +344,27 @@ func (e *editor) handleSpecialKeys(kev key.Event) {
 		if e.patternRotation > patterns.Rotate270 {
 			e.patternRotation = patterns.Rotate0
 		}
+	case "G":
+		// grid recipe...
+		e.clearMarking(true)
+		if e.g.core.gridRecipes != nil {
+			if recipe, _ := e.g.core.gridRecipes.getCurrentRecipe(); recipe != nil {
+				if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
+					if _, _, err = recipe.Run(e.g.core.gridHolder.grid, false); err == nil {
+						e.undos = append(e.undos, undo{
+							kind:       undoPattern,
+							restoreRow: e.row,
+							restoreCol: e.col,
+							row:        0,
+							col:        0,
+							wasGrid:    pattern,
+						})
+					}
+				}
+			}
+		}
 	case "P":
-		e.endMarking(false)
+		e.clearMarking(true)
 		if pattern, _ := e.g.core.statusBar.menuPopup.patternsPopout.currentPattern(); pattern != nil {
 			e.addPatternUndo(*pattern, e.row, e.col, e.patternRotation)
 			pattern.Draw(e.g.grid, e.row, e.col, e.patternRotation)
@@ -354,6 +372,24 @@ func (e *editor) handleSpecialKeys(kev key.Event) {
 	case "F":
 		// fill/clear
 		e.markingFillClear(kev.Modifiers&key.ModShift == 0)
+	case "N":
+		// noise (random) - entire grid
+		e.clearMarking(true)
+		if pattern, err := patterns.NewPatternFromGrid(e.g.grid); err == nil {
+			e.undos = append(e.undos, undo{
+				kind:       undoPattern,
+				restoreRow: e.row,
+				restoreCol: e.col,
+				row:        0,
+				col:        0,
+				wasGrid:    pattern,
+			})
+			if kev.Modifiers&key.ModShift == 0 {
+				e.g.grid.Randomize(e.g.core.settings.Randomization)
+			} else {
+				e.g.grid.RandomizePopulation(e.g.core.settings.Randomization)
+			}
+		}
 	case "Z":
 		e.endMarking(false)
 		e.doUndo()
@@ -406,7 +442,7 @@ func (e *editor) markingFillClear(fill bool) {
 		for i := 0; i < len(np.Cells); i++ {
 			np.Cells[i] = fill
 		}
-		e.clearMarking()
+		e.clearMarking(false)
 		np.Draw(e.g.grid, sr, sc, patterns.Rotate0)
 	}
 }
@@ -561,7 +597,7 @@ func (e *editor) adjustColumn(adj int) {
 func (e *editor) imageOps() {
 	if e.markingDirty {
 		if !e.marking {
-			e.clearMarking()
+			e.clearMarking(false)
 		} else {
 			// restore underlays (apart from the last one)
 			for i := 0; i < len(e.markingUnderlays)-1; i++ {
@@ -668,17 +704,19 @@ func (e *editor) finish() {
 	e.wasUnder = append(e.wasUnder, [2]int{e.row, e.col})
 	e.active = false
 	if e.marking {
-		e.marking = false
-		e.clearMarking()
+		e.clearMarking(true)
 	}
 	e.g.grid.StepCount.Store(0)
 	e.g.core.resetInstrumentation()
 	window.Invalidate()
 }
 
-func (e *editor) clearMarking() {
+func (e *editor) clearMarking(end bool) {
 	for _, ul := range e.markingUnderlays {
 		e.restoreUnderlay(ul)
 	}
 	e.markingUnderlays = e.markingUnderlays[:0]
+	if end {
+		e.marking = false
+	}
 }

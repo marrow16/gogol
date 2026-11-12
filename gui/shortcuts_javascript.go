@@ -339,6 +339,12 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 		var metadata map[string]string
 		if recorder != nil && recorder.FramesCount() > 1 {
 			var filename string
+			cellSize := c.settings.CellSize
+			cellAliveColor := c.settings.CellAliveColor
+			cellDeadColor := c.settings.CellDeadColor
+			cellBorderColor := c.settings.CellBorderColor
+			cellBorders := c.settings.CellBorders
+			animationFormat := c.settings.AnimationFormat
 			if len(args) > 0 {
 				filename, err = resolveSavePath(args[0].ToString().String())
 				if len(args) > 1 {
@@ -353,6 +359,28 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 									metadata[k] = fmt.Sprintf("%v", v)
 								}
 							}
+							if len(args) > 4 {
+								rv := args[4].Export()
+								if mv, ok := rv.(map[string]any); ok {
+									item := jsItemDecoder(mv)
+									if n := item.integer("cellSize", -1); n > 0 {
+										cellSize = n
+									}
+									if clr := item.color("aliveColor"); clr != nil {
+										cellAliveColor = *clr
+									}
+									if clr := item.color("deadColor"); clr != nil {
+										cellDeadColor = *clr
+									}
+									if clr := item.color("borderColor"); clr != nil {
+										cellBorderColor = *clr
+									}
+									cellBorders = item.bool("borders", cellBorders)
+									if f, ok := item.isString("format"); ok && (f == "gif" || f == "mp4") {
+										animationFormat = f
+									}
+								}
+							}
 						}
 					}
 				}
@@ -362,7 +390,7 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value) (any, erro
 				filename, err = resolveSavePath(c.nowFilename("Grid", ".mp4"))
 			}
 			if err == nil {
-				ani := animator.NewAnimator(c.settings.CellSize, c.settings.CellAliveColor, c.settings.CellDeadColor, c.settings.CellBorderColor, c.settings.CellBorders, c.settings.AnimationFormat)
+				ani := animator.NewAnimator(cellSize, cellAliveColor, cellDeadColor, cellBorderColor, cellBorders, animationFormat)
 				err = ani.Animate(filename, recorder, skipStart, maxFrames, metadata)
 				if err != nil {
 					err = fmt.Errorf("animation save failed: %w", err)

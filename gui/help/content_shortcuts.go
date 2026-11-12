@@ -440,11 +440,23 @@ var contentShortCutsJsRef = content{
 			{{codeCopyable(`animationFormat([string])`)}, {"Gets, and optionally sets, the current animation format.",
 				italic("\nNote: "), code(`mp4`), italic(" option is only available when "), code("ffmpeg"), italic(" is installed."), " [see ", url("https://ffmpeg.org/"), "]",
 				"\nReturns: ", code(`string`), " - current animation format (", code(`gif`), "|", code(`mp4`), ")"}},
-			{{codeCopyable(`animationSave([string[,int[,int[,object]]]])`)}, {
+			{{codeCopyable(`animationSave([string[,int[,int[,obj[,obj]]]]])`)}, {
 				"Saves the current recording as an animation ", italic("(only works when recording is on)"), ". The first arg is the filename - if omitted, a filename is generated.",
 				"\nThe second, optional, arg is the number of start frames to skip. The third, optional, arg is the maximum number of frames to save.",
 				"\nThe fourth, optional, arg is metadata for the animation file.",
-				"\nReturns: none (", code(`undefined`), ")",
+				"\nThe fifth, optional arg is the settings for the animation:",
+				expandable{indent: 8, border: true, padding: 4, rightMargin: 8, title: "settings object", content: content{
+					codeBlock{code: `{
+	"aliveColor": "#FF0000",
+	"deadColor": "#000000",
+	"borderColor": "#CCCCCC",
+	"borders": true|false,
+	"cellSize": 8,
+	"format": "gif"|"mp4"
+}`},
+					italic("Note: If a property is omitted, the current setting is used."),
+				}},
+				"Returns: none (", code(`undefined`), ")",
 			}},
 			{{codeCopyable(`borders([bool])`)}, {"Gets, and optionally sets, whether cell borders are displayed.", "\nReturns: ", code(`bool`)}},
 			{{codeCopyable(`boundaryMode([string])`)}, {"Gets, and optionally sets, the current grid boundary mode.", "\nReturns: ", code(`string`), " - current boundary mode (", code(`alive`), "|", code(`dead`), ")"}},
@@ -765,9 +777,39 @@ module.exports = {
 		}},
 		italic("Note: Relative paths used in "), code(`require()`), italic(" are taken as relative to shortcut javascript file being executed."),
 	}},
-	expandable{padding: 4, border: true, rightMargin: 4, spaceBefore: 8, title: content{bold("Example - Save Animation")}, content: content{
-		"The following javascript demonstrates adding a UI dialog to save the ", Instrumentation.link("record instrument"), " animation - allowing the user to define the start frame, maximum frames and optional metadata (which the standard UI does not support).",
-		codeBlock{indent: 8, code: exampleAnimation_js},
+	expandable{padding: 4, border: true, spaceBefore: 8, title: content{bold("Example - Save Animation")}, content: content{
+		"The following javascript demonstrates adding a UI dialog to save the ", Instrumentation.link("record instrument"), " animation - allowing the user to define the start frame, maximum frames, settings and optional metadata (which the standard UI does not support).",
+		expandable{border: true, indent: 4, rightMargin: 4, spaceAfter: 4, title: "screenshot", content: content{
+			Image{name: "animation-dialog.png"},
+		}},
+		codeBlock{code: exampleAnimation_js},
+	}},
+	expandable{padding: 4, border: true, spaceBefore: 8, title: content{bold("Example - Heat Map Menu")}, content: content{
+		"The following javascript demonstrates adding a menu to select which ", Instrumentation.link("heat map"), " to display.",
+		codeBlock{code: `const heatMapTypes = ["Activity", "Age", "Births", "Freshness", "Longevity", "Occupancy", "Phase Parity"];
+stop();
+// only show menu if "All" heat map is enabled...
+if (heatMap() === "All") {
+	let initial = parseInt(variable("show_hmt"), 10); // see if we had a saved selection
+	// show the initially selected heat map type...
+	heatMapReveal(heatMapTypes[initial]);
+	// show the menu...
+	const idx = promptMenu("Show Heat Map", initial, (n) => {
+		// the callback is activated when option has changed
+		// show the currently selected and store the value
+		heatMapReveal(heatMapTypes[n]);
+		variable("show_hmt", n);
+	}, ...heatMapTypes);
+	// return from menu - set the showing heat map to that selected...
+	if (idx !== parseInt(variable("show_hmt"), 10)) {
+		heatMapReveal(heatMapTypes[idx]);
+		variable("show_hmt", idx);
+	}
+} else {
+	// shows whatever heat map is available
+	// if heat mapping is not enabled - the following does nothing
+	heatMapReveal();
+}`},
 	}},
 }
 
@@ -1106,6 +1148,8 @@ const exampleAnimation_js = `// turn exceptions on...
 exceptions = true;
 // this function is used by the dialog onChange...
 function onChange(res, dlg) {
+	const available = dlg.Get("available");
+	var start, frames;
 	switch (res["name"]) {
 		case "file":
 			dlg.Hide("err"); // clear any displayed error when file input is changed
@@ -1122,16 +1166,19 @@ function onChange(res, dlg) {
 			break;
 		case "start":
 			// make sure start+max frames does not exceed available frames...
-			available = dlg.Get("available");
 			start = res["value"];
 			frames = dlg.Get("frames");
-			if ((start + frames) > available) {
-				dlg.Set("frames", available - start);
+			if (frames > 0 && (start + frames) > available) {
+				frames = available - start;
+				if (frames >= 0) {
+					dlg.Set("frames", available - start);
+				} else {
+					dlg.Set("frames", 0);
+				}
 			}
 			break;
 		case "frames":
 			// make sure start+max frames does not exceed available frames...
-			available = dlg.Get("available");
 			start = dlg.Get("start");
 			frames = res["value"];
 			if ((start + frames) > available) {
@@ -1142,130 +1189,200 @@ function onChange(res, dlg) {
 }
 // dynamic dialog controls...
 let framesAvailable = {
-	"type": "label",
-	"label": "Frames available: 0",
-	"bold": true
+	type: "label",
+	label: "Frames available: 0",
+	bold: true
 };
 let framesStart = {
-	"type": "int",
-	"name": "start",
-	"label": "Start frame:",
-	"min": 0,
-	"max": 10,
-	"maxLen": 6,
-	"initial": 0
+	type: "int",
+	name: "start",
+	label: "Start frame:",
+	min: 0,
+	// max - set to frames available when dialog shown
+	maxLen: 6,
+	spinner: true,
+	initial: 0
 };
 let framesMax = {
-	"type": "int",
-	"name": "frames",
-	"label": "Max. Frames:",
-	"min": 0,
-	"max": 10,
-	"maxLen": 6,
-	"initial": 0
+	type: "int",
+	name: "frames",
+	min: 0,
+	// max - set to frames available when dialog shown
+	maxLen: 6,
+	spinner: true,
+	initial: 0
 };
 // dialog definition...
 const dialog = [
 	{
-		"type": "init",
-		"func": function (res, dlg) {
-			// initialize the dialog...
-			const ri = recordInstrument();
-			dlg.Set("available", ri.FramesCount());
-			dlg.Set("frames", ri.FramesCount());
-			dlg.Set("borders", borders());
-			dlg.Set("cellSize", cellSize());
+		type: "init",
+		func: function (res, dlg) {
+			// initialize the frames available setting...
+			dlg.Set("available", recordInstrument().FramesCount());
 		},
-		"onChange": onChange, // callback for dialog control changes
-		"hide": ["err"]
+		onChange: onChange, // callback for dialog control changes
+		focused: "start",
+		hide: ["err", "x-second"]
 	},
 	{
-		"type": "ok",
-		"label": "Save",
-		"onClick": function (res, dlg) {
+		type: "ok",
+		label: "Save",
+		onClick: function (res, dlg) {
 			if (!res["file"]) {
 				// no filename entered - show error...
 				dlg.Set("err", "Please select a filename");
 				dlg.Show("err");
+				dlg.SetFocused("file");
 				return true; // returning true prevents dialog close
 			}
 		}
 	},
 	framesAvailable,
-	{
-		"name": "format",
-		"type": "radio",
-		"label": "Format:",
-		"options": ["Gif", "Mp4"],
-		"horizontal": true,
-		"initial": 0,
-	},
 	framesStart,
-	framesMax,
 	{
-		"name": "file",
-		"type": "file",
-		"label": "File:",
-		"extensions": [".gif", ".mp4"],
-		"allowDirs": true,
-		"maxWidth": 30,
+		type: "group",
+		label: "Max. Frames:",
+		horizontal: true,
+		items: [
+			framesMax,
+			{
+				type: "label",
+				label: "(zero for end)",
+			}
+		]
+	},
+	{
+		type: "file",
+		name: "file",
+		label: "File:",
+		title: "Select Animation File",
+		extensions: [".gif", ".mp4"],
+		allowDirs: false,
+		maxWidth: 30,
 	},
 	{
 		// error display label...
-		"name": "err",
-		"type": "label",
-		"label": "err",
-		"color": "#ff0000",
+		type: "label",
+		name: "err",
+		label: "err",
+		color: "#ff0000",
+		bold: true,
+		italic: true,
+		small: true,
+		indent: true // aligns it with the control
 	},
 	{
-		"type": "group",
-		"label": "Overrides:",
-		"horizontal": true,
-		"items": [
+		type: "radio",
+		name: "format",
+		label: "Format:",
+		options: ["Gif", "Mp4"],
+		horizontal: true,
+		initial: 0,
+	},
+	{
+		type: "group",
+		label: "Overrides:",
+		items: [
 			{
-				"type": "int",
-				"name": "cellSize",
-				"label": " Cell size:",
-				"min": 1,
-				"max": 16,
-				"maxLen": 3
-			},
-			{
-				"type": "check",
-				"name": "borders",
-				"options": ["Show Borders"],
-				"horizontal": true,
+				type: "group",
+				padding: 0,
+				gap: 0,
+				items: [
+					{
+						type: "check",
+						name: "useOverrides",
+						options: [""] // just the checkbox without label after
+					},
+					{
+						type: "group",
+						when: function (res) {
+							// only show these controls when checkbox checked...
+							return res["useOverrides"];
+						},
+						gap: 4,
+						padding: 0,
+						items: [
+							{
+								type: "color",
+								name: "aliveColor",
+								label: "Alive:",
+								initial: cellAliveColor()
+							},
+							{
+								type: "color",
+								name: "deadColor",
+								label: "Dead:",
+								initial: cellDeadColor()
+							},
+							{
+								type: "group",
+								horizontal: true,
+								label: "Border:",
+								padding: 0,
+								items: [
+									{
+										type: "color",
+										name: "borderColor",
+										initial: cellBorderColor()
+									},
+									{
+										type: "check",
+										name: "borders",
+										options: ["Show borders"],
+										initial: borders()
+									}
+								]
+							},
+							{
+								type: "int",
+								name: "cellSize",
+								label: "Cell size:",
+								min: 1,
+								max: 16,
+								maxLen: 3,
+								spinner: true,
+								initial: cellSize()
+							}
+						]
+					}
+				]
 			}
 		]
 	},
 	{
-		"type": "group",
-		"label": "Metadata:",
-		"horizontal": true,
-		"items": [
+		type: "group",
+		label: "Metadata:",
+		items: [
 			{
-				"type": "check",
-				"name": "useMetadata",
-				"options": ["Include"],
+				type: "group",
+				padding: 0,
+				gap: 0,
+				items: [
+					{
+						type: "check",
+						name: "useMetadata",
+						options: [""] // just the checkbox without label after
+					},
+					{
+						when: function (res) {
+							// only show when useMetadata is checked...
+							return res["useMetadata"];
+						},
+						type: "text",
+						name: "metadata",
+						initial: "artist:me",
+						maxLines: 4,
+						maxWidth: 31
+					}
+				]
 			}
 		]
-	},
-	{
-		"when"": function (res) {
-			// only show when useMetadata is checked...
-			return res["useMetadata"];
-		},
-		"when": "useMetadata=true", // only show when useMetadata is checked
-		"type": "text",
-		"label": " ", // blank label gives indent
-		"name": "metadata",
-		"initial": "artist:me",
-		"maxLines": 4,
-		"maxWidth": 31
 	}
 ];
 
+// get the record instrument
 let ri = recordInstrument();
+// check that record instrument is active...
 if (ri) {
 	if (ri.FramesCount() > 0) {
 		let available = ri.FramesCount();
@@ -1278,18 +1395,26 @@ if (ri) {
 		if (response) {
 			// a response indicates the dialog wasn't cancelled
 			status("Saving...");
-			// save the overridden settings...
-			const wasFmt = animationFormat();
-			const wasCellSize = cellSize();
-			const wasBorders = borders();
 			try {
+				let filepath = response["file"];
+				let ext = ".gif";
+				let settings = {};
 				if (response["format"] === "Mp4") {
-					animationFormat("mp4");
+					settings["format"] = "mp4";
+					ext = ".mp4";
 				} else {
-					animationFormat("gif");
+					settings["format"] = "gif";
 				}
-				borders(response["borders"]);
-				cellSize(response["cellSize"]);
+				if (!filepath.toLowerCase().endsWith(ext)) {
+					filepath += ext;
+				}
+				if (response["useOverrides"]) {
+					settings["aliveColor"] = response["aliveColor"];
+					settings["deadColor"] = response["deadColor"];
+					settings["borderColor"] = response["borderColor"];
+					settings["borders"] = response["borders"];
+					settings["cellSize"] = response["cellSize"];
+				}
 				let metadata = null;
 				if (response["useMetadata"]) {
 					const str = response["metadata"];
@@ -1300,15 +1425,11 @@ if (ri) {
 						})
 					);
 				}
-				animationSave(response["file"], response["start"], response["frames"], metadata);
+				// do the actual animation save...
+				animationSave(filepath, response["start"], response["frames"], metadata, settings);
 				status("Saved");
 			} catch (e) {
 				status("Save error (see log)");
-			} finally {
-				// restore overridden settings...
-				animationFormat(wasFmt);
-				cellSize(wasCellSize);
-				borders(wasBorders);
 			}
 		}
 	} else {

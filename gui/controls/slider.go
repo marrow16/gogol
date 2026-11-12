@@ -20,6 +20,7 @@ func NewSlider(theme *material.Theme, axis layout.Axis, initial float32) *Slider
 		theme:         theme,
 		value:         float,
 		Axis:          axis,
+		focusable:     true,
 		fingerSize:    theme.FingerSize,
 		increment:     0.01,
 		pageIncrement: 0.1,
@@ -32,17 +33,23 @@ type Slider struct {
 	Axis          layout.Axis
 	fingerSize    unit.Dp
 	square        bool
+	focusable     bool
 	focused       bool
 	onSubmitFn    func(float32)
-	next          event.Tag
 	increment     float32
 	pageIncrement float32
 	bgDrawer      func(gtx layout.Context, dims image.Rectangle) image.Image
 	bgImage       image.Image
+	wrapAround    bool
 }
 
 func (s *Slider) OnSubmit(fn func(float32)) *Slider {
 	s.onSubmitFn = fn
+	return s
+}
+
+func (s *Slider) Focusable(on bool) *Slider {
+	s.focusable = on
 	return s
 }
 
@@ -153,11 +160,13 @@ func (s *Slider) Update(gtx layout.Context) bool {
 	changed := s.value.Update(gtx)
 	scroll := int(1 / s.increment)
 	filters := []event.Filter{
-		key.FocusFilter{Target: s},
 		pointer.Filter{Target: s, Kinds: pointer.Press | pointer.Scroll,
 			ScrollX: pointer.ScrollRange{Min: -scroll, Max: scroll},
 			ScrollY: pointer.ScrollRange{Min: -scroll, Max: scroll},
 		},
+	}
+	if s.focusable {
+		filters = append(filters, key.FocusFilter{Target: s})
 	}
 	if s.focused {
 		filters = append(filters,
@@ -174,9 +183,6 @@ func (s *Slider) Update(gtx layout.Context) bool {
 			key.Filter{Focus: s, Name: key.NameReturn},
 			key.Filter{Focus: s, Name: key.NameEnter},
 		)
-		if s.next != nil {
-			filters = append(filters, key.Filter{Focus: s, Name: key.NameTab})
-		}
 	}
 	for {
 		ev, ok := gtx.Event(filters...)
@@ -187,43 +193,47 @@ func (s *Slider) Update(gtx layout.Context) bool {
 		case pointer.Event:
 			switch ev.Kind {
 			case pointer.Press:
-				gtx.Execute(key.FocusCmd{Tag: s})
+				if s.focusable {
+					gtx.Execute(key.FocusCmd{Tag: s})
+				}
 			case pointer.Scroll:
 				switch {
 				case s.Axis == layout.Horizontal && int(ev.Scroll.Y) == 0:
 					changed = true
 					if ev.Scroll.X < 0 {
-						s.value.Value = max(0, s.value.Value-s.increment)
+						s.decrementBy(s.increment)
 					} else {
-						s.value.Value = min(1, s.value.Value+s.increment)
+						s.incrementBy(s.increment)
 					}
 				case s.Axis == layout.Vertical && int(ev.Scroll.X) == 0:
 					changed = true
 					if ev.Scroll.Y < 0 {
-						s.value.Value = min(1, s.value.Value+s.increment)
+						s.incrementBy(s.increment)
 					} else {
-						s.value.Value = max(0, s.value.Value-s.increment)
+						s.decrementBy(s.increment)
 					}
 				}
 			}
 		case key.FocusEvent:
-			s.focused = ev.Focus
+			if s.focusable {
+				s.focused = ev.Focus
+			}
 		case key.Event:
 			if ev.State != key.Press {
 				continue
 			}
 			switch ev.Name {
 			case key.NameDownArrow, key.NameLeftArrow, "-":
-				s.value.Value = max(0, s.value.Value-s.increment)
+				s.decrementBy(s.increment)
 				changed = true
 			case key.NameUpArrow, key.NameRightArrow, "+":
-				s.value.Value = min(1, s.value.Value+s.increment)
+				s.incrementBy(s.increment)
 				changed = true
 			case key.NamePageUp:
-				s.value.Value = min(1, s.value.Value+s.pageIncrement)
+				s.incrementBy(s.pageIncrement)
 				changed = true
 			case key.NamePageDown:
-				s.value.Value = max(0, s.value.Value-s.pageIncrement)
+				s.decrementBy(s.pageIncrement)
 				changed = true
 			case key.NameHome:
 				s.value.Value = 0
@@ -235,14 +245,32 @@ func (s *Slider) Update(gtx layout.Context) bool {
 				if s.onSubmitFn != nil {
 					s.onSubmitFn(s.value.Value)
 				}
-			case key.NameTab:
-				if s.next != nil {
-					gtx.Execute(key.FocusCmd{Tag: s.next})
-				}
 			}
 		}
 	}
 	return changed
+}
+
+func (s *Slider) incrementBy(amount float32) {
+	if s.wrapAround {
+		s.value.Value += amount
+		if s.value.Value > 1 {
+			s.value.Value--
+		}
+	} else {
+		s.value.Value = min(1, s.value.Value+amount)
+	}
+}
+
+func (s *Slider) decrementBy(amount float32) {
+	if s.wrapAround {
+		s.value.Value -= amount
+		if s.value.Value < 0 {
+			s.value.Value++
+		}
+	} else {
+		s.value.Value = max(0, s.value.Value-amount)
+	}
 }
 
 func (s *Slider) Value() float32 {
@@ -258,5 +286,7 @@ func (s *Slider) IsFocused(gtx layout.Context) bool {
 }
 
 func (s *Slider) SetFocused(gtx layout.Context) {
-	gtx.Execute(key.FocusCmd{Tag: s})
+	if s.focusable {
+		gtx.Execute(key.FocusCmd{Tag: s})
+	}
 }

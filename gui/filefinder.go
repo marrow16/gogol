@@ -557,6 +557,12 @@ func (f *fileFinder) preview(gtx layout.Context) layout.FlexChild {
 				xc.doClick(f.result, gtx)
 			}
 		}
+		if f.result.previewGifFrameSlider != nil {
+			if f.result.previewGifFrameSlider.Update(gtx) {
+				perc := f.result.previewGifFrameSlider.Value()
+				f.result.setPreviewFrame(int(perc * float32(len(f.result.previewGif.Image))))
+			}
+		}
 	}
 	if f.result != nil && f.result.isFile {
 		isRle := strings.ToLower(filepath.Ext(f.result.name)) == ".rle"
@@ -827,6 +833,7 @@ type dirEntry struct {
 	// Gif Extras.
 	previewGif             *gif.GIF
 	previewGifFrame        int
+	previewGifFrameSlider  *controls.Slider
 	previewPlaying         bool
 	previewPlay            *controls.IconButton
 	previewStop            *controls.IconButton
@@ -1052,6 +1059,7 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 				e.previewStop = controls.NewIconButton(icons.Stop, (theme.TextSize/2)*3)
 				e.previewFwd = controls.NewIconButton(icons.SkipForward, (theme.TextSize/2)*3)
 				e.previewRev = controls.NewIconButton(icons.SkipBackward, (theme.TextSize/2)*3)
+				e.previewGifFrameSlider = controls.NewSlider(theme, layout.Horizontal, 0).Square().Focusable(false)
 				e.previewExtraClickables = []previewExtraClickable{
 					{e.previewPlay.Clicked, func(e *dirEntry, gtx layout.Context) {
 						e.playPreview()
@@ -1092,7 +1100,13 @@ func (e *dirEntry) buildPreviewImg() (layout.Widget, [][2]string, image.Image, e
 				rigid(e.previewRev.Layout),
 				conditionalRigid(e.previewPlaying, e.previewStop.Layout, e.previewPlay.Layout),
 				rigid(e.previewFwd.Layout),
-				rigid(inset(4, 0, 0, 0, label(" Frame: "+strconv.Itoa(e.previewGifFrame+1)))),
+				//rigid(inset(4, 0, 0, 0, label(" Frame: "+strconv.Itoa(e.previewGifFrame+1)))),
+				rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					ht := gtx.Sp((theme.TextSize / 3) * 5)
+					gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
+					return verticalCenter(e.previewGifFrameSlider.Layout)(gtx)
+				}),
 			))(gtx)
 		}, nil),
 		rigid(func(gtx layout.Context) layout.Dimensions {
@@ -1455,6 +1469,7 @@ func (e *dirEntry) playPreview() {
 	if e.previewGif.LoopCount == -1 {
 		e.previewGifFrame = 0
 	}
+	e.previewGifFrameSlider.SetValue(float32(e.previewGifFrame) / float32(len(e.previewGif.Image)))
 	e.previewMutex.Unlock()
 	e.schedulePreviewFrame()
 }
@@ -1473,6 +1488,7 @@ func (e *dirEntry) schedulePreviewFrame() {
 			return
 		}
 		e.previewGifFrame = (e.previewGifFrame + 1) % len(e.previewGif.Image)
+		e.previewGifFrameSlider.SetValue(float32(e.previewGifFrame) / float32(len(e.previewGif.Image)))
 		e.previewImage = e.previewGif.Image[e.previewGifFrame]
 		e.previewMutex.Unlock()
 		window.Invalidate()
@@ -1494,6 +1510,17 @@ func (e *dirEntry) stopPreview() {
 	}
 }
 
+func (e *dirEntry) setPreviewFrame(f int) {
+	e.previewMutex.Lock()
+	defer e.previewMutex.Unlock()
+	e.previewPlaying = false
+	if e.previewTimer != nil {
+		e.previewTimer.Stop()
+	}
+	e.previewGifFrame = max(0, min(f, len(e.previewGif.Image)-1))
+	e.previewImage = e.previewGif.Image[e.previewGifFrame]
+}
+
 func (e *dirEntry) nextPreviewFrame() {
 	e.previewMutex.Lock()
 	defer e.previewMutex.Unlock()
@@ -1502,6 +1529,7 @@ func (e *dirEntry) nextPreviewFrame() {
 		e.previewTimer.Stop()
 	}
 	e.previewGifFrame = (e.previewGifFrame + 1) % len(e.previewGif.Image)
+	e.previewGifFrameSlider.SetValue(float32(e.previewGifFrame) / float32(len(e.previewGif.Image)))
 	e.previewImage = e.previewGif.Image[e.previewGifFrame]
 }
 
@@ -1517,6 +1545,7 @@ func (e *dirEntry) previousPreviewFrame() {
 	} else {
 		e.previewGifFrame = len(e.previewGif.Image) - 1
 	}
+	e.previewGifFrameSlider.SetValue(float32(e.previewGifFrame) / float32(len(e.previewGif.Image)))
 	e.previewImage = e.previewGif.Image[e.previewGifFrame]
 }
 
