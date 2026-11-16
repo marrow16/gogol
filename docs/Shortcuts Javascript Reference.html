@@ -151,12 +151,6 @@ Shortcuts can execute javascript using the following <span class="link">action</
   "type": "button",
   "label": "My Button",
   "onClick": function(data:object,dlg:object) // optional
-}</pre></div><div style="margin-left:8px;"><h4>• Buttons</h4>Example:<pre>{
-  "type": "buttons",
-  "name": "btns-1", // optional - not shown in response but allows addressing
-  "label": "Button Group:", // optional
-  "options": ["Foo", "Bar", "Baz"], // the actual buttons
-  "onClick": function(data:object,dlg:object) // optional
 }</pre></div><div style="margin-left:8px;"><h4>• Group</h4>Example:<pre>{
   "type": "group",
   "name": "lbl-1", // optional - not shown in response but allows addressing
@@ -308,7 +302,7 @@ const dialog = [
     },
     onChange: onChange, // callback for dialog control changes
     focused: "start",
-    hide: ["err", "x-second"]
+    hide: ["err"]
   },
   {
     type: "ok",

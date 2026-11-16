@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"errors"
 	"fmt"
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -16,7 +17,10 @@ import (
 
 const separatorOption = "--"
 
-func newShortcutPromptMenu(c *Core, rt *goja.Runtime, prompt string, selected int, callback func(goja.FunctionCall) goja.Value, options ...string) *shortcutPromptMenu {
+func newShortcutPromptMenu(c *Core, rt *goja.Runtime, prompt string, selected int, callback func(goja.FunctionCall) goja.Value, options ...string) (*shortcutPromptMenu, error) {
+	if c.javascriptPromptsActive() {
+		return nil, errors.New("prompt already active")
+	}
 	if len(prompt) == 0 {
 		prompt = "Prompt"
 	}
@@ -36,24 +40,24 @@ func newShortcutPromptMenu(c *Core, rt *goja.Runtime, prompt string, selected in
 	}
 	if len(actualOptions) == 0 {
 		// no items...
-		return nil
+		return nil, errors.New("no options in menu")
 	}
 	result := &shortcutPromptMenu{
-		core:         c,
-		reply:        make(chan int),
-		selected:     max(0, min(selected, len(actualOptions)-1)),
-		prompt:       prompt,
-		list:         widget.List{Axis: layout.Vertical},
-		options:      actualOptions,
-		optionClicks: make([]controls.Clickable, len(actualOptions)),
-		itemIndices:  indices,
-		length:       length,
-		rt:           rt,
-		callback:     callback,
+		core:             c,
+		reply:            make(chan int),
+		selected:         max(0, min(selected, len(actualOptions)-1)),
+		prompt:           prompt,
+		list:             widget.List{Axis: layout.Vertical},
+		options:          actualOptions,
+		optionClicks:     make([]controls.Clickable, len(actualOptions)),
+		itemIndices:      indices,
+		length:           length,
+		rt:               rt,
+		onChangeCallback: callback,
 	}
 	result.listStyle = material.List(theme, &result.list)
 	result.listStyle.AnchorStrategy = material.Overlay
-	return result
+	return result, nil
 }
 
 func cleanOptions(s []string) []string {
@@ -73,28 +77,35 @@ func cleanOptions(s []string) []string {
 }
 
 type shortcutPromptMenu struct {
-	core         *Core
-	reply        chan int
-	prompt       string
-	selected     int
-	list         widget.List
-	listStyle    material.ListStyle
-	options      []string
-	optionClicks []controls.Clickable
-	length       int
-	itemIndices  map[int]int
-	callback     func(goja.FunctionCall) goja.Value
-	rt           *goja.Runtime
+	core             *Core
+	reply            chan int
+	prompt           string
+	selected         int
+	list             widget.List
+	listStyle        material.ListStyle
+	options          []string
+	optionClicks     []controls.Clickable
+	length           int
+	itemIndices      map[int]int
+	onChangeCallback func(goja.FunctionCall) goja.Value
+	rt               *goja.Runtime
 }
 
-func (p *shortcutPromptMenu) wait() (int, bool) {
+func (p *shortcutPromptMenu) wait() int {
 	for {
 		select {
 		case reply, ok := <-p.reply:
 			p.core.shortcutPromptMenu = nil
-			return reply, ok
+			if ok {
+				return reply
+			}
+			return -1
 		}
 	}
+}
+
+func (p *shortcutPromptMenu) Escape() {
+	p.reply <- -1
 }
 
 func (p *shortcutPromptMenu) Layout(gtx layout.Context) layout.Dimensions {
@@ -114,6 +125,7 @@ func (p *shortcutPromptMenu) Layout(gtx layout.Context) layout.Dimensions {
 			wasSelected := p.selected
 			switch kev.Name {
 			case key.NameEnter, key.NameReturn, key.NameSpace:
+				p.changed()
 				p.reply <- p.selected
 			case key.NameUpArrow:
 				p.selected--
@@ -149,6 +161,8 @@ func (p *shortcutPromptMenu) Layout(gtx layout.Context) layout.Dimensions {
 			return dims
 		}
 		if p.optionClicks[idx].Clicked(gtx) {
+			p.selected = idx
+			p.changed()
 			p.reply <- idx
 		}
 		if idx == p.selected {
@@ -173,10 +187,55 @@ func (p *shortcutPromptMenu) changed() {
 			}
 		}
 	}()
-	if p.callback != nil {
-		p.callback(goja.FunctionCall{This: goja.Undefined(), Arguments: []goja.Value{
+	if p.onChangeCallback != nil {
+		wrapper := p.rt.ToValue(&PromptMenuWrapper{core: p.core, menu: p})
+		p.onChangeCallback(goja.FunctionCall{This: goja.Undefined(), Arguments: []goja.Value{
 			p.rt.ToValue(p.selected),
 			p.rt.ToValue(p.options[p.selected]),
+			wrapper,
 		}})
 	}
+}
+
+type PromptMenuWrapper struct {
+	core *Core
+	menu *shortcutPromptMenu
+}
+
+func (w *PromptMenuWrapper) Selected() int {
+	return w.menu.selected
+}
+
+func (w *PromptMenuWrapper) Select(i int) {
+	if i >= 0 && i < len(w.menu.options) {
+		w.menu.selected = i
+	}
+}
+
+func (w *PromptMenuWrapper) OnChange(args ...any) *PromptMenuWrapper {
+	if len(args) > 0 {
+		switch vt := args[0].(type) {
+		case nil:
+			w.menu.onChangeCallback = nil
+		case func(goja.FunctionCall) goja.Value:
+			w.menu.onChangeCallback = vt
+		}
+	}
+	return w
+}
+
+func (w *PromptMenuWrapper) Activate() any {
+	if !w.core.javascriptPromptsActive() {
+		if !core.shortcutRunning {
+			w.menu.rt.Interrupt(nil)
+			return nil
+		}
+		w.core.shortcutPromptMenu = w.menu
+		window.Invalidate()
+		reply := w.menu.wait()
+		return reply
+	} else if w.core.shortcutErrorLogger != nil {
+		core.shortcutErrorLogger.Error(errors.New("prompt already active"), nil, jsCallInfo(w.menu.rt, ".Activate()")...)
+	}
+	return nil
 }

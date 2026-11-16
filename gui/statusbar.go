@@ -16,6 +16,7 @@ import (
 	"image"
 	"image/color"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -52,14 +53,33 @@ func newStatusBar(c *Core) *statusBar {
 		layout.Rigid(newStatusBarButton(sb.skipBack, icons.SkipBackward).layout),
 	}
 	sb.buttonsExtra = []layout.FlexChild{
-		layout.Rigid(newStatusBarButton(sb.extendedA, icons.ButtonA).layout),
-		layout.Rigid(newStatusBarButton(sb.extendedB, icons.ButtonB).layout),
-		layout.Rigid(newStatusBarButton(sb.extendedC, icons.ButtonC).layout),
-		layout.Rigid(newStatusBarButton(sb.extendedD, icons.ButtonD).layout),
-		layout.Rigid(newStatusBarButton(sb.extendedE, icons.ButtonE).layout),
-		layout.Rigid(newStatusBarButton(sb.extendedF, icons.ButtonF).layout),
-		layout.Rigid(newStatusBarButton(sb.extendedPlus, icons.Plus).layout),
-		layout.Rigid(newStatusBarButton(sb.extendedMinus, icons.Minus).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("A") }, icons.ButtonA).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("B") }, icons.ButtonB).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("C") }, icons.ButtonC).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("D") }, icons.ButtonD).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("E") }, icons.ButtonE).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("F") }, icons.ButtonF).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("G") }, icons.ButtonG).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("H") }, icons.ButtonH).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("I") }, icons.ButtonI).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("J") }, icons.ButtonJ).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("K") }, icons.ButtonK).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("L") }, icons.ButtonL).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("M") }, icons.ButtonM).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("N") }, icons.ButtonN).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("O") }, icons.ButtonO).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("P") }, icons.ButtonP).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("R") }, icons.ButtonR).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("S") }, icons.ButtonS).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("T") }, icons.ButtonT).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("U") }, icons.ButtonU).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("V") }, icons.ButtonV).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("W") }, icons.ButtonW).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("X") }, icons.ButtonX).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Y") }, icons.ButtonY).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Z") }, icons.ButtonZ).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("+") }, icons.Plus).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("-") }, icons.Minus).layout),
 	}
 	sb.rulesPopup = newRulesPopup(sb)
 	sb.menuPopup = newMenuPopup(sb)
@@ -67,7 +87,7 @@ func newStatusBar(c *Core) *statusBar {
 }
 
 func isValidButton(btn string) bool {
-	return btn == "A" || btn == "B" || btn == "C" || btn == "D" || btn == "E" || btn == "F" || btn == "+" || btn == "-"
+	return len(btn) == 1 && strings.Contains("ABCDEFGHIJKLMNOPRSTUVWXYZ+-", "B")
 }
 
 type popup int
@@ -157,66 +177,10 @@ func (sb *statusBar) menu() {
 	sb.showHidePopup(popupMenu)
 }
 
-func (sb *statusBar) extendedA() {
+func (sb *statusBar) extended(btn string) {
 	sb.core.stopShortcuts()
 	sb.showingPopup = popupNone
-	if scn, ok := sb.core.settings.ExtraButtons["A"]; ok {
-		sb.core.runShortcut(scn)
-	}
-}
-
-func (sb *statusBar) extendedB() {
-	sb.core.stopShortcuts()
-	sb.showingPopup = popupNone
-	if scn, ok := sb.core.settings.ExtraButtons["B"]; ok {
-		sb.core.runShortcut(scn)
-	}
-}
-
-func (sb *statusBar) extendedC() {
-	sb.core.stopShortcuts()
-	sb.showingPopup = popupNone
-	if scn, ok := sb.core.settings.ExtraButtons["C"]; ok {
-		sb.core.runShortcut(scn)
-	}
-}
-
-func (sb *statusBar) extendedD() {
-	sb.core.stopShortcuts()
-	sb.showingPopup = popupNone
-	if scn, ok := sb.core.settings.ExtraButtons["D"]; ok {
-		sb.core.runShortcut(scn)
-	}
-}
-
-func (sb *statusBar) extendedE() {
-	sb.core.stopShortcuts()
-	sb.showingPopup = popupNone
-	if scn, ok := sb.core.settings.ExtraButtons["E"]; ok {
-		sb.core.runShortcut(scn)
-	}
-}
-
-func (sb *statusBar) extendedF() {
-	sb.core.stopShortcuts()
-	sb.showingPopup = popupNone
-	if scn, ok := sb.core.settings.ExtraButtons["F"]; ok {
-		sb.core.runShortcut(scn)
-	}
-}
-
-func (sb *statusBar) extendedPlus() {
-	sb.core.stopShortcuts()
-	sb.showingPopup = popupNone
-	if scn, ok := sb.core.settings.ExtraButtons["+"]; ok {
-		sb.core.runShortcut(scn)
-	}
-}
-
-func (sb *statusBar) extendedMinus() {
-	sb.core.stopShortcuts()
-	sb.showingPopup = popupNone
-	if scn, ok := sb.core.settings.ExtraButtons["-"]; ok {
+	if scn, ok := sb.core.settings.ExtraButtons[btn]; ok {
 		sb.core.runShortcut(scn)
 	}
 }
@@ -494,17 +458,19 @@ func (sb *statusBar) middleArea(gtx layout.Context) layout.FlexChild {
 	}
 }
 
+var extraButtonIndices = map[int]string{
+	0: "A", 1: "B", 2: "C", 3: "D", 4: "E", 5: "F",
+	6: "G", 7: "H", 8: "I", 9: "J", 10: "K", 11: "L",
+	12: "M", 13: "N", 14: "O", 15: "P", 16: "R", 17: "S",
+	18: "T", 19: "U", 20: "V", 21: "W", 22: "X", 23: "Y", 24: "Z",
+	25: "+", 26: "-",
+}
+
 func (sb *statusBar) rightArea() layout.FlexChild {
 	buttons := make([]layout.FlexChild, 0, 14)
 	if sb.core.mode == noMode && !sb.core.isShortcutsInteractive() {
 		for i, f := range sb.buttonsExtra {
-			btn := string(rune('A' + i))
-			if btn == "G" {
-				btn = "+"
-			}
-			if btn == "H" {
-				btn = "-"
-			}
+			btn := extraButtonIndices[i]
 			if scn, ok := sb.core.settings.ExtraButtons[btn]; ok {
 				if _, ok = sb.core.settings.Shortcuts[scn]; ok {
 					buttons = append(buttons, f)

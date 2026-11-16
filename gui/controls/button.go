@@ -57,3 +57,12 @@ func (b *Button) BackgroundColor(c color.NRGBA) *Button {
 	b.style.Background = c
 	return b
 }
+
+func (b *Button) GetLabel() string {
+	return b.style.Text
+}
+
+func (b *Button) Label(label string) *Button {
+	b.style.Text = label
+	return b
+}

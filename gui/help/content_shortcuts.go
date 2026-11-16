@@ -1000,17 +1000,6 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 }`},
 	}},
 	indent{indent: 8, content: content{
-		h4("• Buttons"),
-		"Example:",
-		codeBlock{code: `{
-	"type": "buttons",
-	"name": "btns-1", // optional - not shown in response but allows addressing
-	"label": "Button Group:", // optional
-	"options": ["Foo", "Bar", "Baz"], // the actual buttons
-	"onClick": function(data:object,dlg:object) // optional
-}`},
-	}},
-	indent{indent: 8, content: content{
 		h4("• Group"),
 		"Example:",
 		codeBlock{code: `{
@@ -1222,7 +1211,7 @@ const dialog = [
 		},
 		onChange: onChange, // callback for dialog control changes
 		focused: "start",
-		hide: ["err", "x-second"]
+		hide: ["err"]
 	},
 	{
 		type: "ok",
