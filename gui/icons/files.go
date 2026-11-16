@@ -13,24 +13,6 @@ var backward []byte
 //go:embed burger.png
 var burger []byte
 
-//go:embed button-a.png
-var buttonA []byte
-
-//go:embed button-b.png
-var buttonB []byte
-
-//go:embed button-c.png
-var buttonC []byte
-
-//go:embed button-d.png
-var buttonD []byte
-
-//go:embed button-e.png
-var buttonE []byte
-
-//go:embed button-f.png
-var buttonF []byte
-
 //go:embed close.png
 var closeIcon []byte
 
@@ -91,6 +73,81 @@ var fileJSON []byte
 //go:embed fileTXT.png
 var fileTXT []byte
 
+//go:embed button-a.png
+var buttonA []byte
+
+//go:embed button-b.png
+var buttonB []byte
+
+//go:embed button-c.png
+var buttonC []byte
+
+//go:embed button-d.png
+var buttonD []byte
+
+//go:embed button-e.png
+var buttonE []byte
+
+//go:embed button-f.png
+var buttonF []byte
+
+//go:embed button-g.png
+var buttonG []byte
+
+//go:embed button-h.png
+var buttonH []byte
+
+//go:embed button-i.png
+var buttonI []byte
+
+//go:embed button-j.png
+var buttonJ []byte
+
+//go:embed button-k.png
+var buttonK []byte
+
+//go:embed button-l.png
+var buttonL []byte
+
+//go:embed button-m.png
+var buttonM []byte
+
+//go:embed button-n.png
+var buttonN []byte
+
+//go:embed button-o.png
+var buttonO []byte
+
+//go:embed button-p.png
+var buttonP []byte
+
+//go:embed button-r.png
+var buttonR []byte
+
+//go:embed button-s.png
+var buttonS []byte
+
+//go:embed button-t.png
+var buttonT []byte
+
+//go:embed button-u.png
+var buttonU []byte
+
+//go:embed button-v.png
+var buttonV []byte
+
+//go:embed button-w.png
+var buttonW []byte
+
+//go:embed button-x.png
+var buttonX []byte
+
+//go:embed button-y.png
+var buttonY []byte
+
+//go:embed button-z.png
+var buttonZ []byte
+
 var (
 	Backward     = mustImage(backward)
 	Burger       = mustImage(burger)
@@ -100,6 +157,25 @@ var (
 	ButtonD      = mustImage(buttonD)
 	ButtonE      = mustImage(buttonE)
 	ButtonF      = mustImage(buttonF)
+	ButtonG      = mustImage(buttonG)
+	ButtonH      = mustImage(buttonH)
+	ButtonI      = mustImage(buttonI)
+	ButtonJ      = mustImage(buttonJ)
+	ButtonK      = mustImage(buttonK)
+	ButtonL      = mustImage(buttonL)
+	ButtonM      = mustImage(buttonM)
+	ButtonN      = mustImage(buttonN)
+	ButtonO      = mustImage(buttonO)
+	ButtonP      = mustImage(buttonP)
+	ButtonR      = mustImage(buttonR)
+	ButtonS      = mustImage(buttonS)
+	ButtonT      = mustImage(buttonT)
+	ButtonU      = mustImage(buttonU)
+	ButtonV      = mustImage(buttonV)
+	ButtonW      = mustImage(buttonW)
+	ButtonX      = mustImage(buttonX)
+	ButtonY      = mustImage(buttonY)
+	ButtonZ      = mustImage(buttonZ)
 	Close        = mustImage(closeIcon)
 	Copy         = mustImage(copyIcon)
 	Pause        = mustImage(pause)

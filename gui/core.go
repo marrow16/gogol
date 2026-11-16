@@ -251,9 +251,18 @@ func (c *Core) handleKeys(gtx layout.Context) {
 				}
 				switch evt.Name {
 				case key.NameEscape:
-					c.statusBar.showHidePopup(popupNone)
-					c.stopShortcuts()
-					c.clearMode()
+					switch {
+					case c.shortcutRunning && c.shortcutPromptMenu != nil:
+						c.shortcutPromptMenu.Escape()
+					case c.shortcutRunning && c.shortcutPromptDialog != nil:
+						c.shortcutPromptDialog.Escape()
+					case c.shortcutRunning && c.shortcutPrompt != nil:
+						c.shortcutPrompt.Escape()
+					default:
+						c.statusBar.showHidePopup(popupNone)
+						c.stopShortcuts()
+						c.clearMode()
+					}
 				case "0", "1", "2", "3", "4", "5", "6", "7", "8":
 					if evt.Modifiers == key.ModCtrl {
 						c.bornChange(string(evt.Name))

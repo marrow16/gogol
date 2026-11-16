@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"errors"
 	"fmt"
 	"gioui.org/font"
 	"gioui.org/io/key"
@@ -23,7 +24,10 @@ import (
 	"sync"
 )
 
-func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any) *shortcutPromptDialog {
+func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any) (*shortcutPromptDialog, error) {
+	if c.javascriptPromptsActive() {
+		return nil, errors.New("prompt already active")
+	}
 	if len(prompt) == 0 {
 		prompt = "Prompt"
 	}
@@ -102,7 +106,7 @@ func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any
 		}
 	}
 	if ctrls == 0 {
-		return nil
+		return nil, errors.New("no valid control in dialog")
 	}
 	result.btnOk = controls.NewButton(theme, okLabel)
 	result.btnCancel = controls.NewButton(theme, cancelLabel)
@@ -114,7 +118,7 @@ func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any
 		}
 		result.jsCall(initFunc, response)
 	}
-	return result
+	return result, nil
 }
 
 type shortcutPromptDialog struct {
@@ -143,14 +147,21 @@ func (p *shortcutPromptDialog) copySetValues() map[string]any {
 	return result
 }
 
-func (p *shortcutPromptDialog) wait() (map[string]any, bool) {
+func (p *shortcutPromptDialog) wait() map[string]any {
 	for {
 		select {
 		case reply, ok := <-p.reply:
 			p.core.shortcutPromptDialog = nil
-			return reply, ok
+			if ok {
+				return reply
+			}
+			return nil
 		}
 	}
+}
+
+func (p *shortcutPromptDialog) Escape() {
+	p.reply <- nil
 }
 
 func (p *shortcutPromptDialog) Layout(gtx layout.Context) layout.Dimensions {
@@ -172,7 +183,8 @@ func (p *shortcutPromptDialog) Layout(gtx layout.Context) layout.Dimensions {
 }
 
 type PromptDialogWrapper struct {
-	dlg *shortcutPromptDialog
+	core *Core
+	dlg  *shortcutPromptDialog
 }
 
 func (w *PromptDialogWrapper) Show(names ...string) {
@@ -220,8 +232,31 @@ func (w *PromptDialogWrapper) Get(name string) any {
 
 func (w *PromptDialogWrapper) Set(name string, value any) {
 	set := false
-	for _, i := range w.dlg.items {
-		set = set || i.set(name, value)
+	switch name {
+	case "ok":
+		switch vt := value.(type) {
+		case nil:
+			w.dlg.btnOk.Label("Ok")
+		case string:
+			w.dlg.btnOk.Label(vt)
+		default:
+			w.dlg.btnOk.Label(fmt.Sprintf("%v", value))
+		}
+		set = true
+	case "cancel":
+		switch vt := value.(type) {
+		case nil:
+			w.dlg.btnCancel.Label("Cancel")
+		case string:
+			w.dlg.btnCancel.Label(vt)
+		default:
+			w.dlg.btnCancel.Label(fmt.Sprintf("%v", value))
+		}
+		set = true
+	default:
+		for _, i := range w.dlg.items {
+			set = set || i.set(name, value)
+		}
 	}
 	if !set {
 		// not a known control - just set as named value
@@ -266,6 +301,41 @@ func (w *PromptDialogWrapper) Cancel() {
 	w.dlg.reply <- nil
 }
 
+func (w *PromptDialogWrapper) OnChange(args ...any) *PromptDialogWrapper {
+	if len(args) > 0 {
+		switch vt := args[0].(type) {
+		case nil:
+			w.dlg.onChangeCallback = nil
+		case func(goja.FunctionCall) goja.Value:
+			w.dlg.onChangeCallback = vt
+		}
+	}
+	return w
+}
+
+func (w *PromptDialogWrapper) Activate() any {
+	if !w.core.javascriptPromptsActive() {
+		if !core.shortcutRunning {
+			w.dlg.rt.Interrupt(nil)
+			return nil
+		}
+		w.core.shortcutPromptDialog = w.dlg
+		window.Invalidate()
+		reply := w.dlg.wait()
+		return reply
+	} else if w.core.shortcutErrorLogger != nil {
+		core.shortcutErrorLogger.Error(errors.New("prompt already active"), nil, jsCallInfo(w.dlg.rt, ".Activate()")...)
+	}
+	return nil
+}
+
+func (p *shortcutPromptDialog) changed(name string, value any) {
+	if p.onChangeCallback != nil && name != "" {
+		p.jsCall(p.onChangeCallback, map[string]any{"value": value, "name": name})
+		window.Invalidate()
+	}
+}
+
 func (p *shortcutPromptDialog) jsCall(fn func(goja.FunctionCall) goja.Value, response map[string]any) bool {
 	defer func() {
 		if r := recover(); r != nil {
@@ -274,7 +344,8 @@ func (p *shortcutPromptDialog) jsCall(fn func(goja.FunctionCall) goja.Value, res
 			}
 		}
 	}()
-	val := fn(goja.FunctionCall{This: goja.Undefined(), Arguments: []goja.Value{p.rt.ToValue(response), p.rt.ToValue(&PromptDialogWrapper{dlg: p})}})
+	wrapper := p.rt.ToValue(&PromptDialogWrapper{core: p.core, dlg: p})
+	val := fn(goja.FunctionCall{This: goja.Undefined(), Arguments: []goja.Value{p.rt.ToValue(response), wrapper}})
 	return val.ToBoolean()
 }
 
@@ -318,8 +389,23 @@ func (p *shortcutPromptDialog) layoutDialog(gtx layout.Context) layout.Dimension
 			}))
 		}
 	}
-	rows = append(rows, rigid(inset(8, 0, 0, 0, flexHorizontal(10, rigid(p.btnOk.Layout), rigid(p.btnCancel.Layout)))))
+	hideOk, hideCancel := p.isButtonsHidden()
+	switch {
+	case !hideOk && !hideCancel:
+		rows = append(rows, rigid(inset(8, 0, 0, 0, flexHorizontal(10, rigid(p.btnOk.Layout), rigid(p.btnCancel.Layout)))))
+	case !hideOk:
+		rows = append(rows, rigid(inset(8, 0, 0, 0, p.btnOk.Layout)))
+	case !hideCancel:
+		rows = append(rows, rigid(inset(8, 0, 0, 0, p.btnCancel.Layout)))
+	}
 	return flexVertical(10, rows...)(gtx)
+}
+
+func (p *shortcutPromptDialog) isButtonsHidden() (hideOk, hideCancel bool) {
+	p.mutex.RLock()
+	hideOk, hideCancel = p.hidden["ok"], p.hidden["cancel"]
+	p.mutex.RUnlock()
+	return hideOk, hideCancel
 }
 
 func (p *shortcutPromptDialog) isHidden(item dialogItem) bool {
@@ -340,10 +426,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 	case "str", "string":
 		maxLen := max(item.integer("maxLen", 10), 0)
 		input := controls.NewInput(theme, item.string("filter"), maxLen, func(s string) {
-			if parent.onChangeCallback != nil && name != "" {
-				parent.jsCall(parent.onChangeCallback, map[string]any{"value": s, "name": name})
-			}
-			window.Invalidate()
+			parent.changed(name, s)
 		}).MaximumWidth(max(item.integer("maxWidth", 0), 0))
 		input.SetText(item.string("initial"))
 		result = &dialogItemString{
@@ -356,10 +439,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 	case "int", "integer":
 		maxLen := max(item.integer("maxLen", 10), 0)
 		input := controls.NewNumberInput[int](theme, maxLen, item.integer("min", 0), item.integer("max", 0), 0, func(i int) {
-			if parent.onChangeCallback != nil && name != "" {
-				parent.jsCall(parent.onChangeCallback, map[string]any{"value": i, "name": name})
-			}
-			window.Invalidate()
+			parent.changed(name, i)
 		}).WithSpinner(item.bool("spinner", false))
 		input.SetValue(item.integer("initial", 0))
 		result = &dialogItemInt{
@@ -431,10 +511,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 				list: controls.NewList[string](theme, options, true).RowRenderer(func(gtx layout.Context, index int, item string) layout.Dimensions {
 					return inset(0, 0, 4, 4, label(item))(gtx)
 				}).OnItemSelect(func(item string, _ bool) {
-					if parent.onChangeCallback != nil && name != "" {
-						parent.jsCall(parent.onChangeCallback, map[string]any{"value": item, "name": name})
-						window.Invalidate()
-					}
+					parent.changed(name, item)
 				}),
 				maxLen:   item.integer("maxLen", 0),
 				maxWidth: item.integer("maxWidth", 0),
@@ -443,10 +520,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 	case "dropdown":
 		if options, ok := item.arrayString("options"); ok {
 			chooser := controls.NewChooser[string](theme, max(item.integer("maxWidth", 10), 10), options, func(s *string) {
-				if parent.onChangeCallback != nil && name != "" {
-					parent.jsCall(parent.onChangeCallback, map[string]any{"value": *s, "name": name})
-				}
-				window.Invalidate()
+				parent.changed(name, *s)
 			}, nil).MaxRows(item.integer("maxLen", 10)).Direction(!item.bool("down", false))
 			chooser.SetText(item.string("initial"))
 			result = &dialogItemDropdown{
@@ -462,11 +536,8 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			whenFn: item.whenFunc(parent.core, rt),
 			name:   name,
 			label:  lbl,
-			input: controls.NewEditor(theme, func(text string, gtx layout.Context) {
-				if parent.onChangeCallback != nil && name != "" {
-					parent.jsCall(parent.onChangeCallback, map[string]any{"value": text, "name": name})
-				}
-				gtx.Execute(op.InvalidateCmd{})
+			input: controls.NewEditor(theme, func(text string, _ layout.Context) {
+				parent.changed(name, text)
 			}),
 			maxLines: item.integer("maxLines", 0),
 			maxWidth: item.integer("maxWidth", 0),
@@ -494,35 +565,9 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			r.button = controls.NewButton(theme, bLabel)
 		}
 		result = r
-	case "buttons":
-		addLabel = false
-		if options, ok := item.arrayString("options"); ok {
-			r := &dialogItemButtons{
-				whenFn: item.whenFunc(parent.core, rt),
-				rt:     rt,
-				name:   name,
-				label:  lbl,
-				gap:    item.integer("gap", 10),
-			}
-			flat := item.bool("flat", false)
-			for _, o := range options {
-				if len(o) > 0 {
-					if flat {
-						r.flatButtons = append(r.flatButtons, controls.NewFlatButton(theme, o).Inset(layout.Inset{Top: 2, Bottom: 3, Left: 4, Right: 4}))
-					} else {
-						r.buttons = append(r.buttons, controls.NewButton(theme, o))
-					}
-				}
-			}
-			r.onClick, _ = item.jsFunc("onClick")
-			result = r
-		}
 	case "file":
 		input := controls.NewInput(theme, nil, 0, func(s string) {
-			if parent.onChangeCallback != nil && name != "" {
-				parent.jsCall(parent.onChangeCallback, map[string]any{"value": s, "name": name})
-			}
-			window.Invalidate()
+			parent.changed(name, s)
 		})
 		allowExts := make([]string, 0)
 		if rv, ok := item["extensions"]; ok {
@@ -1490,12 +1535,41 @@ func (i *dialogItemButton) getName() (string, bool) {
 	return i.name, true
 }
 
-func (i *dialogItemButton) get(_ string) (any, bool) {
-	return nil, i.name == i.name
+func (i *dialogItemButton) get(name string) (any, bool) {
+	if name == i.name {
+		if i.button != nil {
+			return i.button.GetLabel(), true
+		}
+		if i.flatButton != nil {
+			return i.flatButton.GetLabel(), true
+		}
+	}
+	return nil, false
 }
 
-func (i *dialogItemButton) set(name string, _ any) bool {
-	return i.name == i.name
+func (i *dialogItemButton) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case nil:
+			// do nothing
+		case string:
+			if i.button != nil {
+				i.button.Label(vt)
+			}
+			if i.flatButton != nil {
+				i.flatButton.Label(vt)
+			}
+		default:
+			if i.button != nil {
+				i.button.Label(fmt.Sprintf("%v", value))
+			}
+			if i.flatButton != nil {
+				i.flatButton.Label(fmt.Sprintf("%v", value))
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func (i *dialogItemButton) response(_ map[string]any) {
@@ -1517,91 +1591,6 @@ func (i *dialogItemButton) layout(gtx layout.Context, dlg *shortcutPromptDialog,
 		}
 	}
 	return flexHorizontal(0, rigid(i.flatButton.Layout))(gtx)
-}
-
-type dialogItemButtons struct {
-	dialogItemCommon
-	rt          *goja.Runtime
-	name        string
-	label       string
-	onClick     func(goja.FunctionCall) goja.Value
-	buttons     []*controls.Button
-	flatButtons []*controls.FlatButton
-	gap         int
-}
-
-func (i *dialogItemButtons) setFocused(gtx layout.Context, name string) bool {
-	if name == i.name {
-		if len(i.buttons) > 0 {
-			i.buttons[0].SetFocused(gtx)
-		}
-		if len(i.flatButtons) > 0 {
-			i.flatButtons[0].SetFocused(gtx)
-		}
-		return true
-	}
-	return false
-}
-
-func (i *dialogItemButtons) getName() (string, bool) {
-	return i.name, true
-}
-
-func (i *dialogItemButtons) get(name string) (any, bool) {
-	return nil, name == i.name
-}
-
-func (i *dialogItemButtons) set(name string, value any) bool {
-	return name == i.name
-}
-
-func (i *dialogItemButtons) response(_ map[string]any) {
-	// nothing to set
-}
-
-func (i *dialogItemButtons) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
-	cols := make([]layout.FlexChild, 0)
-	for n, b := range i.buttons {
-		cols = append(cols, rigid(b.Layout))
-		if b.Clicked(gtx) && i.onClick != nil {
-			if len(i.name) > 0 {
-				response[i.name] = n
-			} else {
-				response["button"] = n
-			}
-			if dlg.jsCall(i.onClick, response) {
-				if len(i.name) > 0 {
-					dlg.submit(response, i.name+":"+strconv.Itoa(n))
-				} else {
-					dlg.submit(response, strconv.Itoa(n))
-				}
-			}
-		}
-	}
-	for n, b := range i.flatButtons {
-		cols = append(cols, rigid(b.Layout))
-		if b.Clicked(gtx) && i.onClick != nil {
-			if len(i.name) > 0 {
-				response[i.name] = n
-			} else {
-				response["button"] = n
-			}
-			if dlg.jsCall(i.onClick, response) {
-				if len(i.name) > 0 {
-					dlg.submit(response, i.name+":"+strconv.Itoa(n))
-				} else {
-					dlg.submit(response, strconv.Itoa(n))
-				}
-			}
-		}
-	}
-	if len(i.label) > 0 {
-		return flexHorizontal(10,
-			rigidLabel(i.label, text.End, font.Bold, labelWidth),
-			rigid(flexHorizontal(i.gap, cols...)),
-		)(gtx)
-	}
-	return flexHorizontal(i.gap, cols...)(gtx)
 }
 
 type dialogItemGroup struct {

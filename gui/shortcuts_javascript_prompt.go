@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"errors"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/widget"
@@ -8,7 +9,10 @@ import (
 	"strings"
 )
 
-func newShortcutPrompt(c *Core, prompt string, replies ...string) *shortcutPrompt {
+func newShortcutPrompt(c *Core, prompt string, replies ...string) (*shortcutPrompt, error) {
+	if c.javascriptPromptsActive() {
+		return nil, errors.New("prompt already active")
+	}
 	if len(prompt) == 0 {
 		prompt = "Prompt"
 	}
@@ -30,7 +34,7 @@ func newShortcutPrompt(c *Core, prompt string, replies ...string) *shortcutPromp
 		},
 	}
 	result.style = material.Editor(theme, &result.input, "")
-	return result
+	return result, nil
 }
 
 type shortcutPrompt struct {
@@ -42,29 +46,23 @@ type shortcutPrompt struct {
 	style   material.EditorStyle
 }
 
-func (p *shortcutPrompt) wait() (string, bool) {
+func (p *shortcutPrompt) wait() string {
 	for {
 		select {
-		case reply, ok := <-p.reply:
+		case reply, _ := <-p.reply:
 			p.core.shortcutPrompt = nil
-			return reply, ok
+			return reply
 		}
 	}
+}
+
+func (p *shortcutPrompt) Escape() {
+	p.reply <- ""
 }
 
 func (p *shortcutPrompt) Layout(gtx layout.Context) layout.Dimensions {
 	if !gtx.Focused(&p.input) {
 		gtx.Execute(key.FocusCmd{Tag: &p.input})
-	}
-	for {
-		ev, ok := gtx.Event(key.Filter{Focus: &p.input, Name: key.NameEscape})
-		if !ok {
-			break
-		}
-		if kev, ok := ev.(*key.Event); ok && kev.State == key.Press && kev.Name == key.NameEscape {
-			p.core.shortcutRunning = false
-			close(p.reply)
-		}
 	}
 	for {
 		ev, ok := p.input.Update(gtx)

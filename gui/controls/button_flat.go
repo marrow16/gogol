@@ -152,6 +152,10 @@ func (b *FlatButton) HandleKeys(gtx layout.Context, fn func(k key.Name), keyName
 	}
 }
 
+func (b *FlatButton) GetLabel() string {
+	return b.style.Text
+}
+
 func (b *FlatButton) Label(label string) *FlatButton {
 	b.style.Text = label
 	return b
