@@ -127,6 +127,9 @@ func (i *Chooser[T]) Width() int {
 
 func (i *Chooser[T]) Layout(gtx layout.Context) layout.Dimensions {
 	i.update(gtx)
+	if i.opened && !(gtx.Focused(&i.editor) || gtx.Focused(&i.button)) {
+		i.opened = false
+	}
 	bc, bt := Style.bordering(i.IsFocused(gtx))
 	i.dims = widget.Border{Color: bc, CornerRadius: 3, Width: bt}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		bw := 0

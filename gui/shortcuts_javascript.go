@@ -15,6 +15,7 @@ import (
 	"github.com/marrow16/gogol/recipes"
 	"image/color"
 	"io/fs"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -46,7 +47,7 @@ func (c *Core) shortcutJavascript(ah shortcuts.ActionHolder) {
 			}
 			registry := require.NewRegistry(require.WithLoader(requireLoader))
 			registry.Enable(rt)
-			_, err = rt.RunString(string(src))
+			err = runJavascript(rt, string(src))
 			c.shortcutPrompt = nil
 			c.shortcutPromptMenu = nil
 			c.shortcutPromptDialog = nil
@@ -64,6 +65,16 @@ func (c *Core) shortcutJavascript(ah shortcuts.ActionHolder) {
 			c.shortcutErrorLogger.Warn("javascript interrupted", &ah)
 		}
 	}
+}
+
+func runJavascript(rt *goja.Runtime, src string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v", r)
+		}
+	}()
+	_, err = rt.RunString(src)
+	return err
 }
 
 func (c *Core) createJavascriptRuntime(ah shortcuts.ActionHolder) *goja.Runtime {
@@ -1221,8 +1232,26 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value, bool) (any
 					result = core.settings.ExtraButtons[btn]
 				}
 			}
+		} else {
+			result = maps.Clone(c.settings.ExtraButtons)
 		}
 		return result, nil
+	},
+	"shortcuts": func(c *Core, ri *goja.Runtime, args []goja.Value, _ bool) (result any, err error) {
+		if len(args) > 0 {
+			name := args[0].ToString().String()
+			if sc, ok := core.settings.Shortcuts[name]; ok {
+				result = sc
+			}
+		} else {
+			list := make([]string, 0, len(core.settings.Shortcuts))
+			for k := range core.settings.Shortcuts {
+				list = append(list, k)
+			}
+			slices.Sort(list)
+			result = list
+		}
+		return result, err
 	},
 	// console...
 	"console.log": func(c *Core, _ *goja.Runtime, args []goja.Value, _ bool) (any, error) {

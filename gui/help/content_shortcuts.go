@@ -987,7 +987,18 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"italic": true, // optional - defaults to false
 	"bold": true, // optional - defaults to false
 	"color": "#ff0000", // optional
+	"border": true, // optional - defaults to false
 	"indent": true // optional - aligns with other controls (defaults to false)
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Link"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "link",
+	"name": "lnk-1", // optional - not shown in response but allows addressing
+	"label": "My Link",
+	"url": "https://github.com"
 }`},
 	}},
 	indent{indent: 8, content: content{
@@ -1009,6 +1020,8 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 	"horizontal": false, // optional - defaults to false
 	"gap": 8, // optional - the gap between items (defaults to 10)
 	"border": true, // optional - display border (defaults to false)
+	"minWidth": 0, // optional - minimum width (ems)
+	"maxWidth": 0, // optional - maximum width (ems)
 	"padding": 8, // optional - defaults to 0
 	"items": [...] // array of dialog items
 }`},
@@ -1029,6 +1042,15 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 		},
 		...
 	]
+}`},
+	}},
+	indent{indent: 8, content: content{
+		h4("• Separator"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "separator",
+	"name": "sep-1", // optional - not shown in response but allows addressing
+	"width": 10 // optional - width (ems) defaults to 16
 }`},
 	}},
 	indent{indent: 8, content: content{

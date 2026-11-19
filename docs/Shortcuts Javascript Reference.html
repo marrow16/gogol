@@ -146,7 +146,13 @@ Shortcuts can execute javascript using the following <span class="link">action</
   "italic": true, // optional - defaults to false
   "bold": true, // optional - defaults to false
   "color": "#ff0000", // optional
+  "border": true, // optional - defaults to false
   "indent": true // optional - aligns with other controls (defaults to false)
+}</pre></div><div style="margin-left:8px;"><h4>• Link</h4>Example:<pre>{
+  "type": "link",
+  "name": "lnk-1", // optional - not shown in response but allows addressing
+  "label": "My Link",
+  "url": "https://github.com"
 }</pre></div><div style="margin-left:8px;"><h4>• Button</h4>Example:<pre>{
   "type": "button",
   "label": "My Button",
@@ -158,6 +164,8 @@ Shortcuts can execute javascript using the following <span class="link">action</
   "horizontal": false, // optional - defaults to false
   "gap": 8, // optional - the gap between items (defaults to 10)
   "border": true, // optional - display border (defaults to false)
+  "minWidth": 0, // optional - minimum width (ems)
+  "maxWidth": 0, // optional - maximum width (ems)
   "padding": 8, // optional - defaults to 0
   "items": [...] // array of dialog items
 }</pre></div><div style="margin-left:8px;"><h4>• Tabs</h4>Example:<pre>{
@@ -173,6 +181,10 @@ Shortcuts can execute javascript using the following <span class="link">action</
     },
     ...
   ]
+}</pre></div><div style="margin-left:8px;"><h4>• Separator</h4>Example:<pre>{
+  "type": "separator",
+  "name": "sep-1", // optional - not shown in response but allows addressing
+  "width": 10 // optional - width (ems) defaults to 16
 }</pre></div><div style="margin-left:8px;"><h4>• Slider</h4>Example:<pre>{
   "type": "slider",
   "label": "Slider:", // optional
