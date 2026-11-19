@@ -48,7 +48,7 @@ func newShortcutPromptDialog(c *Core, rt *goja.Runtime, prompt string, def []any
 	for _, i := range def {
 		switch it := i.(type) {
 		case string:
-			result.items = append(result.items, dialogItemLabel(it))
+			result.items = append(result.items, dialogItemHeader(it))
 		case map[string]any:
 			itm := jsItemDecoder(it)
 			if typeStr, ok := itm.isString("type"); ok {
@@ -451,7 +451,7 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		}
 	case "label":
 		addLabel = false
-		result = &dialogItemLabelLine{
+		result = &dialogItemLabel{
 			name:   name,
 			whenFn: item.whenFunc(parent.core, rt),
 			label:  lbl,
@@ -460,6 +460,26 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 			italic: item.bool("italic", false),
 			color:  item.color("color"),
 			indent: item.bool("indent", false),
+			border: item.bool("border", false),
+		}
+	case "link":
+		addLabel = false
+		url := item.string("url")
+		if url == "" {
+			url = lbl
+		}
+		result = &dialogItemLink{
+			name:   name,
+			whenFn: item.whenFunc(parent.core, rt),
+			label:  lbl,
+			url:    url,
+		}
+	case "separator":
+		addLabel = false
+		result = &dialogItemSeparator{
+			name:   name,
+			whenFn: item.whenFunc(parent.core, rt),
+			width:  max(item.integer("width", 16), 4),
 		}
 	case "radio":
 		if options, ok := item.arrayString("options"); ok {
@@ -519,8 +539,12 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 		}
 	case "dropdown":
 		if options, ok := item.arrayString("options"); ok {
-			chooser := controls.NewChooser[string](theme, max(item.integer("maxWidth", 10), 10), options, func(s *string) {
-				parent.changed(name, *s)
+			chooser := controls.NewChooser[string](theme, max(item.integer("maxWidth", 10), 1), options, func(s *string) {
+				if s != nil {
+					parent.changed(name, *s)
+				} else {
+					parent.changed(name, nil)
+				}
 			}, nil).MaxRows(item.integer("maxLen", 10)).Direction(!item.bool("down", false))
 			chooser.SetText(item.string("initial"))
 			result = &dialogItemDropdown{
@@ -709,6 +733,8 @@ func buildPromptDialogRow(parent *shortcutPromptDialog, rt *goja.Runtime, t stri
 					gap:        unit.Dp(item.integer("gap", 10)),
 					border:     item.bool("border", false),
 					padding:    unit.Dp(item.integer("padding", 0)),
+					minWidth:   item.integer("minWidth", 0),
+					maxWidth:   item.integer("maxWidth", 0),
 				}
 			}
 		}
@@ -772,41 +798,41 @@ type dialogItem interface {
 	layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions
 }
 
-type dialogItemLabel string
+type dialogItemHeader string
 
-func (i dialogItemLabel) setFocused(gtx layout.Context, name string) bool {
+func (i dialogItemHeader) setFocused(_ layout.Context, _ string) bool {
 	return false
 }
 
-func (i dialogItemLabel) getName() (string, bool) {
+func (i dialogItemHeader) getName() (string, bool) {
 	return "", false
 }
 
-func (i dialogItemLabel) set(_ string, _ any) bool {
+func (i dialogItemHeader) set(_ string, _ any) bool {
 	// do nothing
 	return false
 }
 
-func (i dialogItemLabel) get(_ string) (any, bool) {
+func (i dialogItemHeader) get(_ string) (any, bool) {
 	return nil, false
 }
 
-func (i dialogItemLabel) when(_ map[string]any) bool {
+func (i dialogItemHeader) when(_ map[string]any) bool {
 	return true
 }
 
-func (i dialogItemLabel) response(_ map[string]any) {
+func (i dialogItemHeader) response(_ map[string]any) {
 	// nothing to set
 }
 
-func (i dialogItemLabel) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ int) layout.Dimensions {
+func (i dialogItemHeader) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ int) layout.Dimensions {
 	lbl := material.Label(theme, theme.TextSize, string(i))
 	lbl.MaxLines = 1
 	lbl.Font.Weight = font.Bold
 	return lbl.Layout(gtx)
 }
 
-type dialogItemLabelLine struct {
+type dialogItemLabel struct {
 	dialogItemCommon
 	name   string
 	label  string
@@ -815,24 +841,25 @@ type dialogItemLabelLine struct {
 	italic bool
 	color  *color.NRGBA
 	indent bool
+	border bool
 }
 
-func (i *dialogItemLabelLine) setFocused(gtx layout.Context, name string) bool {
+func (i *dialogItemLabel) setFocused(gtx layout.Context, name string) bool {
 	return i.name == name
 }
 
-func (i *dialogItemLabelLine) getName() (string, bool) {
+func (i *dialogItemLabel) getName() (string, bool) {
 	return i.name, true
 }
 
-func (i *dialogItemLabelLine) get(name string) (any, bool) {
+func (i *dialogItemLabel) get(name string) (any, bool) {
 	if name == i.name {
 		return i.label, true
 	}
 	return nil, false
 }
 
-func (i *dialogItemLabelLine) set(name string, value any) bool {
+func (i *dialogItemLabel) set(name string, value any) bool {
 	if name == i.name {
 		switch vt := value.(type) {
 		case nil:
@@ -847,11 +874,11 @@ func (i *dialogItemLabelLine) set(name string, value any) bool {
 	return false
 }
 
-func (i *dialogItemLabelLine) response(_ map[string]any) {
+func (i *dialogItemLabel) response(_ map[string]any) {
 	// nothing to set
 }
 
-func (i *dialogItemLabelLine) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, labelWidth int) layout.Dimensions {
+func (i *dialogItemLabel) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, labelWidth int) layout.Dimensions {
 	lbl := material.Label(theme, theme.TextSize, i.label)
 	if i.small {
 		lbl.TextSize = (theme.TextSize * 4) / 5
@@ -862,16 +889,125 @@ func (i *dialogItemLabelLine) layout(gtx layout.Context, _ *shortcutPromptDialog
 	if i.bold {
 		lbl.Font.Weight = font.Bold
 	}
+	clr := color.NRGBA{A: 255}
 	if i.color != nil {
 		lbl.Color = *i.color
+		clr = *i.color
 	}
-	if i.indent {
+	switch {
+	case i.indent && i.border:
+		return flexHorizontal(10,
+			rigidLabel("", text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				return widget.Border{Color: clr, CornerRadius: 3, Width: 1}.Layout(gtx, lbl.Layout)
+			}),
+		)(gtx)
+	case i.indent:
 		return flexHorizontal(10,
 			rigidLabel("", text.End, font.Bold, labelWidth),
 			rigid(lbl.Layout),
 		)(gtx)
+	case i.border:
+		return widget.Border{Color: clr, CornerRadius: 3, Width: 1}.Layout(gtx, lbl.Layout)
+	default:
+		return lbl.Layout(gtx)
 	}
-	return lbl.Layout(gtx)
+}
+
+type dialogItemLink struct {
+	dialogItemCommon
+	name      string
+	label     string
+	url       string
+	clickable widget.Clickable
+}
+
+func (i *dialogItemLink) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		gtx.Execute(key.FocusCmd{Tag: &i.clickable})
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemLink) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemLink) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case nil:
+			i.url = ""
+		case string:
+			i.url = vt
+		default:
+			i.url = fmt.Sprintf("%v", value)
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemLink) get(name string) (any, bool) {
+	if name == i.name {
+		return i.url, true
+	}
+	return nil, false
+}
+
+func (i *dialogItemLink) response(res map[string]any) {
+	// do nothing
+}
+
+func (i *dialogItemLink) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
+	if i.clickable.Clicked(gtx) && i.url != "" {
+		_ = openURL(i.url)
+	}
+	return flexHorizontal(0, rigid(linkLabel(&i.clickable, i.label)))(gtx)
+}
+
+type dialogItemSeparator struct {
+	dialogItemCommon
+	name  string
+	width int
+}
+
+func (i *dialogItemSeparator) setFocused(gtx layout.Context, name string) bool {
+	return i.name == name
+}
+
+func (i *dialogItemSeparator) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemSeparator) set(name string, _ any) bool {
+	if i.name == name {
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemSeparator) get(name string) (any, bool) {
+	if i.name == name {
+		return nil, true
+	}
+	return nil, false
+}
+
+func (i *dialogItemSeparator) response(_ map[string]any) {
+	// do nothing
+}
+
+func (i *dialogItemSeparator) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, labelWidth int) layout.Dimensions {
+	txt := measureText(gtx, "\u2003")
+	wd := txt.Size.X * i.width
+	ht := txt.Size.Y / 2
+	paint.FillShape(gtx.Ops, borderColor, clip.Rect{
+		Min: image.Point{X: 0, Y: ht / 2},
+		Max: image.Point{X: wd, Y: (ht / 2) + 1},
+	}.Op())
+	return layout.Dimensions{Size: image.Point{X: wd, Y: ht}}
 }
 
 type dialogItemCommon struct {
@@ -1603,6 +1739,8 @@ type dialogItemGroup struct {
 	gap        unit.Dp
 	border     bool
 	padding    unit.Dp
+	minWidth   int
+	maxWidth   int
 }
 
 func (i *dialogItemGroup) setFocused(gtx layout.Context, name string) bool {
@@ -1669,6 +1807,15 @@ func (i *dialogItemGroup) layout(gtx layout.Context, dlg *shortcutPromptDialog, 
 		bw = 1
 	}
 	gap := gtx.Dp(i.gap)
+	if i.minWidth > 0 || i.maxWidth > 0 {
+		wd := measureText(gtx, "\u2003").Size.X
+		if i.minWidth > 0 {
+			gtx.Constraints.Min.X = wd * i.minWidth
+		}
+		if i.maxWidth > 0 {
+			gtx.Constraints.Max.X = wd * i.maxWidth
+		}
+	}
 	switch {
 	case i.horizontal && len(i.label) > 0:
 		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

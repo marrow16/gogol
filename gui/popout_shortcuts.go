@@ -11,6 +11,7 @@ import (
 	"github.com/marrow16/gogol/gui/icons"
 	"github.com/marrow16/gogol/gui/settings"
 	"github.com/marrow16/gogol/gui/shortcuts"
+	"image"
 	"slices"
 	"strings"
 	"sync"
@@ -149,7 +150,7 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 				return flexHorizontal(20,
 					rigid(p.btnCreate.Layout),
 					conditionalRigid(canKey, label("Key invocable"), nil),
-					conditionalRigid(canKey && conflict, label("(Overrides application key!)"), nil),
+					conditionalRigid(canKey && conflict, label("(Overrides app key!)"), nil),
 				)(gtx)
 			}),
 			conditionalRigid(!isVars && selected != nil && len(p.syntaxErrors) > 0, func(gtx layout.Context) layout.Dimensions {
@@ -169,7 +170,10 @@ func (p *shortcutsPopout) layout(gtx layout.Context) layout.Dimensions {
 						})
 					}),
 				)(gtx)
-			}, nil),
+			}, func(gtx layout.Context) layout.Dimensions {
+				// negate gap
+				return layout.Dimensions{Size: image.Point{X: 0, Y: -10}}
+			}),
 		)(gtx)
 		p.chooser.LayoutDropdown(gtx)
 		return dims
@@ -202,8 +206,6 @@ func (p *shortcutsPopout) layoutShortcut(gtx layout.Context, editorHt int) layou
 	if p.linkHelp.Clicked(gtx) {
 		p.core.showHelp(help.ShortCutsRef)
 	}
-	canKey := p.isAllowedKey(key)
-	conflict := p.isConflictKey(key)
 	if !p.syntaxCheckAt.IsZero() {
 		if !gtx.Now.Before(p.syntaxCheckAt) {
 			p.syntaxCheckAt = time.Time{}
@@ -212,6 +214,8 @@ func (p *shortcutsPopout) layoutShortcut(gtx layout.Context, editorHt int) layou
 			gtx.Execute(op.InvalidateCmd{At: p.syntaxCheckAt})
 		}
 	}
+	canKey := p.isAllowedKey(key)
+	conflict := p.isConflictKey(key)
 	var kbl strings.Builder
 	if canKey {
 		kbl.WriteString("Key: " + altKeyName + key)
