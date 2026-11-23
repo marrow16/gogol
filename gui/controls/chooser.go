@@ -502,9 +502,13 @@ func (i *Chooser[T]) LayoutDropdown(gtx layout.Context) {
 						i.editor.SetCaret(len(lbl), 0)
 						i.opened = false
 					}
+					hovered := i.rowClicks[index].Hovered()
 					return i.rowClicks[index].Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if lbl == i.editor.Text() {
 							paint.FillShape(gtx.Ops, Style.SelectedColor, clip.Rect{Max: image.Point{X: width - fillAdj, Y: rowDims.Size.Y}}.Op())
+						}
+						if hovered {
+							paint.FillShape(gtx.Ops, Style.ShadeColor, clip.Rect{Max: image.Point{X: width - fillAdj, Y: rowDims.Size.Y}}.Op())
 						}
 						gtx.Constraints.Min.X = pgtx.Constraints.Max.X
 						return layout.Inset{Left: 3, Right: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

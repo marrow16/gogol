@@ -1,0 +1,2482 @@
+package gui
+
+import (
+	"fmt"
+	"gioui.org/font"
+	"gioui.org/io/key"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+	"gioui.org/text"
+	"gioui.org/unit"
+	"gioui.org/widget"
+	"gioui.org/widget/material"
+	"github.com/dop251/goja"
+	"github.com/marrow16/gogol/gui/controls"
+	"image"
+	"image/color"
+	"slices"
+	"strconv"
+	"strings"
+)
+
+func buildPromptDialogItem(parent *shortcutPromptDialog, rt *goja.Runtime, t string, lbl string, item jsItemDecoder) (result dialogItem, addLabel bool) {
+	name := item.string("name")
+	addLabel = true
+	switch strings.ToLower(t) {
+	case "str", "string":
+		maxLen := max(item.integer("maxLen", 10), 0)
+		input := controls.NewInput(theme, item.string("filter"), maxLen, func(s string) {
+			parent.changed(name, s)
+		}).MaximumWidth(max(item.integer("maxWidth", 0), 0))
+		input.SetText(item.string("initial"))
+		result = &dialogItemString{
+			parent: parent,
+			whenFn: item.whenFunc(parent.core, rt),
+			name:   name,
+			label:  lbl,
+			input:  input,
+		}
+	case "int", "integer":
+		maxLen := max(item.integer("maxLen", 10), 0)
+		input := controls.NewNumberInput[int](theme, maxLen, item.integer("min", 0), item.integer("max", 0), 0, func(i int) {
+			parent.changed(name, i)
+		}).WithSpinner(item.bool("spinner", false))
+		input.SetValue(item.integer("initial", 0))
+		result = &dialogItemInt{
+			parent: parent,
+			whenFn: item.whenFunc(parent.core, rt),
+			name:   name,
+			label:  lbl,
+			input:  input,
+		}
+	case "text":
+		r := &dialogItemText{
+			whenFn: item.whenFunc(parent.core, rt),
+			name:   name,
+			label:  lbl,
+			input: controls.NewEditor(theme, func(text string, _ layout.Context) {
+				parent.changed(name, text)
+			}),
+			maxLines: item.integer("maxLines", 0),
+			maxWidth: item.float("maxWidth", 0),
+		}
+		if initial := item.string("initial"); initial != "" {
+			r.input.SetText(initial)
+		}
+		result = r
+	case "label":
+		addLabel = false
+		result = &dialogItemLabel{
+			name:   name,
+			whenFn: item.whenFunc(parent.core, rt),
+			label:  lbl,
+			small:  item.bool("small", false),
+			bold:   item.bool("bold", false),
+			italic: item.bool("italic", false),
+			color:  item.color("color"),
+			indent: item.bool("indent", false),
+			border: item.bool("border", false),
+		}
+	case "link":
+		addLabel = false
+		url := item.string("url")
+		if url == "" {
+			url = lbl
+		}
+		result = &dialogItemLink{
+			name:   name,
+			whenFn: item.whenFunc(parent.core, rt),
+			label:  lbl,
+			url:    url,
+		}
+	case "separator":
+		addLabel = false
+		result = &dialogItemSeparator{
+			name:       name,
+			whenFn:     item.whenFunc(parent.core, rt),
+			width:      max(item.float("width", 16), 4),
+			height:     max(item.float("height", 1), 1),
+			horizontal: item.bool("horizontal", true),
+		}
+	case "radio":
+		if options, ok := item.arrayString("options"); ok {
+			initial := ""
+			if v := item.integer("initial", -1); v >= 0 && v < len(options) {
+				initial = options[v]
+			}
+			r := &dialogItemRadio{
+				whenFn:     item.whenFunc(parent.core, rt),
+				parent:     parent,
+				name:       name,
+				label:      lbl,
+				enum:       &widget.Enum{Value: initial},
+				horizontal: item.bool("horizontal", false),
+			}
+			for _, o := range options {
+				r.radios = append(r.radios, controls.NewRadioButton(theme, r.enum, o, o))
+			}
+			result = r
+		}
+	case "check":
+		if options, ok := item.arrayString("options"); ok && len(options) > 0 {
+			r := &dialogItemCheck{
+				parent:     parent,
+				whenFn:     item.whenFunc(parent.core, rt),
+				name:       name,
+				label:      lbl,
+				horizontal: item.bool("horizontal", false),
+			}
+			if len(options) == 1 {
+				initial := item.bool("initial", false)
+				r.checks = append(r.checks, controls.NewCheckBox(theme, options[0], initial))
+			} else {
+				initial := item.integer("initial", 0)
+				for i, o := range options {
+					idx := 1 << i
+					r.checks = append(r.checks, controls.NewCheckBox(theme, o, idx&initial != 0))
+				}
+			}
+			result = r
+		}
+	case "list":
+		if options, ok := item.arrayString("options"); ok {
+			result = &dialogItemList{
+				parent: parent,
+				whenFn: item.whenFunc(parent.core, rt),
+				name:   name,
+				label:  lbl,
+				list: controls.NewList[string](theme, options, true).RowRenderer(func(gtx layout.Context, index int, item string) layout.Dimensions {
+					return inset(0, 0, 4, 4, label(item))(gtx)
+				}).OnItemSelect(func(item string, _ bool) {
+					parent.changed(name, item)
+				}),
+				maxLen:   item.integer("maxLen", 0),
+				maxWidth: item.float("maxWidth", 0),
+			}
+		}
+	case "dropdown":
+		if options, ok := item.arrayString("options"); ok {
+			chooser := controls.NewChooser[string](theme, max(item.integer("maxWidth", 10), 1), options, func(s *string) {
+				if s != nil {
+					parent.changed(name, *s)
+				} else {
+					parent.changed(name, nil)
+				}
+			}, nil).MaxRows(item.integer("maxLen", 10)).Direction(!item.bool("down", false))
+			chooser.SetText(item.string("initial"))
+			result = &dialogItemDropdown{
+				parent:  parent,
+				whenFn:  item.whenFunc(parent.core, rt),
+				name:    name,
+				label:   lbl,
+				chooser: chooser,
+			}
+		}
+	case "button":
+		addLabel = false
+		bLabel := item.string("label")
+		if bLabel == "" {
+			bLabel = "Button"
+		}
+		r := &dialogItemButton{
+			whenFn: item.whenFunc(parent.core, rt),
+			name:   name,
+			rt:     rt,
+			label:  bLabel,
+		}
+		r.onClick, _ = item.jsFunc("onClick")
+		if item.bool("flat", false) {
+			r.flatButton = controls.NewFlatButton(theme, bLabel).Inset(layout.Inset{Top: 2, Bottom: 3, Left: 4, Right: 4})
+		} else {
+			r.button = controls.NewButton(theme, bLabel)
+		}
+		result = r
+	case "file":
+		input := controls.NewInput(theme, nil, 0, func(s string) {
+			parent.changed(name, s)
+		})
+		allowExts := make([]string, 0)
+		if rv, ok := item["extensions"]; ok {
+			if lv, ok := rv.([]any); ok {
+				for _, v := range lv {
+					allowExts = append(allowExts, fmt.Sprintf("%v", v))
+				}
+			}
+		}
+		r := &dialogItemFile{
+			parent:    parent,
+			whenFn:    item.whenFunc(parent.core, rt),
+			name:      name,
+			label:     lbl,
+			title:     item.string("title"),
+			input:     input,
+			allowExts: allowExts,
+			allowDirs: item.bool("allowDirs", false),
+		}
+		r.input.MaximumWidth(max(item.integer("maxWidth", 16), 16)).WithEllipsisButton(r.ellipsisClicked)
+		if initial := item.string("initial"); initial != "" {
+			r.input.SetText(initial)
+		}
+		result = r
+	case "color":
+		clr := color.NRGBA{R: 0, G: 0, B: 0, A: 255}
+		if cs, ok := item.isString("initial"); ok {
+			if c, ok := parseColor(cs); ok {
+				clr = c
+			}
+		}
+		picker := controls.NewColorPicker(theme, clr, func(c color.NRGBA) {
+			if parent.onChangeCallback != nil && name != "" {
+				cs := fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
+				parent.jsCall(parent.onChangeCallback, map[string]any{"value": cs, "name": name})
+			}
+			window.Invalidate()
+		}).Direction(!item.bool("down", false))
+		if favs, ok := item.arrayString("favourites"); ok {
+			fcs := make([]*color.NRGBA, 0, len(favs))
+			for _, fav := range favs {
+				if c, ok := parseColor(fav); ok {
+					fcs = append(fcs, &c)
+				}
+			}
+			if len(fcs) > 0 {
+				fc := controls.NewFavouriteColors(fcs...)
+				fc.NoAdd = true
+				picker.WithFavourites(fc)
+			}
+		}
+		result = &dialogItemColor{
+			parent: parent,
+			whenFn: item.whenFunc(parent.core, rt),
+			name:   name,
+			label:  lbl,
+			picker: picker,
+		}
+	case "progress", "progressbar":
+		initial := min(max(item.integer("initial", 0), 0), 100)
+		initF := float32(initial) / 100
+		ht := unit.Dp(max(item.integer("height", 8), 4))
+		var radius unit.Dp
+		if _, ok := item["radius"]; ok {
+			radius = unit.Dp(max(item.integer("radius", 0), 0))
+		} else {
+			radius = ht / 2
+		}
+		r := &dialogItemProgress{
+			parent: parent,
+			whenFn: item.whenFunc(parent.core, rt),
+			name:   name,
+			label:  lbl,
+			control: controls.ProgressBar{
+				Color:      backgroundColor,
+				Height:     ht,
+				Radius:     radius,
+				TrackColor: selectedFocusedColor,
+				Progress:   initF,
+				Reversed:   item.bool("reversed", false),
+			},
+			width: max(item.float("width", 16), 6),
+		}
+		if clr := item.color("color"); clr != nil {
+			r.control.Color = *clr
+		}
+		if clr := item.color("progressColor"); clr != nil {
+			r.control.TrackColor = *clr
+		}
+		result = r
+	case "slider":
+		axis := layout.Horizontal
+		if !item.bool("horizontal", true) {
+			axis = layout.Vertical
+		}
+		initial := min(max(item.float("initial", 0), 0), 1)
+		result = &dialogItemSlider{
+			parent:  parent,
+			whenFn:  item.whenFunc(parent.core, rt),
+			name:    name,
+			label:   lbl,
+			control: controls.NewSlider(theme, axis, initial),
+			width:   max(item.float("width", 16), 6),
+			height:  unit.Dp(max(item.integer("height", 0), 32)),
+		}
+	case "switch":
+		r := &dialogItemSwitch{
+			parent:  parent,
+			whenFn:  item.whenFunc(parent.core, rt),
+			name:    name,
+			label:   lbl,
+			control: controls.NewSwitch(theme, item.bool("initial", false)),
+		}
+		result = r
+	case "group":
+		if children, ok := item.arrayObject("items", true); ok {
+			items := make([]dialogItem, 0, len(children))
+			labels := make([]string, 0, len(children))
+			gLabel := lbl
+			for _, itm := range children {
+				if typeStr, ok := itm.isString("type"); ok {
+					sLbl := itm.string("label")
+					if sItem, sAddLabel := buildPromptDialogItem(parent, rt, typeStr, sLbl, itm); sItem != nil {
+						items = append(items, sItem)
+						if sAddLabel {
+							labels = append(labels, sLbl)
+						}
+					}
+				}
+			}
+			if len(items) > 0 {
+				result = &dialogItemGroup{
+					whenFn:     item.whenFunc(parent.core, rt),
+					name:       name,
+					label:      gLabel,
+					items:      items,
+					labels:     labels,
+					horizontal: item.bool("horizontal", false),
+					gap:        unit.Dp(item.integer("gap", 10)),
+					border:     item.bool("border", false),
+					padding:    item.padding(0),
+					minWidth:   item.float("minWidth", 0),
+					maxWidth:   item.float("maxWidth", 0),
+					height:     item.float("height", 0),
+				}
+			}
+		}
+	case "scroll", "scroller", "scrollable":
+		addLabel = false
+		if children, ok := item.arrayObject("items", true); ok {
+			items := make([]dialogItem, 0, len(children))
+			for _, itm := range children {
+				if typeStr, ok := itm.isString("type"); ok {
+					sLbl := itm.string("label")
+					if sItem, _ := buildPromptDialogItem(parent, rt, typeStr, sLbl, itm); sItem != nil {
+						items = append(items, sItem)
+					}
+				}
+			}
+			if len(items) > 0 {
+				r := &dialogItemScroll{
+					whenFn:   item.whenFunc(parent.core, rt),
+					name:     name,
+					items:    items,
+					border:   item.bool("border", false),
+					padding:  item.padding(0),
+					minWidth: item.float("minWidth", 0),
+					maxWidth: item.float("maxWidth", 0),
+					height:   item.float("height", 0),
+				}
+				axis := layout.Vertical
+				if item.bool("horizontal", false) {
+					axis = layout.Horizontal
+				}
+				r.list = widget.List{
+					Axis: axis,
+					Gap:  item.integer("gap", 0),
+				}
+				result = r
+			}
+		}
+	case "tabbed":
+		addLabel = false
+		if rawTabs, ok := item.arrayObject("tabs", true); ok && len(rawTabs) > 0 {
+			buttons := make([]*controls.FlatButton, 0, len(rawTabs))
+			tabs := make([]*dialogItemGroup, 0, len(rawTabs))
+			for tabNo, itm := range rawTabs {
+				if rawItems, ok := itm.arrayObject("items", true); ok {
+					actualItems := make([]dialogItem, 0, len(rawItems))
+					labels := make([]string, 0, len(rawItems))
+					for _, ai := range rawItems {
+						aiLbl := ai.string("label")
+						if r, ad := buildPromptDialogItem(parent, rt, ai.string("type"), ai.string("label"), ai); r != nil {
+							actualItems = append(actualItems, r)
+							if ad {
+								labels = append(labels, aiLbl)
+							}
+						}
+					}
+					tabLabel := itm.string("label")
+					if tabLabel == "" {
+						tabLabel = "Tab " + strconv.Itoa(tabNo+1)
+					}
+					buttons = append(buttons, controls.NewFlatButton(theme, tabLabel))
+					tabs = append(tabs, &dialogItemGroup{
+						whenFn: itm.whenFunc(parent.core, rt),
+						parent: parent,
+						name:   itm.string("name"),
+						items:  actualItems,
+						labels: labels,
+					})
+				}
+			}
+			if len(tabs) > 0 {
+				r := &dialogItemTabbed{
+					whenFn:   item.whenFunc(parent.core, rt),
+					parent:   parent,
+					name:     name,
+					selected: item.integer("initial", 0),
+					width:    max(item.float("width", 0), 0),
+					height:   max(item.float("height", 0), 0),
+					gap:      unit.Dp(item.integer("gap", 10)),
+					padding:  item.padding(8),
+					buttons:  buttons,
+					tabs:     tabs,
+				}
+				result = r
+			}
+		}
+	}
+	return result, addLabel
+}
+
+type dialogItem interface {
+	setFocused(gtx layout.Context, name string) bool
+	getName() (string, bool)
+	set(name string, value any) bool
+	get(name string) (any, bool)
+	when(data map[string]any) bool
+	response(res map[string]any)
+	layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, txtDims image.Point, labelWidth int) layout.Dimensions
+}
+
+type dialogItemCommon struct {
+	parent *shortcutPromptDialog
+	whenFn func(data map[string]any) bool
+}
+
+func (i dialogItemCommon) when(data map[string]any) bool {
+	if i.whenFn != nil {
+		return i.whenFn(data)
+	}
+	return true
+}
+
+type dialogItemHeader string
+
+func (i dialogItemHeader) setFocused(_ layout.Context, _ string) bool {
+	return false
+}
+
+func (i dialogItemHeader) getName() (string, bool) {
+	return "", false
+}
+
+func (i dialogItemHeader) set(_ string, _ any) bool {
+	// do nothing
+	return false
+}
+
+func (i dialogItemHeader) get(_ string) (any, bool) {
+	return nil, false
+}
+
+func (i dialogItemHeader) when(_ map[string]any) bool {
+	return true
+}
+
+func (i dialogItemHeader) response(_ map[string]any) {
+	// nothing to set
+}
+
+func (i dialogItemHeader) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, _ int) layout.Dimensions {
+	lbl := material.Label(theme, theme.TextSize, string(i))
+	lbl.MaxLines = 1
+	lbl.Font.Weight = font.Bold
+	return lbl.Layout(gtx)
+}
+
+type dialogItemString struct {
+	dialogItemCommon
+	name  string
+	label string
+	input *controls.Input
+}
+
+func (i *dialogItemString) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.input.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemString) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemString) get(name string) (any, bool) {
+	if name == i.name {
+		return i.input.Text(), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemString) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case nil:
+			i.input.SetText("")
+		case string:
+			i.input.SetText(vt)
+		default:
+			i.input.SetText(fmt.Sprintf("%v", value))
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemString) response(response map[string]any) {
+	if len(i.name) > 0 {
+		response[i.name] = i.input.Text()
+	}
+}
+
+func (i *dialogItemString) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, labelWidth int) layout.Dimensions {
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			flexed(i.input.Layout),
+		)(gtx)
+	}
+	return flexHorizontal(0, flexed(i.input.Layout))(gtx)
+}
+
+type dialogItemInt struct {
+	dialogItemCommon
+	name  string
+	label string
+	input *controls.NumberInput[int]
+}
+
+func (i *dialogItemInt) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.input.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemInt) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemInt) get(name string) (any, bool) {
+	if name == i.name {
+		return i.input.Current(), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemInt) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case string:
+			if n, err := strconv.Atoi(vt); err == nil {
+				i.input.SetValue(n)
+			} else {
+				i.input.SetText("")
+			}
+		case int:
+			i.input.SetValue(vt)
+		case int64:
+			i.input.SetValue(int(vt))
+		case float32:
+			i.input.SetValue(int(vt))
+		case float64:
+			i.input.SetValue(int(vt))
+		default:
+			i.input.SetText("")
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemInt) response(response map[string]any) {
+	if len(i.name) > 0 {
+		response[i.name] = i.input.Current()
+	}
+}
+
+func (i *dialogItemInt) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, labelWidth int) layout.Dimensions {
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			flexed(i.input.Layout),
+		)(gtx)
+	}
+	return flexHorizontal(0, flexed(i.input.Layout))(gtx)
+}
+
+type dialogItemText struct {
+	dialogItemCommon
+	name     string
+	label    string
+	input    *controls.Editor
+	maxLines int
+	maxWidth float32
+}
+
+func (i *dialogItemText) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.input.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemText) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemText) get(name string) (any, bool) {
+	if name == i.name {
+		return i.input.Text(), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemText) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case nil:
+			i.input.SetText("")
+		case string:
+			i.input.SetText(vt)
+		default:
+			i.input.SetText(fmt.Sprintf("%v", value))
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemText) response(response map[string]any) {
+	if len(i.name) > 0 {
+		response[i.name] = i.input.Text()
+	}
+}
+
+func (i *dialogItemText) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, txtDims image.Point, labelWidth int) layout.Dimensions {
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			flexed(func(gtx layout.Context) layout.Dimensions {
+				if i.maxLines > 0 {
+					gtx.Constraints.Max.Y = (txtDims.Y * i.maxLines) + 6
+					gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
+				}
+				if i.maxWidth > 0 {
+					gtx.Constraints.Max.X = int(float32(txtDims.X)*i.maxWidth) + 10
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+				}
+				return i.input.Layout(gtx)
+			}),
+		)(gtx)
+	}
+	return flexHorizontal(0, flexed(func(gtx layout.Context) layout.Dimensions {
+		if i.maxLines > 0 {
+			gtx.Constraints.Max.Y = (txtDims.Y * i.maxLines) + 6
+			gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
+		}
+		if i.maxWidth > 0 {
+			gtx.Constraints.Max.X = int(float32(txtDims.X)*i.maxWidth) + 10
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		}
+		return i.input.Layout(gtx)
+	}))(gtx)
+}
+
+type dialogItemLabel struct {
+	dialogItemCommon
+	name   string
+	label  string
+	small  bool
+	bold   bool
+	italic bool
+	color  *color.NRGBA
+	indent bool
+	border bool
+}
+
+func (i *dialogItemLabel) setFocused(_ layout.Context, name string) bool {
+	return i.name == name
+}
+
+func (i *dialogItemLabel) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemLabel) get(name string) (any, bool) {
+	if name == i.name {
+		return i.label, true
+	}
+	return nil, false
+}
+
+func (i *dialogItemLabel) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case nil:
+			i.label = ""
+		case string:
+			i.label = vt
+		default:
+			i.label = fmt.Sprintf("%v", value)
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemLabel) response(_ map[string]any) {
+	// nothing to set
+}
+
+func (i *dialogItemLabel) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, labelWidth int) layout.Dimensions {
+	lbl := material.Label(theme, theme.TextSize, i.label)
+	if i.small {
+		lbl.TextSize = (theme.TextSize * 4) / 5
+	}
+	if i.italic {
+		lbl.Font.Style = font.Italic
+	}
+	if i.bold {
+		lbl.Font.Weight = font.Bold
+	}
+	clr := color.NRGBA{A: 255}
+	if i.color != nil {
+		lbl.Color = *i.color
+		clr = *i.color
+	}
+	switch {
+	case i.indent && i.border:
+		return flexHorizontal(10,
+			rigidLabel("", text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				return widget.Border{Color: clr, CornerRadius: 3, Width: 1}.Layout(gtx, lbl.Layout)
+			}),
+		)(gtx)
+	case i.indent:
+		return flexHorizontal(10,
+			rigidLabel("", text.End, font.Bold, labelWidth),
+			rigid(lbl.Layout),
+		)(gtx)
+	case i.border:
+		return widget.Border{Color: clr, CornerRadius: 3, Width: 1}.Layout(gtx, lbl.Layout)
+	default:
+		return lbl.Layout(gtx)
+	}
+}
+
+type dialogItemLink struct {
+	dialogItemCommon
+	name      string
+	label     string
+	url       string
+	clickable widget.Clickable
+}
+
+func (i *dialogItemLink) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		gtx.Execute(key.FocusCmd{Tag: &i.clickable})
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemLink) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemLink) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case nil:
+			i.url = ""
+		case string:
+			i.url = vt
+		default:
+			i.url = fmt.Sprintf("%v", value)
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemLink) get(name string) (any, bool) {
+	if name == i.name {
+		return i.url, true
+	}
+	return nil, false
+}
+
+func (i *dialogItemLink) response(_ map[string]any) {
+	// do nothing
+}
+
+func (i *dialogItemLink) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, _ int) layout.Dimensions {
+	if i.clickable.Clicked(gtx) && i.url != "" {
+		_ = openURL(i.url)
+	}
+	return flexHorizontal(0, rigid(linkLabel(&i.clickable, i.label)))(gtx)
+}
+
+type dialogItemSeparator struct {
+	dialogItemCommon
+	name       string
+	width      float32
+	height     float32
+	horizontal bool
+}
+
+func (i *dialogItemSeparator) setFocused(_ layout.Context, name string) bool {
+	return i.name == name
+}
+
+func (i *dialogItemSeparator) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemSeparator) set(name string, _ any) bool {
+	if i.name == name {
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemSeparator) get(name string) (any, bool) {
+	if i.name == name {
+		return nil, true
+	}
+	return nil, false
+}
+
+func (i *dialogItemSeparator) response(_ map[string]any) {
+	// do nothing
+}
+
+func (i *dialogItemSeparator) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, txtDims image.Point, _ int) layout.Dimensions {
+	if i.horizontal {
+		wd := int(float32(txtDims.X) * i.width)
+		ht := txtDims.Y / 2
+		paint.FillShape(gtx.Ops, borderColor, clip.Rect{
+			Min: image.Point{X: 0, Y: ht / 2},
+			Max: image.Point{X: wd, Y: (ht / 2) + 1},
+		}.Op())
+		return layout.Dimensions{Size: image.Point{X: wd, Y: ht}}
+	}
+	wd := txtDims.X
+	ht := int(float32(txtDims.Y) * i.height)
+	paint.FillShape(gtx.Ops, borderColor, clip.Rect{
+		Min: image.Point{X: wd / 2, Y: 0},
+		Max: image.Point{X: (wd / 2) + 1, Y: ht},
+	}.Op())
+	return layout.Dimensions{Size: image.Point{X: wd, Y: ht}}
+}
+
+type dialogItemRadio struct {
+	dialogItemCommon
+	name       string
+	label      string
+	enum       *widget.Enum
+	radios     []*controls.RadioButton
+	horizontal bool
+}
+
+func (i *dialogItemRadio) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		if len(i.radios) > 0 {
+			// need to lay the radios out so they can receive focus...
+			macro := op.Record(gtx.Ops)
+			for _, radio := range i.radios {
+				radio.Layout(gtx)
+			}
+			_ = macro.Stop()
+			if curr := i.enum.Value; curr != "" {
+				for _, radio := range i.radios {
+					if radio.Key == curr {
+						radio.SetFocused(gtx)
+						break
+					}
+				}
+			} else {
+				i.radios[0].SetFocused(gtx)
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemRadio) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemRadio) get(name string) (any, bool) {
+	if name == i.name {
+		return i.enum.Value, true
+	}
+	return nil, false
+}
+
+func (i *dialogItemRadio) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case string:
+			i.enum.Value = vt
+		default:
+			i.enum.Value = ""
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemRadio) response(response map[string]any) {
+	if len(i.name) > 0 {
+		response[i.name] = i.enum.Value
+	}
+}
+
+func (i *dialogItemRadio) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, labelWidth int) layout.Dimensions {
+	if i.enum.Update(gtx) {
+		if i.parent.onChangeCallback != nil {
+			i.parent.jsCall(i.parent.onChangeCallback, map[string]any{"value": i.enum.Value, "name": i.name})
+		}
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	items := make([]layout.FlexChild, len(i.radios))
+	for n, r := range i.radios {
+		items[n] = rigid(r.Layout)
+	}
+	controls.HandleRadioKeys(gtx, i.radios...)
+	switch {
+	case len(i.label) > 0 && i.horizontal:
+		return flexHorizontal(10,
+			append([]layout.FlexChild{rigidLabel(i.label, text.End, font.Bold, labelWidth)}, items...)...,
+		)(gtx)
+	case i.horizontal:
+		return flexHorizontal(10, items...)(gtx)
+	case len(i.label) > 0 && len(items) > 1:
+		return flexVertical(4,
+			rigid(flexHorizontal(10,
+				rigidLabel(i.label, text.End, font.Bold, labelWidth),
+				items[0])),
+			rigid(flexHorizontal(10,
+				rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Dimensions{Size: image.Point{X: labelWidth}}
+				}),
+				rigid(flexVertical(4, items[1:]...)),
+			)),
+		)(gtx)
+	default:
+		return flexVertical(4, items...)(gtx)
+	}
+}
+
+type dialogItemCheck struct {
+	dialogItemCommon
+	name       string
+	label      string
+	checks     []*controls.Checkbox
+	horizontal bool
+}
+
+func (i *dialogItemCheck) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		if len(i.checks) > 0 {
+			i.checks[0].SetFocused(gtx)
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemCheck) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemCheck) get(name string) (any, bool) {
+	if name == i.name {
+		if len(i.checks) == 1 {
+			return i.checks[0].Checked(), true
+		}
+		result := make([]string, 0, len(i.checks))
+		for _, check := range i.checks {
+			if check.Checked() {
+				result = append(result, check.Label)
+			}
+		}
+		return result, true
+	}
+	return nil, false
+}
+
+func (i *dialogItemCheck) set(name string, value any) bool {
+	if name == i.name {
+		isInt := false
+		intV := 0
+		switch vt := value.(type) {
+		case bool:
+			if len(i.checks) == 1 {
+				i.checks[0].SetChecked(vt)
+				return true
+			}
+		case string:
+			for _, check := range i.checks {
+				check.SetChecked(check.Label == vt)
+			}
+		case int:
+			isInt = true
+			intV = vt
+		case int64:
+			isInt = true
+			intV = int(vt)
+		case float32:
+			isInt = true
+			intV = int(vt)
+		case float64:
+			isInt = true
+			intV = int(vt)
+		case []any:
+			for _, check := range i.checks {
+				check.SetChecked(false)
+			}
+			for _, x := range vt {
+				xs := fmt.Sprintf("%v", x)
+				for _, check := range i.checks {
+					if check.Label == xs {
+						check.SetChecked(true)
+					}
+				}
+			}
+		default:
+			for _, check := range i.checks {
+				check.SetChecked(false)
+			}
+		}
+		if isInt {
+			for n, check := range i.checks {
+				check.SetChecked(intV&(1<<n) != 0)
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemCheck) response(response map[string]any) {
+	if len(i.name) > 0 {
+		if len(i.checks) == 1 {
+			response[i.name] = i.checks[0].Checked()
+			return
+		}
+		result := make([]string, 0, len(i.checks))
+		for _, check := range i.checks {
+			if check.Checked() {
+				result = append(result, check.Label)
+			}
+		}
+		response[i.name] = result
+	}
+}
+
+func (i *dialogItemCheck) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, labelWidth int) layout.Dimensions {
+	items := make([]layout.FlexChild, len(i.checks))
+	changed := false
+	for n, c := range i.checks {
+		if c.Update(gtx) {
+			changed = true
+		}
+		items[n] = rigid(c.Layout)
+	}
+	if changed {
+		if i.name != "" && i.parent.onChangeCallback != nil {
+			var value any
+			if len(i.checks) == 1 {
+				value = i.checks[0].Checked()
+			} else {
+				values := make([]string, 0, len(i.checks))
+				for _, check := range i.checks {
+					if check.Checked() {
+						values = append(values, check.Label)
+					}
+				}
+				value = values
+			}
+			i.parent.jsCall(i.parent.onChangeCallback, map[string]any{"value": value, "name": i.name})
+		}
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	switch {
+	case len(i.label) > 0 && i.horizontal:
+		return flexHorizontal(10,
+			append([]layout.FlexChild{rigidLabel(i.label, text.End, font.Bold, labelWidth)}, items...)...,
+		)(gtx)
+	case i.horizontal:
+		return flexHorizontal(10, items...)(gtx)
+	case len(i.label) > 0:
+		return flexVertical(4,
+			rigid(flexHorizontal(10,
+				rigidLabel(i.label, text.End, font.Bold, labelWidth),
+				items[0])),
+			rigid(flexHorizontal(10,
+				rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Dimensions{Size: image.Point{X: labelWidth}}
+				}),
+				rigid(flexVertical(4, items[1:]...)),
+			)),
+		)(gtx)
+	default:
+		return flexVertical(4, items...)(gtx)
+	}
+}
+
+type dialogItemList struct {
+	dialogItemCommon
+	name     string
+	label    string
+	list     *controls.List[string]
+	maxLen   int
+	maxWidth float32
+}
+
+func (i *dialogItemList) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.list.Focus(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemList) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemList) get(name string) (any, bool) {
+	if name == i.name {
+		return i.list.Selected(), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemList) set(name string, value any) bool {
+	if name == i.name {
+		set := false
+		if value != nil {
+			switch vt := value.(type) {
+			case int:
+				if vt >= 0 && vt < len(i.list.Items) {
+					set = true
+					i.list.SetSelected(vt)
+					i.list.EnsureVisible(vt)
+				}
+			case int64:
+				if vt >= 0 && int(vt) < len(i.list.Items) {
+					set = true
+					i.list.SetSelected(int(vt))
+					i.list.EnsureVisible(int(vt))
+				}
+			case string:
+				for n, v := range i.list.Items {
+					if v == vt {
+						set = true
+						i.list.SetSelected(n)
+						i.list.EnsureVisible(n)
+						break
+					}
+				}
+			}
+		}
+		if !set {
+			i.list.SetSelected(0)
+			i.list.EnsureVisible(0)
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemList) response(response map[string]any) {
+	if len(i.name) > 0 {
+		response[i.name] = i.list.Selected()
+	}
+}
+
+func (i *dialogItemList) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, txtDims image.Point, labelWidth int) layout.Dimensions {
+	ht := 0
+	wd := 0
+	if i.maxLen > 2 {
+		ht = (txtDims.Y * i.maxLen) + 2
+	} else {
+		ht = (txtDims.Y * 3) + 2
+	}
+	if i.maxWidth > 0 {
+		wd = int(float32(txtDims.X)*i.maxWidth) + 10
+	} else {
+		wd = measureMaxText(gtx, 0, i.list.Items...) + measureText(gtx, "W").Size.X + 8
+	}
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+				gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
+				return i.list.Layout(gtx)
+			}),
+		)(gtx)
+	}
+	gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+	gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
+	return i.list.Layout(gtx)
+}
+
+type dialogItemDropdown struct {
+	dialogItemCommon
+	name    string
+	label   string
+	chooser *controls.Chooser[string]
+}
+
+func (i *dialogItemDropdown) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.chooser.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemDropdown) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemDropdown) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case string:
+			i.chooser.SetText(vt)
+		default:
+			i.chooser.SetText(fmt.Sprintf("%v", value))
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemDropdown) get(name string) (any, bool) {
+	if name == i.name {
+		return i.chooser.Text(), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemDropdown) response(response map[string]any) {
+	if len(i.name) > 0 {
+		response[i.name] = i.chooser.Text()
+	}
+}
+
+func (i *dialogItemDropdown) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, labelWidth int) layout.Dimensions {
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				dims := i.chooser.Layout(gtx)
+				i.chooser.LayoutDropdown(gtx)
+				return dims
+			}),
+		)(gtx)
+	}
+	dims := i.chooser.Layout(gtx)
+	i.chooser.LayoutDropdown(gtx)
+	return dims
+}
+
+type dialogItemButton struct {
+	dialogItemCommon
+	rt         *goja.Runtime
+	name       string
+	label      string
+	onClick    func(goja.FunctionCall) goja.Value
+	button     *controls.Button
+	flatButton *controls.FlatButton
+}
+
+func (i *dialogItemButton) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.button.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemButton) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemButton) get(name string) (any, bool) {
+	if name == i.name {
+		if i.button != nil {
+			return i.button.GetLabel(), true
+		}
+		if i.flatButton != nil {
+			return i.flatButton.GetLabel(), true
+		}
+	}
+	return nil, false
+}
+
+func (i *dialogItemButton) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case nil:
+			// do nothing
+		case string:
+			if i.button != nil {
+				i.button.Label(vt)
+			}
+			if i.flatButton != nil {
+				i.flatButton.Label(vt)
+			}
+		default:
+			if i.button != nil {
+				i.button.Label(fmt.Sprintf("%v", value))
+			}
+			if i.flatButton != nil {
+				i.flatButton.Label(fmt.Sprintf("%v", value))
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemButton) response(_ map[string]any) {
+	// nothing to set
+}
+
+func (i *dialogItemButton) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, _ image.Point, _ int) layout.Dimensions {
+	if i.button != nil {
+		if i.button.Clicked(gtx) && i.onClick != nil {
+			if dlg.jsCall(i.onClick, response) {
+				dlg.submit(response, i.label)
+			}
+		}
+		return flexHorizontal(0, rigid(i.button.Layout))(gtx)
+	}
+	if i.flatButton.Clicked(gtx) && i.onClick != nil {
+		if dlg.jsCall(i.onClick, response) {
+			dlg.submit(response, i.label)
+		}
+	}
+	return flexHorizontal(0, rigid(i.flatButton.Layout))(gtx)
+}
+
+type dialogItemFile struct {
+	dialogItemCommon
+	name      string
+	label     string
+	title     string
+	input     *controls.Input
+	allowExts []string
+	allowDirs bool
+	focused   bool
+}
+
+func (i *dialogItemFile) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.input.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemFile) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemFile) get(name string) (any, bool) {
+	if i.name == name {
+		return i.input.Text(), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemFile) set(name string, value any) bool {
+	if name == i.name {
+		switch vt := value.(type) {
+		case nil:
+			i.input.SetText("")
+		case string:
+			i.input.SetText(vt)
+		default:
+			i.input.SetText(fmt.Sprintf("%v", value))
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemFile) response(res map[string]any) {
+	if len(i.name) > 0 {
+		res[i.name] = i.input.Text()
+	}
+}
+
+func (i *dialogItemFile) ellipsisClicked() {
+	title := "Select File"
+	if i.title != "" {
+		title = i.title
+	}
+	i.parent.core.showFileFinder(title, i.allowExts, i.allowDirs, func(path string) {
+		i.input.SetText(path)
+		i.focused = true
+	}, func() {
+		i.focused = true
+	})
+}
+
+func (i *dialogItemFile) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, labelWidth int) layout.Dimensions {
+	if i.focused {
+		i.input.SetFocused(gtx)
+		i.focused = false
+	}
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(i.input.Layout),
+		)(gtx)
+	}
+	return flexHorizontal(0,
+		rigid(func(gtx layout.Context) layout.Dimensions {
+			return i.input.Layout(gtx)
+		}),
+	)(gtx)
+}
+
+type dialogItemColor struct {
+	dialogItemCommon
+	name   string
+	label  string
+	picker *controls.ColorPicker
+}
+
+func (i *dialogItemColor) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.picker.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemColor) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemColor) set(name string, value any) bool {
+	if name == i.name {
+		if s, ok := value.(string); ok {
+			if clr, ok := parseColor(s); ok {
+				i.picker.SetValue(clr)
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemColor) get(name string) (any, bool) {
+	if i.name == name {
+		clr := i.picker.Value()
+		return fmt.Sprintf("#%02X%02X%02X", clr.R, clr.G, clr.B), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemColor) response(res map[string]any) {
+	if len(i.name) > 0 {
+		clr := i.picker.Value()
+		res[i.name] = fmt.Sprintf("#%02X%02X%02X", clr.R, clr.G, clr.B)
+	}
+}
+
+func (i *dialogItemColor) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, labelWidth int) layout.Dimensions {
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				dims := i.picker.Layout(gtx)
+				i.picker.LayoutDropdown(gtx)
+				return dims
+			}),
+		)(gtx)
+	}
+	return flexHorizontal(0,
+		rigid(func(gtx layout.Context) layout.Dimensions {
+			dims := i.picker.Layout(gtx)
+			i.picker.LayoutDropdown(gtx)
+			return dims
+		}),
+	)(gtx)
+}
+
+type dialogItemProgress struct {
+	dialogItemCommon
+	name    string
+	label   string
+	control controls.ProgressBar
+	width   float32
+}
+
+func (i *dialogItemProgress) setFocused(_ layout.Context, name string) bool {
+	return name == i.name
+}
+
+func (i *dialogItemProgress) getName() (string, bool) {
+	if i.name != "" {
+		return i.name, true
+	}
+	return "", false
+}
+
+func (i *dialogItemProgress) set(name string, value any) bool {
+	if i.name == name {
+		switch vt := value.(type) {
+		case nil:
+			i.control.Progress = 0
+		case int:
+			i.control.Progress = float32(vt) / 100
+		case int64:
+			i.control.Progress = float32(vt) / 100
+		case float64:
+			i.control.Progress = float32(vt) / 100
+		case float32:
+			i.control.Progress = vt / 100
+		case string:
+			if n, err := strconv.ParseFloat(vt, 32); err == nil {
+				i.control.Progress = float32(n) / 100
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemProgress) get(name string) (any, bool) {
+	if i.name == name {
+		return int(i.control.Progress * 100), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemProgress) response(res map[string]any) {
+	if len(i.name) > 0 {
+		res[i.name] = int(i.control.Progress * 100)
+	}
+}
+
+func (i *dialogItemProgress) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, txtDims image.Point, labelWidth int) layout.Dimensions {
+	var wd int
+	if i.width > 0 {
+		wd = int(float32(txtDims.X) * i.width)
+	} else {
+		wd = txtDims.X * 8
+	}
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+				return i.control.Layout(gtx)
+			}),
+		)(gtx)
+	}
+	gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+	return i.control.Layout(gtx)
+}
+
+type dialogItemSlider struct {
+	dialogItemCommon
+	name    string
+	label   string
+	control *controls.Slider
+	width   float32
+	height  unit.Dp
+}
+
+func (i *dialogItemSlider) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		i.control.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemSlider) getName() (string, bool) {
+	if i.name != "" {
+		return i.name, true
+	}
+	return "", false
+}
+
+func (i *dialogItemSlider) set(name string, value any) bool {
+	if i.name == name {
+		switch vt := value.(type) {
+		case nil:
+			i.control.SetValue(0)
+		case int:
+			i.control.SetValue(float32(vt))
+		case int64:
+			i.control.SetValue(float32(vt))
+		case float64:
+			i.control.SetValue(float32(vt))
+		case float32:
+			i.control.SetValue(vt)
+		case string:
+			if n, err := strconv.ParseFloat(vt, 32); err == nil {
+				i.control.SetValue(float32(n))
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemSlider) get(name string) (any, bool) {
+	if i.name == name {
+		return i.control.Value(), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemSlider) response(res map[string]any) {
+	if len(i.name) > 0 {
+		res[i.name] = i.control.Value()
+	}
+}
+
+func (i *dialogItemSlider) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, txtDims image.Point, labelWidth int) layout.Dimensions {
+	var wd int
+	var ht int
+	if i.control.Axis == layout.Horizontal {
+		if i.width > 0 {
+			wd = int(float32(txtDims.X) * i.width)
+		} else {
+			wd = txtDims.X * 8
+		}
+	} else {
+		ht = gtx.Dp(i.height)
+	}
+	if i.control.Update(gtx) && i.name != "" && i.parent.onChangeCallback != nil {
+		i.parent.jsCall(i.parent.onChangeCallback, map[string]any{
+			"name":  i.name,
+			"value": i.control.Value(),
+		})
+	}
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(func(gtx layout.Context) layout.Dimensions {
+				if i.control.Axis == layout.Horizontal {
+					gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+					ht = measureText(gtx, "Xy").Size.Y
+					gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
+					return verticalCenter(i.control.Layout)(gtx)
+				}
+				gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
+				return i.control.Layout(gtx)
+			}),
+		)(gtx)
+	}
+	if i.control.Axis == layout.Horizontal {
+		gtx.Constraints.Min.X, gtx.Constraints.Max.X = wd, wd
+	} else {
+		gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = ht, ht
+	}
+	return i.control.Layout(gtx)
+}
+
+type dialogItemSwitch struct {
+	dialogItemCommon
+	name    string
+	label   string
+	control *controls.Switch
+}
+
+func (i *dialogItemSwitch) setFocused(gtx layout.Context, name string) bool {
+	if i.name == name {
+		i.control.SetFocused(gtx)
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemSwitch) getName() (string, bool) {
+	if i.name != "" {
+		return i.name, true
+	}
+	return "", false
+}
+
+func (i *dialogItemSwitch) set(name string, value any) bool {
+	if i.name == name {
+		switch vt := value.(type) {
+		case nil:
+			i.control.SetChecked(false)
+		case int:
+			i.control.SetChecked(vt != 0)
+		case int64:
+			i.control.SetChecked(vt != 0)
+		case string:
+			if b, err := strconv.ParseBool(vt); err == nil {
+				i.control.SetChecked(b)
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (i *dialogItemSwitch) get(name string) (any, bool) {
+	if i.name == name {
+		return i.control.Checked(), true
+	}
+	return nil, false
+}
+
+func (i *dialogItemSwitch) response(res map[string]any) {
+	if len(i.name) > 0 {
+		res[i.name] = i.control.Checked()
+	}
+}
+
+func (i *dialogItemSwitch) layout(gtx layout.Context, _ *shortcutPromptDialog, _ map[string]any, _ image.Point, labelWidth int) layout.Dimensions {
+	if i.control.Update(gtx) && i.name != "" && i.parent.onChangeCallback != nil {
+		i.parent.jsCall(i.parent.onChangeCallback, map[string]any{
+			"name":  i.name,
+			"value": i.control.Checked(),
+		})
+	}
+	if len(i.label) > 0 {
+		return flexHorizontal(10,
+			rigidLabel(i.label, text.End, font.Bold, labelWidth),
+			rigid(i.control.Layout),
+		)(gtx)
+	}
+	return i.control.Layout(gtx)
+}
+
+type dialogItemGroup struct {
+	dialogItemCommon
+	name       string
+	label      string
+	items      []dialogItem
+	labels     []string
+	horizontal bool
+	gap        unit.Dp
+	border     bool
+	padding    dlgItemPadding
+	minWidth   float32
+	maxWidth   float32
+	height     float32
+}
+
+func (i *dialogItemGroup) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		for _, item := range i.items {
+			if iName, ok := item.getName(); ok && name == iName {
+				item.setFocused(gtx, iName)
+				return true
+			}
+		}
+		return true
+	}
+	for _, item := range i.items {
+		if ok := item.setFocused(gtx, name); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (i *dialogItemGroup) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemGroup) get(name string) (any, bool) {
+	for _, item := range i.items {
+		if v, ok := item.get(name); ok {
+			return v, ok
+		}
+	}
+	return nil, false
+}
+
+func (i *dialogItemGroup) set(name string, value any) bool {
+	result := false
+	for _, item := range i.items {
+		result = result || item.set(name, value)
+	}
+	return result
+}
+
+func (i *dialogItemGroup) response(response map[string]any) {
+	for _, itm := range i.items {
+		itm.response(response)
+	}
+}
+
+func (i *dialogItemGroup) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, txtDims image.Point, labelWidth int) layout.Dimensions {
+	for _, item := range i.items {
+		item.response(response)
+	}
+	rows := make([]layout.FlexChild, 0, len(i.items))
+	subLabelWidth := measureMaxText(gtx, font.Bold, i.labels...)
+	for n := range len(i.items) {
+		item := i.items[n]
+		if item.when(response) && !dlg.isHidden(item) {
+			rows = append(rows, rigid(func(gtx layout.Context) layout.Dimensions {
+				return item.layout(gtx, dlg, response, txtDims, subLabelWidth)
+			}))
+		}
+	}
+	bw := unit.Dp(0)
+	if i.border {
+		bw = 1
+	}
+	gap := gtx.Dp(i.gap)
+	if i.minWidth > 0 {
+		gtx.Constraints.Min.X = int(float32(txtDims.X) * i.minWidth)
+	}
+	if i.maxWidth > 0 {
+		gtx.Constraints.Max.X = int(float32(txtDims.X) * i.maxWidth)
+	}
+	if i.height > 0 {
+		gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = int(float32(txtDims.Y)*i.height), int(float32(txtDims.Y)*i.height)
+	}
+	switch {
+	case i.horizontal && len(i.label) > 0:
+		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: i.padding.top, Bottom: i.padding.bottom, Left: i.padding.left, Right: i.padding.right}.Layout(gtx, flexHorizontal(10,
+				rigidLabel(i.label, text.End, font.Bold, labelWidth),
+				rigid(flexHorizontal(gap, rows...)),
+			))
+		})
+	case i.horizontal:
+		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: i.padding.top, Bottom: i.padding.bottom, Left: i.padding.left, Right: i.padding.right}.Layout(gtx, flexHorizontal(gap, rows...))
+		})
+	case len(i.label) > 0:
+		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: i.padding.top, Bottom: i.padding.bottom, Left: i.padding.left, Right: i.padding.right}.Layout(gtx, flexHorizontal(10,
+				rigidLabel(i.label, text.End, font.Bold, labelWidth),
+				rigid(flexVertical(gap, rows...)),
+			))
+		})
+	default:
+		return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: i.padding.top, Bottom: i.padding.bottom, Left: i.padding.left, Right: i.padding.right}.Layout(gtx, flexVertical(gap, rows...))
+		})
+	}
+}
+
+type dialogItemScroll struct {
+	dialogItemCommon
+	name     string
+	items    []dialogItem
+	list     widget.List
+	border   bool
+	padding  dlgItemPadding
+	minWidth float32
+	maxWidth float32
+	height   float32
+}
+
+func (i *dialogItemScroll) subNameIndex(name string) (string, int, bool) {
+	if i.name != "" {
+		if after, found := strings.CutPrefix(name, i.name+"["); found {
+			if cAt := strings.Index(after, "]."); cAt != -1 {
+				if idx, err := strconv.Atoi(after[:cAt]); err == nil && idx >= 0 && idx < len(i.items) {
+					return after[cAt+2:], idx, true
+				}
+			}
+		}
+	}
+	return "", -1, false
+}
+
+func (i *dialogItemScroll) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		for _, item := range i.items {
+			if iName, ok := item.getName(); ok && name == iName {
+				item.setFocused(gtx, iName)
+				return true
+			}
+		}
+		return true
+	}
+	if subName, idx, ok := i.subNameIndex(name); ok {
+		if i.items[idx].setFocused(gtx, subName) {
+			return true
+		}
+		return false
+	}
+	for _, item := range i.items {
+		if ok := item.setFocused(gtx, name); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (i *dialogItemScroll) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemScroll) get(name string) (any, bool) {
+	if subName, idx, ok := i.subNameIndex(name); ok {
+		return i.items[idx].get(subName)
+	}
+	for _, item := range i.items {
+		if v, ok := item.get(name); ok {
+			return v, ok
+		}
+	}
+	return nil, false
+}
+
+func (i *dialogItemScroll) set(name string, value any) bool {
+	if subName, idx, ok := i.subNameIndex(name); ok {
+		return i.items[idx].set(subName, value)
+	}
+	result := false
+	for _, item := range i.items {
+		result = result || item.set(name, value)
+	}
+	return result
+}
+
+func (i *dialogItemScroll) response(response map[string]any) {
+	if i.name != "" {
+		subs := make([]map[string]any, 0, len(i.items))
+		for _, itm := range i.items {
+			sub := map[string]any{}
+			itm.response(sub)
+			subs = append(subs, sub)
+		}
+		response[i.name] = subs
+		return
+	}
+	for _, itm := range i.items {
+		itm.response(response)
+	}
+}
+
+func (i *dialogItemScroll) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, txtDims image.Point, labelWidth int) layout.Dimensions {
+	for _, item := range i.items {
+		item.response(response)
+	}
+	bw := unit.Dp(0)
+	if i.border {
+		bw = 1
+	}
+	if i.minWidth > 0 {
+		gtx.Constraints.Min.X = int(float32(txtDims.X) * i.minWidth)
+	}
+	if i.maxWidth > 0 {
+		gtx.Constraints.Max.X = int(float32(txtDims.X) * i.maxWidth)
+	}
+	if i.height > 0 {
+		gtx.Constraints.Min.Y, gtx.Constraints.Max.X = int(float32(txtDims.Y)*i.height), int(float32(txtDims.Y)*i.height)
+	}
+	fixedHeight := 0
+	if i.height < 0 && i.list.Axis == layout.Vertical && len(i.items) > 0 {
+		// height is negative - is determined by height of first item X that abs height...
+		items := -i.height
+		// measure height of first item...
+		dims := i.measureItem(i.items[0], gtx, dlg, response, txtDims, labelWidth)
+		fixedHeight = int(float32(dims.Size.Y) * items)
+		if items > 1 && i.list.Gap > 0 {
+			fixedHeight += (int(items) - 1) * i.list.Gap
+		}
+	}
+	return widget.Border{Color: borderColor, CornerRadius: 4, Width: bw}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: i.padding.top, Bottom: i.padding.bottom, Left: i.padding.left, Right: i.padding.right}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			if fixedHeight > 0 {
+				gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = fixedHeight, fixedHeight
+			}
+			return material.List(theme, &i.list).Layout(gtx, len(i.items), func(gtx layout.Context, index int) layout.Dimensions {
+				return i.items[index].layout(gtx, dlg, response, txtDims, labelWidth)
+			})
+		})
+	})
+}
+
+func (i *dialogItemScroll) measureItem(item dialogItem, gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, txtDims image.Point, labelWidth int) layout.Dimensions {
+	gtx.Constraints.Max.Y = 1e6
+	macro := op.Record(gtx.Ops)
+	dims := item.layout(gtx, dlg, response, txtDims, labelWidth)
+	_ = macro.Stop()
+	return dims
+}
+
+type dialogItemTabbed struct {
+	dialogItemCommon
+	name     string
+	selected int
+	width    float32
+	height   float32
+	padding  dlgItemPadding
+	gap      unit.Dp
+	buttons  []*controls.FlatButton
+	tabs     []*dialogItemGroup
+}
+
+func (i *dialogItemTabbed) setFocused(gtx layout.Context, name string) bool {
+	if name == i.name {
+		if i.selected < len(i.buttons)-1 {
+			i.buttons[i.selected].SetFocused(gtx)
+		}
+		return true
+	}
+	if i.selected < len(i.tabs)-1 {
+		return i.tabs[i.selected].setFocused(gtx, name)
+	}
+	return false
+}
+
+func (i *dialogItemTabbed) getName() (string, bool) {
+	return i.name, true
+}
+
+func (i *dialogItemTabbed) set(name string, value any) bool {
+	result := false
+	if name == i.name {
+		result = true
+		switch vt := value.(type) {
+		case nil:
+			i.selected = 0
+		case int:
+			i.selected = vt
+		case int64:
+			i.selected = int(vt)
+		}
+	}
+	for _, item := range i.tabs {
+		result = result || item.set(name, value)
+	}
+	return result
+}
+
+func (i *dialogItemTabbed) get(name string) (any, bool) {
+	for _, item := range i.tabs {
+		if v, ok := item.get(name); ok {
+			return v, ok
+		}
+	}
+	return nil, false
+}
+
+func (i *dialogItemTabbed) response(response map[string]any) {
+	if i.name != "" {
+		response[i.name] = i.selected
+	}
+	for _, itm := range i.tabs {
+		itm.response(response)
+	}
+}
+
+func (i *dialogItemTabbed) layout(gtx layout.Context, dlg *shortcutPromptDialog, response map[string]any, txtDims image.Point, _ int) layout.Dimensions {
+	visibleTabs := make([]int, 0, len(i.tabs))
+	showButtons := make([]layout.FlexChild, 0, len(i.buttons))
+	// work out which tabs are actually visible...
+	for n, t := range i.tabs {
+		if t.when(response) && !dlg.isHidden(t) {
+			visibleTabs = append(visibleTabs, n)
+			showButtons = append(showButtons, rigid(i.buttons[n].Layout))
+		}
+	}
+	if len(visibleTabs) == 0 {
+		// no visible tabs - show nothing...
+		return layout.Dimensions{}
+	}
+	// handle tab button clicks...
+	for _, tabNo := range visibleTabs {
+		if i.buttons[tabNo].Clicked(gtx) {
+			if tabNo != i.selected {
+				i.selected = tabNo
+				focused := false
+				tab := i.tabs[tabNo]
+				for _, item := range tab.items {
+					if name, ok := item.getName(); ok {
+						if focused = item.setFocused(gtx, name); focused {
+							break
+						}
+					}
+				}
+				i.buttons[tabNo].Focusable(true)
+				if !focused {
+					i.buttons[tabNo].SetFocused(gtx)
+				}
+			} else {
+				i.buttons[tabNo].Focusable(true)
+				i.buttons[tabNo].SetFocused(gtx)
+			}
+			gtx.Execute(op.InvalidateCmd{})
+			break
+		}
+	}
+	// handle tab button keys...
+	if len(visibleTabs) > 1 {
+		for n := range len(visibleTabs) {
+			btnNo := visibleTabs[n]
+			btn := i.buttons[btnNo]
+			if btn.IsFocused(gtx) {
+				btn.HandleKeys(gtx, func(k key.Name) {
+					switch k {
+					case key.NameLeftArrow:
+						if n > 0 {
+							i.selected = visibleTabs[n-1]
+						} else {
+							i.selected = visibleTabs[len(visibleTabs)-1]
+						}
+					case key.NameRightArrow:
+						if n < len(visibleTabs)-1 {
+							i.selected = visibleTabs[n+1]
+						} else {
+							i.selected = visibleTabs[0]
+						}
+					}
+					if dlg.onChangeCallback != nil && i.name != "" {
+						dlg.jsCall(dlg.onChangeCallback, map[string]any{"name": i.name, "value": i.selected})
+					}
+					i.buttons[i.selected].Focusable(true)
+					i.buttons[i.selected].SetFocused(gtx)
+					gtx.Execute(op.InvalidateCmd{})
+				}, key.NameLeftArrow, key.NameRightArrow)
+			}
+		}
+	}
+	// check that selected tab is actually visible...
+	selectedVisible := false
+	for _, n := range visibleTabs {
+		btn := i.buttons[n]
+		btn.Inset(layout.Inset{Left: 6, Right: 6, Top: 3, Bottom: 8})
+		btn.Colors(foregroundColor, nil)
+		btn.Focusable(false)
+		if n == i.selected {
+			selectedVisible = true
+		}
+	}
+	if !selectedVisible {
+		i.selected = visibleTabs[0]
+	}
+	i.buttons[i.selected].Colors(foregroundColor, &selectedFocusedColor)
+	i.buttons[i.selected].Focusable(true)
+	tab := i.tabs[i.selected]
+	tab.gap = i.gap
+	// work out width & height...
+	wd := 0
+	ht := 0
+	if i.height > 0 {
+		ht = int(float32(txtDims.Y) * i.height)
+	}
+	if i.width > 0 {
+		wd = int(float32(txtDims.X) * i.width)
+	}
+	return flexVertical(-7,
+		rigid(inset(0, 0, 4, 0, flexHorizontal(-1, showButtons...))),
+		rigid(func(gtx layout.Context) layout.Dimensions {
+			if ht > 0 {
+				gtx.Constraints.Min.Y = ht
+			}
+			if wd > 0 {
+				gtx.Constraints.Min.X = wd
+			}
+			macro := op.Record(gtx.Ops)
+			dims := widget.Border{Color: borderColor, CornerRadius: 4, Width: 1}.Layout(gtx, inset(i.padding.top, i.padding.bottom, i.padding.left, i.padding.right, func(gtx layout.Context) layout.Dimensions {
+				return tab.layout(gtx, dlg, response, txtDims, 0)
+			}))
+			call := macro.Stop()
+			paint.FillShape(gtx.Ops, backgroundColor, clip.UniformRRect(image.Rectangle{Max: dims.Size}, 4).Op(gtx.Ops))
+			call.Add(gtx.Ops)
+			return dims
+		}),
+	)(gtx)
+}
+
+type jsItemDecoder map[string]any
+
+func (j jsItemDecoder) string(name string) string {
+	if rv, ok := j[name]; ok {
+		switch v := rv.(type) {
+		case string:
+			return v
+		case int, int64, float32, float64:
+			return fmt.Sprintf("%v", v)
+		}
+	}
+	return ""
+}
+
+func (j jsItemDecoder) isString(name string) (string, bool) {
+	if rv, ok := j[name]; ok {
+		if s, ok := rv.(string); ok {
+			return s, true
+		}
+	}
+	return "", false
+}
+
+func (j jsItemDecoder) integer(name string, def int) int {
+	if rv, ok := j[name]; ok {
+		switch v := rv.(type) {
+		case int:
+			return v
+		case int64:
+			return int(v)
+		case float64:
+			return int(v)
+		case float32:
+			return int(v)
+		case string:
+			if i, err := strconv.Atoi(v); err == nil {
+				return i
+			}
+		}
+	}
+	return def
+}
+
+func (j jsItemDecoder) float(name string, def float32) float32 {
+	if rv, ok := j[name]; ok {
+		switch v := rv.(type) {
+		case int:
+			return float32(v)
+		case int64:
+			return float32(v)
+		case float64:
+			return float32(v)
+		case float32:
+			return v
+		case string:
+			if i, err := strconv.ParseFloat(v, 32); err == nil {
+				return float32(i)
+			}
+		}
+	}
+	return def
+}
+
+func (j jsItemDecoder) bool(name string, def bool) bool {
+	if rv, ok := j[name]; ok {
+		switch v := rv.(type) {
+		case bool:
+			return v
+		case int64:
+			return v != 0
+		case float64:
+			return v != 0
+		case float32:
+			return v != 0
+		case string:
+			if b, err := strconv.ParseBool(v); err == nil {
+				return b
+			}
+		}
+	}
+	return def
+}
+
+func (j jsItemDecoder) object(name string) (jsItemDecoder, bool) {
+	if rv, ok := j[name]; ok {
+		if v, ok := rv.(map[string]any); ok {
+			return v, true
+		}
+	}
+	return nil, false
+}
+
+func (j jsItemDecoder) arrayString(name string) ([]string, bool) {
+	if rv, ok := j[name]; ok {
+		switch v := rv.(type) {
+		case []any:
+			result := make([]string, len(v))
+			for i, it := range v {
+				switch item := it.(type) {
+				case nil:
+					result[i] = "null"
+				case string:
+					result[i] = item
+				case fmt.Stringer:
+					result[i] = item.String()
+				default:
+					result[i] = fmt.Sprintf("%v", item)
+				}
+			}
+			return result, true
+		case []string:
+			return v, true
+		}
+	}
+	return nil, false
+}
+
+func (j jsItemDecoder) color(name string) *color.NRGBA {
+	if s, ok := j.isString(name); ok {
+		if c, ok := parseColor(s); ok {
+			return &c
+		}
+	}
+	return nil
+}
+
+func (j jsItemDecoder) arrayObject(name string, ignoreBadItems bool) ([]jsItemDecoder, bool) {
+	if rv, ok := j[name]; ok {
+		if v, ok := rv.([]any); ok {
+			result := make([]jsItemDecoder, 0, len(v))
+			for _, it := range v {
+				if item, ok := it.(map[string]any); ok {
+					result = append(result, jsItemDecoder(item))
+				} else if !ignoreBadItems {
+					return nil, false
+				}
+			}
+			return result, true
+		}
+	}
+	return nil, false
+}
+
+func (j jsItemDecoder) jsFunc(name string) (func(goja.FunctionCall) goja.Value, bool) {
+	if rv, ok := j[name]; ok {
+		if jsfunc, ok := rv.(func(goja.FunctionCall) goja.Value); ok {
+			return jsfunc, jsfunc != nil
+		}
+	}
+	return nil, false
+}
+
+func (j jsItemDecoder) whenFunc(c *Core, rt *goja.Runtime) func(data map[string]any) bool {
+	if v, ok := j["when"]; ok {
+		switch vt := v.(type) {
+		case func(goja.FunctionCall) goja.Value:
+			return func(data map[string]any) (result bool) {
+				defer func() {
+					if r := recover(); r != nil {
+						result = false
+						if c.shortcutErrorLogger != nil {
+							c.shortcutErrorLogger.Error(fmt.Errorf("call js: %v", r), nil)
+						}
+					}
+				}()
+				val := vt(goja.FunctionCall{This: goja.Undefined(), Arguments: []goja.Value{rt.ToValue(data)}})
+				return val.ToBoolean()
+			}
+		case string:
+			if strings.HasPrefix(vt, "$") {
+				return func(_ map[string]any) bool {
+					return c.shortcutConditionEvaluate(vt, nil)
+				}
+			}
+			if pts := strings.SplitN(vt, "=", 2); len(pts) == 2 {
+				nm := pts[0]
+				not := false
+				if before, ok := strings.CutSuffix(nm, "!"); ok {
+					not = true
+					nm = before
+				}
+				value := pts[1]
+				return func(data map[string]any) bool {
+					b := false
+					if dv, vok := data[nm]; vok {
+						switch dvt := dv.(type) {
+						case bool:
+							b = dvt
+						case string:
+							b = value == dvt
+						case []string:
+							b = slices.Contains(dvt, value)
+						default:
+							b = value == fmt.Sprintf("%v", dv)
+						}
+					}
+					if not {
+						b = !b
+					}
+					return b
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type dlgItemPadding struct {
+	top, left, bottom, right unit.Dp
+}
+
+func (j jsItemDecoder) padding(def unit.Dp) (result dlgItemPadding) {
+	result.top, result.bottom, result.left, result.right = def, def, def, def
+	if rv, ok := j["padding"]; ok {
+		uniform := false
+		value := unit.Dp(0)
+		switch v := rv.(type) {
+		case int:
+			uniform = true
+			value = unit.Dp(v)
+		case int64:
+			uniform = true
+			value = unit.Dp(v)
+		case float64:
+			uniform = true
+			value = unit.Dp(v)
+		case float32:
+			uniform = true
+			value = unit.Dp(v)
+		case string:
+			if i, err := strconv.Atoi(v); err == nil {
+				uniform = true
+				value = unit.Dp(i)
+			}
+		case []any:
+			individual := func(idx int) unit.Dp {
+				switch iv := v[idx].(type) {
+				case int:
+					return max(unit.Dp(iv), 0)
+				case int64:
+					return max(unit.Dp(iv), 0)
+				case float64:
+					return max(unit.Dp(iv), 0)
+				case float32:
+					return max(unit.Dp(iv), 0)
+				case string:
+					if i, err := strconv.Atoi(iv); err == nil {
+						return max(unit.Dp(i), 0)
+					}
+				}
+				return unit.Dp(0)
+			}
+			switch {
+			case len(v) == 1:
+				uniform = true
+				value = individual(0)
+			case len(v) == 2:
+				tb := individual(0)
+				lr := individual(1)
+				result.top, result.bottom, result.left, result.right = tb, tb, lr, lr
+			case len(v) == 3:
+				result.top, result.left, result.bottom = individual(0), individual(1), individual(2)
+			case len(v) > 3:
+				result.top, result.left, result.bottom, result.right = individual(0), individual(1), individual(2), individual(3)
+			}
+		}
+		if uniform {
+			value = max(value, 0)
+			result.top, result.left, result.bottom, result.right = value, value, value, value
+		}
+	}
+	return result
+}

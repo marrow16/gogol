@@ -299,25 +299,96 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value, bool) (any
 		}
 		return c.gridHolder.grid.Rule(), err
 	},
-	"newRule": func(c *Core, _ *goja.Runtime, args []goja.Value, _ bool) (any, error) {
-		var err error
+	"newRule": func(c *Core, _ *goja.Runtime, args []goja.Value, _ bool) (result any, err error) {
 		var rule logic.Rule
 		if len(args) > 0 {
 			arg := args[0].Export()
 			switch v := arg.(type) {
 			case string:
 				if r, ok := logic.Rules[v]; ok {
-					rule = r
+					result = r
 				} else if rule, err = logic.NewRuleRle("", v); err == nil {
-					c.setRule(rule)
+					result = rule
 				}
 			case int64:
 				if rule, err = logic.NewRuleFromPermutation(int(v)); err == nil {
-					c.setRule(rule)
+					result = rule
 				}
 			}
 		}
-		return rule, err
+		return result, err
+	},
+	"rules": func(_ *Core, _ *goja.Runtime, _ []goja.Value, _ bool) (any, error) {
+		result := make([]logic.Rule, 0, len(logic.Rules))
+		for _, rule := range logic.Rules {
+			result = append(result, rule)
+		}
+		slices.SortFunc(result, func(a, b logic.Rule) int {
+			return a.Permutation() - b.Permutation()
+		})
+		return result, nil
+	},
+	"rulesCommonality": func(_ *Core, _ *goja.Runtime, args []goja.Value, _ bool) (any, error) {
+		var err error
+		rules := make([]logic.Rule, 0, len(args))
+		for _, arg := range args {
+			val := arg.Export()
+			switch v := val.(type) {
+			case nil:
+			case string:
+				if rule, ok := logic.Rules[v]; ok {
+					rules = append(rules, rule)
+				} else if rule, err = logic.NewRuleRle("", v); err == nil {
+					rules = append(rules, rule)
+				}
+			case int64:
+				var rule logic.Rule
+				if rule, err = logic.NewRuleFromPermutation(int(v)); err == nil {
+					rules = append(rules, rule)
+				}
+			case int:
+				var rule logic.Rule
+				if rule, err = logic.NewRuleFromPermutation(v); err == nil {
+					rules = append(rules, rule)
+				}
+			case logic.Rule:
+				rules = append(rules, v)
+			default:
+				err = errors.New("invalid arg type for rulesCommonality (expected string, integer or Rule)")
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+		return meta.CommonalityFromRules(rules...)
+	},
+	"nameRule": func(c *Core, _ *goja.Runtime, args []goja.Value, _ bool) (result any, err error) {
+		if len(args) > 1 {
+			name := args[0].ToString().String()
+			arg := args[1].Export()
+			var rule logic.Rule
+			switch v := arg.(type) {
+			case string:
+				if rule, err = logic.NewRuleRle(name, v); err == nil {
+					result = rule
+					c.settings.Rules[name] = rule.Rle()
+					logic.Rules[name] = rule
+				}
+			case int64:
+				if rule, err = logic.NewRuleFromPermutation(int(v)); err == nil {
+					rule, _ = logic.NewRuleRle(name, rule.Rle())
+					result = rule
+					c.settings.Rules[name] = rule.Rle()
+					logic.Rules[name] = rule
+				}
+			case logic.Rule:
+				rule, _ = logic.NewRuleRle(name, v.Rle())
+				result = rule
+				c.settings.Rules[name] = rule.Rle()
+				logic.Rules[name] = rule
+			}
+		}
+		return result, err
 	},
 	"record": func(c *Core, _ *goja.Runtime, args []goja.Value, _ bool) (any, error) {
 		if len(args) > 0 {
@@ -562,9 +633,8 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value, bool) (any
 				}
 				c.settings.ShortcutVariables.Set(name, vs)
 				return vs, nil
-			} else {
-				return nil, fmt.Errorf("invalid variable name %q", name)
 			}
+			return nil, fmt.Errorf("invalid variable name %q", name)
 		}
 		return nil, nil
 	},
@@ -997,7 +1067,7 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value, bool) (any
 		if len(args) >= 1 {
 			p := args[0].Export()
 			if pattern, ok := p.(patterns.Pattern); ok {
-				core.statusBar.menuPopup.capturedPatternsPopout.addCapturedPattern(pattern, false)
+				c.statusBar.menuPopup.capturedPatternsPopout.addCapturedPattern(pattern, false)
 			} else {
 				err = errors.New("arg must be a pattern")
 			}
@@ -1113,9 +1183,8 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value, bool) (any
 				c.stop()
 				c.resetInstrumentation()
 				return c.gridHolder.grid.SetCell(y, x, alive), nil
-			} else {
-				return c.gridHolder.grid.GetCell(y, x), nil
 			}
+			return c.gridHolder.grid.GetCell(y, x), nil
 		}
 		return nil, nil
 	},
@@ -1220,16 +1289,16 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value, bool) (any
 					switch at := second.(type) {
 					case string:
 						if len(at) == 0 {
-							delete(core.settings.ExtraButtons, btn)
-						} else if _, ok := core.settings.Shortcuts[at]; ok {
-							core.settings.ExtraButtons[btn] = at
+							delete(c.settings.ExtraButtons, btn)
+						} else if _, ok := c.settings.Shortcuts[at]; ok {
+							c.settings.ExtraButtons[btn] = at
 						}
 					case nil:
-						delete(core.settings.ExtraButtons, btn)
+						delete(c.settings.ExtraButtons, btn)
 					}
-					result = core.settings.ExtraButtons[btn]
+					result = c.settings.ExtraButtons[btn]
 				} else {
-					result = core.settings.ExtraButtons[btn]
+					result = c.settings.ExtraButtons[btn]
 				}
 			}
 		} else {
@@ -1237,15 +1306,38 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value, bool) (any
 		}
 		return result, nil
 	},
-	"shortcuts": func(c *Core, ri *goja.Runtime, args []goja.Value, _ bool) (result any, err error) {
+	"shortcuts": func(c *Core, _ *goja.Runtime, args []goja.Value, _ bool) (result any, err error) {
 		if len(args) > 0 {
 			name := args[0].ToString().String()
-			if sc, ok := core.settings.Shortcuts[name]; ok {
+			if len(args) > 1 {
+				val := args[1].Export()
+				switch vt := val.(type) {
+				case nil:
+					delete(c.settings.Shortcuts, name)
+				case string:
+					vt = strings.ReplaceAll(strings.ReplaceAll(vt, "\r\n", "\n"), "\r", "\n")
+					c.settings.Shortcuts[name] = strings.Split(vt, "\n")
+				case []any:
+					sc := make([]string, 0, len(vt))
+					for _, l := range vt {
+						switch lt := l.(type) {
+						case nil:
+							sc = append(sc, "")
+						case string:
+							sc = append(sc, lt)
+						default:
+							sc = append(sc, fmt.Sprintf("%v", lt))
+						}
+					}
+					c.settings.Shortcuts[name] = sc
+				}
+			}
+			if sc, ok := c.settings.Shortcuts[name]; ok {
 				result = sc
 			}
 		} else {
-			list := make([]string, 0, len(core.settings.Shortcuts))
-			for k := range core.settings.Shortcuts {
+			list := make([]string, 0, len(c.settings.Shortcuts))
+			for k := range c.settings.Shortcuts {
 				list = append(list, k)
 			}
 			slices.Sort(list)
@@ -1495,9 +1587,8 @@ var jsFunctions = map[string]func(*Core, *goja.Runtime, []goja.Value, bool) (any
 			case path, ok := <-reply:
 				if ok {
 					return path, nil
-				} else {
-					return nil, nil
 				}
+				return nil, nil
 			}
 		}
 	},

@@ -374,4 +374,6 @@ func (p *shortcutsPopout) hasFocus(gtx layout.Context) bool {
 		p.editor.IsFocused(gtx) || p.addVarName.IsFocused(gtx)
 }
 
-func (p *shortcutsPopout) reset() {}
+func (p *shortcutsPopout) reset() {
+	p.chooser.ResetItems(p.sortedShortcuts())
+}
