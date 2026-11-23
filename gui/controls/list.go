@@ -237,6 +237,9 @@ func (l *List[T]) layoutList(gtx layout.Context) layout.Dimensions {
 					}
 					paint.FillShape(gtx.Ops, bg, clip.Rect{Max: image.Point{X: gtx.Constraints.Max.X, Y: dims.Size.Y}}.Op())
 				}
+				if btn.Hovered() {
+					paint.FillShape(gtx.Ops, Style.ShadeColor, clip.Rect{Max: image.Point{X: gtx.Constraints.Max.X, Y: dims.Size.Y}}.Op())
+				}
 				call.Add(gtx.Ops)
 				return dims
 			})

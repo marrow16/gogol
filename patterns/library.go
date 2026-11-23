@@ -7,10 +7,6 @@ import (
 )
 
 func defaultPatternsLib() map[string]Pattern {
-	const (
-		o = false
-		x = true
-	)
 	return map[string]Pattern{
 		"Lucas Exploding Glider Gun": MustNewPatternFromRle(strings.NewReader(`#N Lucas Exploding Glider Gun
 #O Lucas & Martin Rowlinson, November 2017

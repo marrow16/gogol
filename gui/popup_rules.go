@@ -168,6 +168,9 @@ func (p *rulesPopup) saveRuleName() {
 }
 
 func (p *rulesPopup) layout(gtx layout.Context) layout.Dimensions {
+	if len(logic.Rules) != len(p.ruleClicks) {
+		p.refreshRules()
+	}
 	if p.inputsDirty {
 		p.refreshInputs()
 	}
