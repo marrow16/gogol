@@ -112,6 +112,10 @@ func (i *Chooser[T]) Text() string {
 	return i.editor.Text()
 }
 
+func (i *Chooser[T]) Items() []T {
+	return slices.Clone(i.items)
+}
+
 func (i *Chooser[T]) Len() int {
 	return len(i.items)
 }
@@ -576,6 +580,12 @@ func (i *Chooser[T]) SetText(text string) {
 	if text != i.editor.Text() {
 		i.editor.SetText(text)
 		i.editor.SetCaret(len(text), 0)
+	}
+}
+
+func (i *Chooser[T]) SetSelected(idx int) {
+	if idx >= 0 && idx < len(i.items) {
+		i.SetText(i.labeller(i.items[idx]))
 	}
 }
 

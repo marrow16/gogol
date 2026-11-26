@@ -173,6 +173,97 @@ func (p *shortcutPromptDialog) Layout(gtx layout.Context) layout.Dimensions {
 	return dims
 }
 
+func (p *shortcutPromptDialog) changed(name string, value any) {
+	if p.onChangeCallback != nil && name != "" {
+		p.jsCall(p.onChangeCallback, map[string]any{"value": value, "name": name})
+		window.Invalidate()
+	}
+}
+
+func (p *shortcutPromptDialog) jsCall(fn func(goja.FunctionCall) goja.Value, response map[string]any) bool {
+	defer func() {
+		if r := recover(); r != nil {
+			if p.core.shortcutErrorLogger != nil {
+				p.core.shortcutErrorLogger.Error(fmt.Errorf("call js: %v", r), nil)
+			}
+		}
+	}()
+	wrapper := p.rt.ToValue(&PromptDialogWrapper{core: p.core, dlg: p})
+	val := fn(goja.FunctionCall{This: goja.Undefined(), Arguments: []goja.Value{p.rt.ToValue(response), wrapper}})
+	return val.ToBoolean()
+}
+
+func (p *shortcutPromptDialog) submit(response map[string]any, button string) {
+	if button != "" {
+		response["button"] = button
+	}
+	p.mutex.RLock()
+	maps.Copy(response, p.setValues)
+	p.mutex.RUnlock()
+	p.reply <- response
+}
+
+func (p *shortcutPromptDialog) layoutDialog(gtx layout.Context) layout.Dimensions {
+	labelWidth := measureMaxText(gtx, font.Bold, p.labels...)
+	response := p.copySetValues()
+	for _, item := range p.items {
+		item.response(response)
+	}
+	if p.btnOk.Clicked(gtx) {
+		ok := true
+		if p.onOkClick != nil {
+			ok = !p.jsCall(p.onOkClick, response)
+		}
+		if ok {
+			p.submit(response, "OK")
+		}
+	}
+	if p.btnCancel.Clicked(gtx) {
+		if p.onCancelClick != nil {
+			p.jsCall(p.onCancelClick, response)
+		}
+		p.reply <- nil
+	}
+	rows := make([]layout.FlexChild, 0, len(p.items)+1)
+	txtDims := measureText(gtx, "\u2003").Size
+	for _, i := range p.items {
+		item := i
+		if item.when(response) && !p.isHidden(item) {
+			rows = append(rows, rigid(func(gtx layout.Context) layout.Dimensions {
+				return item.layout(gtx, p, response, txtDims, labelWidth)
+			}))
+		}
+	}
+	hideOk, hideCancel := p.isButtonsHidden()
+	switch {
+	case !hideOk && !hideCancel:
+		rows = append(rows, rigid(inset(8, 0, 0, 0, flexHorizontal(10, rigid(p.btnOk.Layout), rigid(p.btnCancel.Layout)))))
+	case !hideOk:
+		rows = append(rows, rigid(inset(8, 0, 0, 0, flexHorizontal(0, rigid(p.btnOk.Layout)))))
+	case !hideCancel:
+		rows = append(rows, rigid(inset(8, 0, 0, 0, flexHorizontal(0, rigid(p.btnCancel.Layout)))))
+	}
+	return flexVertical(10, rows...)(gtx)
+}
+
+func (p *shortcutPromptDialog) isButtonsHidden() (hideOk, hideCancel bool) {
+	p.mutex.RLock()
+	hideOk, hideCancel = p.hidden["ok"], p.hidden["cancel"]
+	p.mutex.RUnlock()
+	return hideOk, hideCancel
+}
+
+func (p *shortcutPromptDialog) isHidden(item dialogItem) bool {
+	name, ok := item.getName()
+	if !ok {
+		return false
+	}
+	p.mutex.RLock()
+	result := p.hidden[name]
+	p.mutex.RUnlock()
+	return result
+}
+
 type PromptDialogWrapper struct {
 	core *Core
 	dlg  *shortcutPromptDialog
@@ -201,6 +292,15 @@ func (w *PromptDialogWrapper) IsHidden(name string) bool {
 	result := w.dlg.hidden[name]
 	w.dlg.mutex.RUnlock()
 	return result
+}
+
+func (w *PromptDialogWrapper) Control(name string) any {
+	for _, i := range w.dlg.items {
+		if v, ok := i.getControl(name); ok {
+			return v
+		}
+	}
+	return nil
 }
 
 func (w *PromptDialogWrapper) Get(name string) any {
@@ -318,95 +418,4 @@ func (w *PromptDialogWrapper) Activate() any {
 		core.shortcutErrorLogger.Error(errors.New("prompt already active"), nil, jsCallInfo(w.dlg.rt, ".Activate()")...)
 	}
 	return nil
-}
-
-func (p *shortcutPromptDialog) changed(name string, value any) {
-	if p.onChangeCallback != nil && name != "" {
-		p.jsCall(p.onChangeCallback, map[string]any{"value": value, "name": name})
-		window.Invalidate()
-	}
-}
-
-func (p *shortcutPromptDialog) jsCall(fn func(goja.FunctionCall) goja.Value, response map[string]any) bool {
-	defer func() {
-		if r := recover(); r != nil {
-			if p.core.shortcutErrorLogger != nil {
-				p.core.shortcutErrorLogger.Error(fmt.Errorf("call js: %v", r), nil)
-			}
-		}
-	}()
-	wrapper := p.rt.ToValue(&PromptDialogWrapper{core: p.core, dlg: p})
-	val := fn(goja.FunctionCall{This: goja.Undefined(), Arguments: []goja.Value{p.rt.ToValue(response), wrapper}})
-	return val.ToBoolean()
-}
-
-func (p *shortcutPromptDialog) submit(response map[string]any, button string) {
-	if button != "" {
-		response["button"] = button
-	}
-	p.mutex.RLock()
-	maps.Copy(response, p.setValues)
-	p.mutex.RUnlock()
-	p.reply <- response
-}
-
-func (p *shortcutPromptDialog) layoutDialog(gtx layout.Context) layout.Dimensions {
-	labelWidth := measureMaxText(gtx, font.Bold, p.labels...)
-	response := p.copySetValues()
-	for _, item := range p.items {
-		item.response(response)
-	}
-	if p.btnOk.Clicked(gtx) {
-		ok := true
-		if p.onOkClick != nil {
-			ok = !p.jsCall(p.onOkClick, response)
-		}
-		if ok {
-			p.submit(response, "OK")
-		}
-	}
-	if p.btnCancel.Clicked(gtx) {
-		if p.onCancelClick != nil {
-			p.jsCall(p.onCancelClick, response)
-		}
-		p.reply <- nil
-	}
-	rows := make([]layout.FlexChild, 0, len(p.items)+1)
-	txtDims := measureText(gtx, "\u2003").Size
-	for _, i := range p.items {
-		item := i
-		if item.when(response) && !p.isHidden(item) {
-			rows = append(rows, rigid(func(gtx layout.Context) layout.Dimensions {
-				return item.layout(gtx, p, response, txtDims, labelWidth)
-			}))
-		}
-	}
-	hideOk, hideCancel := p.isButtonsHidden()
-	switch {
-	case !hideOk && !hideCancel:
-		rows = append(rows, rigid(inset(8, 0, 0, 0, flexHorizontal(10, rigid(p.btnOk.Layout), rigid(p.btnCancel.Layout)))))
-	case !hideOk:
-		rows = append(rows, rigid(inset(8, 0, 0, 0, p.btnOk.Layout)))
-	case !hideCancel:
-		rows = append(rows, rigid(inset(8, 0, 0, 0, p.btnCancel.Layout)))
-	}
-	return flexVertical(10, rows...)(gtx)
-}
-
-func (p *shortcutPromptDialog) isButtonsHidden() (hideOk, hideCancel bool) {
-	p.mutex.RLock()
-	hideOk, hideCancel = p.hidden["ok"], p.hidden["cancel"]
-	p.mutex.RUnlock()
-	return hideOk, hideCancel
-}
-
-func (p *shortcutPromptDialog) isHidden(item dialogItem) bool {
-	name, ok := item.getName()
-	if !ok {
-		return false
-	}
-	p.mutex.RLock()
-	result := p.hidden[name]
-	p.mutex.RUnlock()
-	return result
 }

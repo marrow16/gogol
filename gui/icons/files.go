@@ -73,6 +73,36 @@ var fileJSON []byte
 //go:embed fileTXT.png
 var fileTXT []byte
 
+//go:embed button-0.png
+var button0 []byte
+
+//go:embed button-1.png
+var button1 []byte
+
+//go:embed button-2.png
+var button2 []byte
+
+//go:embed button-3.png
+var button3 []byte
+
+//go:embed button-4.png
+var button4 []byte
+
+//go:embed button-5.png
+var button5 []byte
+
+//go:embed button-6.png
+var button6 []byte
+
+//go:embed button-7.png
+var button7 []byte
+
+//go:embed button-8.png
+var button8 []byte
+
+//go:embed button-9.png
+var button9 []byte
+
 //go:embed button-a.png
 var buttonA []byte
 
@@ -148,9 +178,49 @@ var buttonY []byte
 //go:embed button-z.png
 var buttonZ []byte
 
+//go:embed button-gamma.png
+var buttonGamma []byte
+
+//go:embed button-delta.png
+var buttonDelta []byte
+
+//go:embed button-theta.png
+var buttonTheta []byte
+
+//go:embed button-lambda.png
+var buttonLambda []byte
+
+//go:embed button-xi.png
+var buttonXi []byte
+
+//go:embed button-pi.png
+var buttonPi []byte
+
+//go:embed button-sigma.png
+var buttonSigma []byte
+
+//go:embed button-phi.png
+var buttonPhi []byte
+
+//go:embed button-psi.png
+var buttonPsi []byte
+
+//go:embed button-omega.png
+var buttonOmega []byte
+
 var (
 	Backward     = mustImage(backward)
 	Burger       = mustImage(burger)
+	Button0      = mustImage(button0)
+	Button1      = mustImage(button1)
+	Button2      = mustImage(button2)
+	Button3      = mustImage(button3)
+	Button4      = mustImage(button4)
+	Button5      = mustImage(button5)
+	Button6      = mustImage(button6)
+	Button7      = mustImage(button7)
+	Button8      = mustImage(button8)
+	Button9      = mustImage(button9)
 	ButtonA      = mustImage(buttonA)
 	ButtonB      = mustImage(buttonB)
 	ButtonC      = mustImage(buttonC)
@@ -176,6 +246,16 @@ var (
 	ButtonX      = mustImage(buttonX)
 	ButtonY      = mustImage(buttonY)
 	ButtonZ      = mustImage(buttonZ)
+	ButtonGamma  = mustImage(buttonGamma)
+	ButtonDelta  = mustImage(buttonDelta)
+	ButtonTheta  = mustImage(buttonTheta)
+	ButtonLambda = mustImage(buttonLambda)
+	ButtonXi     = mustImage(buttonXi)
+	ButtonPi     = mustImage(buttonPi)
+	ButtonSigma  = mustImage(buttonSigma)
+	ButtonPhi    = mustImage(buttonPhi)
+	ButtonPsi    = mustImage(buttonPsi)
+	ButtonOmega  = mustImage(buttonOmega)
 	Close        = mustImage(closeIcon)
 	Copy         = mustImage(copyIcon)
 	Pause        = mustImage(pause)
