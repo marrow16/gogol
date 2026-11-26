@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 func newStatusBar(c *Core) *statusBar {
@@ -78,8 +79,28 @@ func newStatusBar(c *Core) *statusBar {
 		layout.Rigid(newStatusBarButton(func() { sb.extended("X") }, icons.ButtonX).layout),
 		layout.Rigid(newStatusBarButton(func() { sb.extended("Y") }, icons.ButtonY).layout),
 		layout.Rigid(newStatusBarButton(func() { sb.extended("Z") }, icons.ButtonZ).layout),
-		layout.Rigid(newStatusBarButton(func() { sb.extended("+") }, icons.Plus).layout),
 		layout.Rigid(newStatusBarButton(func() { sb.extended("-") }, icons.Minus).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("+") }, icons.Plus).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("0") }, icons.Button0).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("1") }, icons.Button1).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("2") }, icons.Button2).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("3") }, icons.Button3).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("4") }, icons.Button4).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("5") }, icons.Button5).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("6") }, icons.Button6).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("7") }, icons.Button7).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("8") }, icons.Button8).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("9") }, icons.Button9).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Γ") }, icons.ButtonGamma).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Δ") }, icons.ButtonDelta).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Θ") }, icons.ButtonTheta).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Λ") }, icons.ButtonLambda).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Ξ") }, icons.ButtonXi).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Π") }, icons.ButtonPi).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Σ") }, icons.ButtonSigma).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Φ") }, icons.ButtonPhi).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Ψ") }, icons.ButtonPsi).layout),
+		layout.Rigid(newStatusBarButton(func() { sb.extended("Ω") }, icons.ButtonOmega).layout),
 	}
 	sb.rulesPopup = newRulesPopup(sb)
 	sb.menuPopup = newMenuPopup(sb)
@@ -87,7 +108,7 @@ func newStatusBar(c *Core) *statusBar {
 }
 
 func isValidButton(btn string) bool {
-	return len(btn) == 1 && strings.Contains("ABCDEFGHIJKLMNOPRSTUVWXYZ+-", "B")
+	return utf8.RuneCountInString(btn) == 1 && strings.Contains("ABCDEFGHIJKLMNOPRSTUVWXYZ+-0123456789ΓΔΘΛΞΠΣΦΨΩ", btn)
 }
 
 type popup int
@@ -463,7 +484,9 @@ var extraButtonIndices = map[int]string{
 	6: "G", 7: "H", 8: "I", 9: "J", 10: "K", 11: "L",
 	12: "M", 13: "N", 14: "O", 15: "P", 16: "R", 17: "S",
 	18: "T", 19: "U", 20: "V", 21: "W", 22: "X", 23: "Y", 24: "Z",
-	25: "+", 26: "-",
+	25: "-", 26: "+",
+	27: "0", 28: "1", 29: "2", 30: "3", 31: "4", 32: "5", 33: "6", 34: "7", 35: "8", 36: "9",
+	37: "Γ", 38: "Δ", 39: "Θ", 40: "Λ", 41: "Ξ", 42: "Π", 43: "Σ", 44: "Φ", 45: "Ψ", 46: "Ω",
 }
 
 func (sb *statusBar) rightArea() layout.FlexChild {

@@ -1045,6 +1045,20 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 }`},
 	}},
 	indent{indent: 8, content: content{
+		h4("• Scrollable"),
+		"Example:",
+		codeBlock{code: `{
+	"type": "scroll",
+	"name": "sc-1", // optional - not shown in response but allows addressing
+	"border": true, // optional - defaults to false
+	"padding": 8, // optional - defaults to 0
+	"minWidth": 0, // optional - minimum width (ems) defaults to min item width
+	"maxWidth": 1, // optional - maximum width (ems)
+	"height": 10, // optional - height
+	"items": [...] // array of dialog items
+}`},
+	}},
+	indent{indent: 8, content: content{
 		h4("• Separator"),
 		"Example:",
 		codeBlock{code: `{
@@ -1144,6 +1158,7 @@ var dialogDefinition = expandable{indent: 10, rightMargin: 10, padding: 8, borde
 		hanging{indent: 8, gap: 8, prefix: content{code(`dlg:object`)}, content: content{
 			"is the dialog itself - supporting the following methods: ",
 			hanging{gap: 8, prefix: content{codeCopyable(`.Cancel()`)}, content: content{}},
+			hanging{gap: 8, prefix: content{codeCopyable(`.Control(name:string):object`)}, content: content{}},
 			hanging{gap: 8, prefix: content{codeCopyable(`.Get(name:string):any`)}, content: content{}},
 			hanging{gap: 8, prefix: content{codeCopyable(`.Hide(names:string...)`)}, content: content{}},
 			hanging{gap: 8, prefix: content{codeCopyable(`.IsHidden(name:string):bool`)}, content: content{}},
